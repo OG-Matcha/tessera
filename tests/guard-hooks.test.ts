@@ -81,3 +81,10 @@ test('a recursive delete with no link inside goes through', async ($, on) => {
   const result = await $.tool.call({ tool: 'Bash', command: 'rm -rf dist' })
   expect(result.deny).toBe(undefined)
 })
+
+test('a todo written with CJK escapes is refused before it reaches the tool', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'TodoWrite' }, () => ({ result: 'ok' }) as never)
+  const result = await $.tool.call({ tool: 'TodoWrite', todos: [{ content: '\\uD55C\\uAD6D', status: 'pending', activeForm: 'x' }] } as never)
+  expect(result.deny).toContain('#83033')
+})

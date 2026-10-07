@@ -359,6 +359,12 @@
       "title": "Client feedback inbox",
       "description": "Off by default. When on, a pasted chat log with timestamped lines (22:55 Name message) is filed as numbered items per repository; a new complaint that resembles an item marked fixed is flagged as a likely regression, to you and to Claude. /tessera inbox lists them.",
       "default": false
+    },
+    "guardCjkEscapes": {
+      "type": "boolean",
+      "title": "Guard CJK escapes",
+      "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text (anthropics/claude-code#83033).",
+      "default": true
     }
   }
 }

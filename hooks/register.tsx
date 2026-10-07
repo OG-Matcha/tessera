@@ -21,6 +21,8 @@ import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesMod
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
+import type { Voice } from './voice'
+import { replyNote, voiceOf } from './voice'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { resolveStyle } from './theme'
@@ -39,6 +41,8 @@ let env: Env = {}
 let lang: Lang = 'en'
 // False while no setting or locale chose Chinese, so a prompt written in Chinese may still switch to it.
 let langSettled = false
+let voice: Voice | undefined
+let matchReplyLanguage = true
 const t = () => STRINGS[lang]
 
 let tmpRoot: string | undefined
@@ -375,6 +379,8 @@ export const register: Register = (on, options) => {
 
   lang = pickLang(options.language, [])
   langSettled = options.language === 'en' || options.language === 'zh-TW'
+  matchReplyLanguage = options.replyLanguage !== 'off'
+  voice = undefined
   imageMode = typeof options.imageMode === 'string' ? options.imageMode : 'auto'
   thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
 
@@ -428,11 +434,15 @@ export const register: Register = (on, options) => {
 
   on('prompt.submit', async ($, e, next) => {
     const own = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
-    if (own && !langSettled && /\p{Script=Han}/u.test(e.text)) {
-      lang = 'zh-TW'
-      langSettled = true
-    }
     const context = [...(e.context ?? [])]
+    if (own) {
+      voice = voiceOf(e.text) ?? voice
+      if (!langSettled && (voice === 'zh-Hant' || voice === 'zh-Hans')) {
+        lang = 'zh-TW'
+        langSettled = true
+      }
+      if (matchReplyLanguage && voice !== undefined && voice !== 'en') context.push(replyNote(voice))
+    }
     if (isDrawing) {
       await applyRtl($, style)
       if (style.diagramHints && own) context.push(HINT)

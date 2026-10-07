@@ -66,8 +66,7 @@ const ZH: typeof EN = {
   drawingOff: 'tessera 的畫面美化已關閉（/config 的 enabled）。',
 }
 
-export type Strings = typeof EN
-export const STRINGS: Record<Lang, Strings> = { en: EN, 'zh-TW': ZH }
+export const STRINGS: Record<Lang, typeof EN> = { en: EN, 'zh-TW': ZH }
 
 // The first locale hint that names a language decides: any Chinese reads Traditional Chinese.
 export function pickLang(option: unknown, hints: (string | undefined)[]): Lang {

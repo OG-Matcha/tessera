@@ -1,6 +1,6 @@
 import type { Lang } from './i18n'
 
-export type Suggestion = { text: string; label?: string; description?: string }
+type Suggestion = { text: string; label?: string; description?: string }
 
 const SUBCOMMANDS: Record<Lang, [string, string][]> = {
   en: [
@@ -26,7 +26,6 @@ const SECOND: Record<Lang, Record<string, [string, string][]>> = {
   'zh-TW': { copy: [['code', '只複製最後一個程式碼區塊'], ['prompt', '原文複製 prompt 卡片']], inbox: [['fixed', '以目前的 commit 標為已修：inbox fixed 3 5']] },
 }
 
-// Rows for the word being typed after /tessera: its subcommands, then theme names or the second word.
 export function completions(text: string, start: number, token: string, themes: readonly string[], lang: Lang): Suggestion[] {
   const before = text.slice(0, start).trim().split(/\s+/)
   if (before[0] !== '/tessera' || token.startsWith('/')) return []

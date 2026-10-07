@@ -1,4 +1,4 @@
-export type RateWindow = { kind: string; percentUsed: number; resetsAt?: string }
+type RateWindow = { kind: string; percentUsed: number; resetsAt?: string }
 
 // When work can go on after a rate limit: the latest reset among the windows that are used up,
 // or, when the usage figures name none, the earliest reset of any window.

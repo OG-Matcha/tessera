@@ -1,6 +1,6 @@
 import type { Rgba } from './png'
 
-export type Thumb = { columns: number; rows: number; cells: string }
+type Thumb = { columns: number; rows: number; cells: string }
 
 const DEFAULT = 0x01000000
 const SPACE = 0x20
@@ -23,7 +23,6 @@ export function thumbnail(img: Rgba, maxColumns: number, maxRows: number): Thumb
   return { columns, rows, cells: new Uint8Array(words.buffer).toBase64() }
 }
 
-// The cell box a width x height picture fills inside maxColumns x maxRows, a cell being about twice as tall as wide.
 export function fitCells(width: number, height: number, maxColumns: number, maxRows: number): { columns: number; rows: number } {
   const scale = Math.min(maxColumns / width, (maxRows * 2) / height, 1)
   return { columns: Math.max(1, Math.round(width * scale)), rows: Math.max(1, Math.round((height * scale) / 2)) }

@@ -38,7 +38,6 @@ const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] 
 const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
 const POLL_MS = 250
 const PASTE_HEAD = 4
-// Pasted text the editor collapsed to [Pasted text #n …], by n, as it was pasted.
 const pastes = new Map<number, string>()
 let shownPastes = ''
 const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: [40, 12], large: [64, 20] }
@@ -161,7 +160,7 @@ async function openOriginal($: EngineInterface, path: string) {
 }
 
 function registerPastes(on: On) {
-  on('prompt.edit', async ($, e, next) => {
+  on('prompt.edit', async (_, e, next) => {
     const box = await next(e)
     if (e.key !== undefined || !e.inputText.includes('\n')) return box
     for (const n of newPastes(e.text, box.text)) pastes.set(n, e.inputText)
@@ -310,14 +309,14 @@ function registerGuards(on: On, options: Record<string, unknown>) {
       return refuse($, 'CJK as \\u escapes', `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`)
     return next(e)
   })
-  on('tool.call', { tool: 'Bash' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))
-  on('tool.call', { tool: 'PowerShell' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch((_, e, next) => next(e))
+  on('tool.call', { tool: 'PowerShell' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch((_, e, next) => next(e))
   on('tool.call', { tool: 'Agent' }, ($, e, next) => {
     if (agentModel === undefined || e.model !== undefined) return next(e)
     if (agentModel === 'choose') return refuse($, 'Agent model', `the call names no model, so the agent runs on the session's model. Pass the model this task needs: ${PICK}`)
     return next({ ...e, model: agentModel })
   })
-  on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch(($, e, next) => next(e))
+  on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch((_, e, next) => next(e))
 }
 
 // The optional client-feedback inbox: pasted chat logs become numbered items per repository, kept across sessions.
@@ -528,7 +527,7 @@ export const register: Register = (on, options) => {
     return { result: { content: [{ type: 'text', text }], isError: false } } as never
   })
 
-  on('prompt.autocomplete', async ($, e, next) => {
+  on('prompt.autocomplete', async (_, e, next) => {
     const rows = completions(e.text, e.start, e.token, PRESET_NAMES, lang)
     if (rows.length === 0) return next(e)
     return { suggestions: [...(await next(e)).suggestions, ...rows] }

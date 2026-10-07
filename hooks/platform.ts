@@ -1,6 +1,6 @@
 export type Env = Record<string, string | undefined>
 
-export type Platform = 'windows' | 'wsl' | 'mac' | 'linux'
+type Platform = 'windows' | 'wsl' | 'mac' | 'linux'
 
 export function platformOf(env: Env): Platform {
   if (env.OS === 'Windows_NT') return 'windows'
@@ -27,7 +27,6 @@ export function drawsPixels(mode: string, env: Env): boolean {
 
 const fileUrl = (path: string) => `file:///${encodeURI(path.replace(/\\/g, '/').replace(/^\//, ''))}`
 
-// Commands to try in order: a tab inside the app hosting the terminal (Orca, VS Code), then the system viewer.
 export function openers(env: Env, path: string): string[][] {
   const host: string[][] = []
   if (env.TERM_PROGRAM === 'Orca') host.push(['orca', 'tab', 'create', '--url', fileUrl(path)])
@@ -35,7 +34,6 @@ export function openers(env: Env, path: string): string[][] {
   return [...host, opener(env, path)]
 }
 
-// The command that opens a file in the system's picture viewer.
 function opener(env: Env, path: string): string[] {
   switch (platformOf(env)) {
     case 'windows':

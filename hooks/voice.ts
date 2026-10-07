@@ -1,6 +1,6 @@
 export type Voice = 'zh-Hant' | 'zh-Hans' | 'ja' | 'ko' | 'en'
 
-export const VOICE_NAMES: Record<Voice, string> = {
+const VOICE_NAMES: Record<Voice, string> = {
   'zh-Hant': 'Traditional Chinese (繁體中文)',
   'zh-Hans': 'Simplified Chinese (简体中文)',
   ja: 'Japanese (日本語)',
@@ -32,7 +32,6 @@ export function ownWords(prompt: string): string {
 const TRAD = /[們這個說時會為發對沒過還進動開關問題實現應該讓從麼與後體點樣門裡請將當覺樣頁]/g
 const SIMP = /[们这个说时会为发对没过还进动开关问题实现应该让从么与后体点样门里请将当觉页]/g
 
-// The language of the person's own words, or undefined when they hold too little to tell.
 export function voiceOf(prompt: string): Voice | undefined {
   const own = ownWords(prompt)
   const han = (own.match(/\p{Script=Han}/gu) ?? []).length

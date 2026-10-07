@@ -4,8 +4,7 @@ const u16 = (b: Uint8Array, i: number) => (b[i] ?? 0) | ((b[i + 1] ?? 0) << 8)
 const u32 = (b: Uint8Array, i: number) => (u16(b, i) | (u16(b, i + 2) << 16)) >>> 0
 const utf8 = new TextDecoder()
 
-// The entries of a zip archive by name, inflated on first read; null when the bytes are no zip.
-export function unzip(bytes: Uint8Array): Map<string, () => Uint8Array> | null {
+function unzip(bytes: Uint8Array): Map<string, () => Uint8Array> | null {
   let end = -1
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65_557); i--) {
     if (u32(bytes, i) === 0x06054b50) {
@@ -45,7 +44,7 @@ const table = (rows: string[][]) => {
   return [pad(rows[0] ?? []), `|${' --- |'.repeat(width)}`, ...rows.slice(1).map(pad)].join('\n')
 }
 
-export function docx(zip: Map<string, () => Uint8Array>, limit: number): string {
+function docx(zip: Map<string, () => Uint8Array>, limit: number): string {
   const paragraphs = text(zip, 'word/document.xml')
     .split('</w:p>')
     .map(p => runs(p, 'w:t').join(''))
@@ -55,7 +54,7 @@ export function docx(zip: Map<string, () => Uint8Array>, limit: number): string 
 
 const column = (ref: string) => [...(ref.match(/^[A-Z]+/)?.[0] ?? 'A')].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1
 
-export function xlsx(zip: Map<string, () => Uint8Array>, limit: number): string {
+function xlsx(zip: Map<string, () => Uint8Array>, limit: number): string {
   const sheets = runs(text(zip, 'xl/workbook.xml').replace(/<sheet [^>]*name="([^"]*)"[^>]*\/>/g, '<n>$1</n>'), 'n')
   const shared = text(zip, 'xl/sharedStrings.xml')
     .split('</si>')
@@ -75,7 +74,7 @@ export function xlsx(zip: Map<string, () => Uint8Array>, limit: number): string 
   return [`Sheets: ${sheets.join(', ')}`, rows.length > 0 ? table(rows) : ''].filter(Boolean).join('\n\n')
 }
 
-export function pptx(zip: Map<string, () => Uint8Array>): string {
+function pptx(zip: Map<string, () => Uint8Array>): string {
   const slides = [...zip.keys()]
     .map(name => /^ppt\/slides\/slide(\d+)\.xml$/.exec(name))
     .filter((m): m is RegExpExecArray => m !== null)
@@ -109,7 +108,6 @@ export function csv(source: string, limit: number): string {
 
 const EXT = (path: string) => /\.([^./\\]+)$/.exec(path)?.[1]?.toLowerCase() ?? ''
 
-// A Markdown summary of a document for /tessera peek, or null for a kind it does not read.
 export function peek(path: string, bytes: Uint8Array, limit = 40): string | null {
   const kind = EXT(path)
   if (kind === 'md' || kind === 'markdown' || kind === 'txt') return utf8.decode(bytes).split('\n').slice(0, limit * 3).join('\n')

@@ -167,7 +167,9 @@ type AgentModel = (typeof AGENT_MODELS)[number]
 
 let lastAgentCall = -Infinity
 let guardGit = true
-let agentModel: AgentModel | undefined
+let agentModel: AgentModel | 'choose' | undefined
+
+const PICK = 'haiku for quick mechanical work (search, renames, formatting), sonnet for routine edits, opus for hard reasoning, design or review, fable for the hardest and longest work where quality outweighs speed and cost'
 let requireUserQuote = false
 const mainTrees = new Map<string, boolean>()
 
@@ -211,7 +213,9 @@ async function judgeWorkflow($: EngineInterface, script: string | undefined, scr
   const text = script ?? (scriptPath === undefined ? undefined : await $.fs.read(scriptPath).catch(() => undefined))
   if (typeof text !== 'string') return undefined
   if (agentModel !== undefined && !scriptNamesModel(text))
-    return refuse($, 'Workflow model', `its agent() calls name no model, so every agent runs on the session's model. Add model: '${agentModel}' to each agent()'s options`)
+    return refuse($, 'Workflow model', agentModel === 'choose'
+      ? `its agent() calls name no model, so every agent runs on the session's model. Give each agent() the model its task needs: ${PICK}`
+      : `its agent() calls name no model, so every agent runs on the session's model. Add model: '${agentModel}' to each agent()'s options`)
   if (!requireUserQuote) return undefined
   const prompts = (await $.session.messages()).filter(m => m.role === 'user').map(m => m.text)
   if (quotesUser(text, prompts)) return undefined
@@ -220,7 +224,7 @@ async function judgeWorkflow($: EngineInterface, script: string | undefined, scr
 
 function registerGuards(on: On, options: Record<string, unknown>) {
   guardGit = options.guardGit !== false
-  agentModel = AGENT_MODELS.find(m => m === options.agentModel)
+  agentModel = options.agentModel === 'choose' ? 'choose' : AGENT_MODELS.find(m => m === options.agentModel)
   requireUserQuote = options.requireUserQuote === true
 
   on('tool.call', async ($, e, next) => {
@@ -229,7 +233,11 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   })
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))
   on('tool.call', { tool: 'PowerShell' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))
-  on('tool.call', { tool: 'Agent' }, ($, e, next) => (agentModel !== undefined && e.model === undefined ? next({ ...e, model: agentModel }) : next(e)))
+  on('tool.call', { tool: 'Agent' }, ($, e, next) => {
+    if (agentModel === undefined || e.model !== undefined) return next(e)
+    if (agentModel === 'choose') return refuse($, 'Agent model', `the call names no model, so the agent runs on the session's model. Pass the model this task needs: ${PICK}`)
+    return next({ ...e, model: agentModel })
+  })
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch(($, e, next) => next(e))
 }
 

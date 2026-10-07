@@ -28,10 +28,10 @@
       "description": "Draw replies with this mod. Off falls back to Claude Code's own renderer.",
       "default": true
     },
-    "imagePreview": {
+    "pastePreview": {
       "type": "boolean",
-      "title": "Image previews",
-      "description": "Thumbnails above the prompt for pasted images. Off: no polling of the prompt box at all.",
+      "title": "Paste previews",
+      "description": "Pasted images as thumbnails and pasted text the editor collapses to [Pasted text #n] as its first lines, above the prompt. Off: no polling of the prompt box at all.",
       "default": true
     },
     "language": {

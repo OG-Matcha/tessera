@@ -16,7 +16,7 @@ test('setup lists every feature and a press writes its option', { options: { lan
   expect(writes).toEqual([{ key: 'tessera.feedbackInbox', value: true }])
 })
 
-test('with image previews off, tessera does not hook the band above the prompt', { options: { imagePreview: false } }, async $ => {
+test('with paste previews off, tessera does not hook the band above the prompt', { options: { pastePreview: false } }, async $ => {
   const failure = await $.ui
     .mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 } } as never)
     .then(() => '', (error: Error) => error.message)

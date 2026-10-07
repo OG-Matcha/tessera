@@ -39,6 +39,16 @@
         "zh-TW"
       ]
     },
+    "replyLanguage": {
+      "type": "string",
+      "title": "Reply in my language",
+      "description": "auto: when your own words (not pasted code, logs, quotes or chat lines) are Chinese, Japanese or Korean, ask Claude to reply in that language. off: leave replies alone.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "off"
+      ]
+    },
     "imageMode": {
       "type": "string",
       "title": "Image previews",

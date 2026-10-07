@@ -34,3 +34,10 @@ test('/tessera peek draws a document from the session directory', { options: { l
   expect(result.text).toContain('### q4.xlsx')
   expect(result.text).toContain('| 一月 | 1200 |')
 })
+
+test('/tessera peek takes an @ file mention as typed with the file typeahead', { options: { language: 'en' } }, async ($, on) => {
+  on('session.cwd', () => ({ value: '/w' }))
+  on('fs.read', (_, e) => ({ value: { base64: String((e as { path?: unknown }).path).endsWith('q4.xlsx') ? XLSX : '' } }) as never)
+  const result = await $.command.run({ command: 'tessera', args: 'peek @q4.xlsx', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
+  expect(result.text).toContain('### q4.xlsx')
+})

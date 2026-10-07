@@ -561,7 +561,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'tessera' }, async ($, e) => {
     const [sub, name, ...rest] = e.args.trim().split(/\s+/)
     if (sub === 'peek') {
-      const target = [name, ...rest].filter(Boolean).join(' ').replace(/^["']|["']$/g, '')
+      const target = [name, ...rest].filter(Boolean).join(' ').replace(/^@/, '').replace(/^["']|["']$/g, '')
       if (target === '') return { text: t().peekUsage }
       const path = isAbsolute(target) ? target : `${await $.session.cwd()}/${target}`
       const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)

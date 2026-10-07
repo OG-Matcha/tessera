@@ -605,7 +605,7 @@ const toolLayout = (el: ElementTable, style: Style, columns: number, label: stri
 }
 
 export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100): RenderElement => {
-  const { Box, Text } = el
+  const { Text } = el
   const t = style.theme
   const isShell = row.tool === 'Bash' || row.tool === 'PowerShell'
   const verb = VERBS[row.tool] ?? row.tool.replace(/^mcp__([^_]+)__/, '$1 ')
@@ -694,7 +694,7 @@ export const groupSummary = (calls: readonly { tool: string }[]): string => {
 }
 
 export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly ToolRow[], isActive: boolean, columns = 100): RenderElement => {
-  const { Box, Text } = el
+  const { Text } = el
   const t = style.theme
   const failed = calls.filter(c => c.isErrored).length
   const running = isActive && calls.some(c => c.isRunning)

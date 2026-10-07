@@ -1,76 +1,109 @@
-# tessera
+<p align="center">
+  <img src="docs/banner.svg" alt="tessera: one Claude Code mod for every terminal" width="100%">
+</p>
 
-[English](#english) · 繁體中文
+<p align="center">
+  <a href="https://github.com/OG-Matcha/tessera/actions/workflows/ci.yml"><img src="https://github.com/OG-Matcha/tessera/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/OG-Matcha/tessera/releases"><img src="https://img.shields.io/github/v/release/OG-Matcha/tessera?color=89b4fa" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/OG-Matcha/tessera?color=a6e3a1" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/Claude_Code-%E2%89%A52.1.287-cba6f7" alt="Claude Code 2.1.287 or later">
+  <img src="https://img.shields.io/badge/Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-tested-94e2d5" alt="Windows, macOS and Linux">
+</p>
 
-一個 Claude Code mod，裝一個就好：貼圖預覽、上色的回覆、長時間 Workflow 的指揮台。以 Windows 和繁體中文使用者為優先，在 macOS、Linux 上一樣能用。
+<p align="center">
+  English · <a href="README.zh-TW.md">繁體中文</a>
+</p>
 
-> 回覆的美化（主題、表格、程式碼上色、mermaid 圖、工具列）建立在 [prismantis](https://github.com/NahumLitvin/prismantis) 之上，貼圖快取的找法參考 [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view)，兩者皆為 MIT 授權，細節見 [NOTICE](NOTICE)。tessera 把它們合成一個 mod，避免多個 mod 搶畫同一個畫面，並補上它們沒有的部分。
+**tessera** is a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/overview) that makes the terminal show what Claude Code hides and stops the mistakes that cost work: pasted images and text you can actually see, replies drawn with CJK-correct tables and diagrams, and guards for long multi-agent runs. One install, every feature switchable, nothing running that you turned off.
 
-## 和原本那些 mod 不一樣的地方
+## What it fixes
 
-| | tessera |
-|---|---|
-| 貼圖預覽 | 支援 kitty 圖片協定的終端機（kitty、Ghostty）顯示原圖；其他終端機（Windows Terminal、Orca、VS Code）改用色塊縮圖，不會只剩 `[Image #1]`。「原圖」按鈕用系統檢視器開全解析度 |
-| Windows | 貼圖快取在 `%TEMP%\claude`，路徑、開檔都照 Windows 的方式處理 |
-| 中文 | 表格與 mermaid 節點都以全形寬度計算，框線不跑版；按鈕、提示、`/tessera` 說明有繁體中文 |
-| 客戶回饋收件匣（選用，預設關閉） | 貼上帶時間的聊天紀錄（22:55 名字 訊息）就自動拆成編號項目，依 repo 保存；新抱怨和已修過的項目相似時，同時提醒你和 Claude「可能是回歸」。Claude 修好後會用工具標記 commit；`/tessera inbox` 查看 |
-| 守門 | 有 agent 在跑時，擋下主樹的 checkout/stash/reset 與 `git add -A`；永遠擋下把 node_modules 用 junction/symlink 連出去，以及目標裡有 junction/symlink 的遞迴刪除（rm -r、Remove-Item -Recurse、rmdir /s、git worktree remove）；可設定 Agent 預設模型、要求 Workflow 腳本引用你的原話 |
+| Problem | Where it is reported | tessera |
+| --- | --- | --- |
+| A pasted image shows as `[Image #1]` in most terminals | | Thumbnails above the prompt: real pixels in kitty and Ghostty, cell art everywhere else |
+| Pasted text collapses to `[Pasted text #1 +40 lines]` before you send it | [#23134](https://github.com/anthropics/claude-code/issues/23134) | Its first lines shown above the prompt |
+| Korean, Chinese or Japanese written as `\uXXXX` comes out as wrong characters | [#83033](https://github.com/anthropics/claude-code/issues/83033) | Such tool calls are refused before they write |
+| Claude answers a Chinese question in English because the pasted log was English | | Replies follow the language of your own words |
+| A recursive delete follows a junction into the main repo | | Refused while the target holds a link |
+| An agent's `git checkout` or `git stash` rewrites the tree other agents work in | | Refused while agents run |
+| Work stops for hours when a usage limit hits | [#13354](https://github.com/anthropics/claude-code/issues/13354) | Optional: continues at the reset |
+| The Read tool does not say which file it read | [#21151](https://github.com/anthropics/claude-code/issues/21151) | Tool rows name the file |
+| Copying from the terminal brings indentation and trailing spaces | [#18170](https://github.com/anthropics/claude-code/issues/18170) | Copy buttons and `/tessera copy` copy clean text |
 
-## 相容性
-
-| 環境 | 貼圖預覽 | 「原圖」按鈕 |
-|---|---|---|
-| kitty、Ghostty | 原圖（kitty 圖片協定） | 系統檢視器 |
-| Windows Terminal、Orca、VS Code、iTerm2、Apple Terminal、SSH | 色塊縮圖 | Windows：explorer；macOS：open；Linux：xdg-open |
-| tmux、screen 裡（任何終端機） | 色塊縮圖（多工器會擋圖片協定） | 同上 |
-| WSL | 色塊縮圖 | 透過 `\\wsl.localhost` 用 Windows 檢視器開 |
-| Claude Code 桌面版 | 桌面版本來就會顯示貼圖，tessera 不重畫 | — |
-
-偵測不準時，到 `/config` 把 `imageMode` 設成 `pixels` 或 `cells`。
-
-Workflow 的進度看 Claude Code 內建的工作清單或 `/workflows`；跑完想收到提醒，用 `/config` 裡內建的通知設定。tessera 不重做這些。
-
-## 安裝
-
-```powershell
-claude plugin marketplace add OG-Matcha/tessera
-claude plugin install tessera@tessera --scope user
-```
-
-需要 Claude Code 2.1.287 以上。裝完開新的 session 生效。
-
-## 使用
-
-- 在輸入框貼圖，上方就會出現縮圖。
-- `/tessera`：說明。`/tessera demo`：完整示範。`/tessera theme nord`：換主題。`/tessera copy`：複製上一則回覆。
-- 其他設定在 `/config` 裡找 tessera：`language`、`imageMode`（auto / pixels / cells）、`thumbnailSize`、主題與各種顏色。
-
-## 開發
-
-```sh
-claude plugin validate .
-claude plugin test .
-sh scripts/sync-dev.sh <這個 session 的 dev-mods 資料夾>   # 熱重載測試
-```
-
----
-
-## English
-
-One Claude Code mod instead of several: pasted-image previews, themed replies, and a desk for long Workflow runs. Windows and Traditional Chinese first; macOS and Linux work too.
-
-The reply rendering (themes, tables, Prism code, mermaid art, tool rows) is built on [prismantis](https://github.com/NahumLitvin/prismantis), and the paste-cache lookup follows [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view), both MIT; see [NOTICE](NOTICE). tessera merges them so no two mods fight over one component, and adds:
-
-- **Image previews everywhere.** Real pixels where kitty graphics draw (kitty, Ghostty); quadrant-block cell art elsewhere (Windows Terminal, Orca, VS Code), plus an "original" button that opens the system viewer.
-- **Windows.** The paste cache under `%TEMP%\claude`, Windows paths and viewers.
-- **CJK.** Tables and mermaid boxes measure full-width characters as two columns; zh-TW buttons, toasts and help.
-- **Client feedback inbox** (optional, off by default): a pasted chat log with timestamped lines becomes numbered items per repository; a new complaint that resembles an item marked fixed is flagged as a likely regression, to you and to Claude. `/tessera inbox` lists them.
-- **Guards.** While agents work, tree-rewriting git and `git add -A` in the main tree are refused; junctions or symlinks to node_modules always are, and so is a recursive delete whose target holds a junction or symlink. Optionally, model-less Agent calls get a set model and a Workflow must quote you.
-- **Every terminal.** Real pixels in kitty and Ghostty (not inside tmux or screen), cell art elsewhere; the original opens with explorer, open, xdg-open or, under WSL, through `\\wsl.localhost`. Workflow progress and finish alerts stay with Claude Code's own tasks list, `/workflows` and notification settings.
+## Install
 
 ```sh
 claude plugin marketplace add OG-Matcha/tessera
 claude plugin install tessera@tessera --scope user
 ```
 
-MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Start a new session, then run `/tessera setup` to pick the features you want.
+
+> [!IMPORTANT]
+> tessera includes the reply rendering of [prismantis](https://github.com/NahumLitvin/prismantis) and the paste preview idea of [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view). Uninstall those two first; two mods drawing the same part of the screen fight over it.
+
+## Features
+
+| Feature | Default | What it does |
+| --- | --- | --- |
+| Themed replies | on | Tables, headings, highlighted code, mermaid diagrams and charts, tool rows, copy buttons; 16 themes |
+| Paste previews | on | Image thumbnails and collapsed pasted text above the prompt; "original" opens the full image in an Orca tab, a VS Code tab or your system viewer |
+| Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
+| Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
+| CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
+| Agents pick a model | off | Agent and Workflow calls must name a model chosen for their task |
+| Workflows quote you | off | A Workflow script must carry your own words, so its agents keep your standing instruction |
+| Client feedback inbox | off | Pasted chat logs (`22:55 Name message`) become numbered items; a complaint like a fixed item is flagged as a likely regression |
+| Resume after limits | off | A usage-limit stop continues a minute after the reset |
+
+A prompt Claude writes for another agent or tool draws as a card with a token estimate and a copy button.
+
+## Commands
+
+| Command | Does |
+| --- | --- |
+| `/tessera setup` | Switch features on and off |
+| `/tessera peek <file>` | Preview Markdown, CSV, JSON, docx, xlsx or pptx in the terminal |
+| `/tessera copy` · `copy code` · `copy prompt` | Copy the last reply, its last code block, or its prompt card |
+| `/tessera inbox` · `inbox fixed 3 5` | List the feedback inbox, mark items fixed at the current commit |
+| `/tessera theme <name>` | Switch theme |
+| `/tessera demo` | Show every element tessera draws |
+
+Type `/tessera ` and a letter for suggestions with descriptions.
+
+## Terminals
+
+| Terminal | Image previews | "original" opens in |
+| --- | --- | --- |
+| kitty, Ghostty | real pixels | system viewer |
+| Windows Terminal, iTerm2, Apple Terminal, SSH | cell art | system viewer (`explorer`, `open`, `xdg-open`) |
+| Orca | cell art | an Orca browser tab |
+| VS Code, Cursor | cell art | a VS Code tab |
+| inside tmux or screen | cell art | as above |
+| WSL | cell art | Windows viewer through `\\wsl.localhost` |
+
+If detection is wrong, set `imageMode` to `pixels` or `cells` in `/config`. Orca can draw kitty graphics but not yet the Unicode placeholders Claude Code uses ([stablyai/orca#23615](https://github.com/stablyai/orca/issues/23615)).
+
+## What it does on your machine
+
+No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, and files you `peek`; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
+
+## FAQ
+
+**Does it slow Claude Code down?** A feature that is off registers no hooks and no timers. Paste previews check the prompt box four times a second while on.
+
+**Does it add tokens?** Short notes ride with your prompts: the diagram hint (about 150 tokens) and, when your words are not English, a one-line language note. Both are switchable.
+
+**Why not just install prismantis and cc-mod-image-view?** You can, if you use macOS or Linux and a kitty-graphics terminal. tessera exists for everything else: Windows, CJK, terminals without image protocols, and long agent runs.
+
+## Credits
+
+Reply rendering is adapted from [prismantis](https://github.com/NahumLitvin/prismantis) by Nahum Litvin; the paste-cache lookup follows [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view) by gggodlin, itself from [claude-image-view](https://github.com/jarrodwatts/claude-image-view) by Jarrod Watts; PNG and zip inflation use [fflate](https://github.com/101arrowz/fflate). All MIT; see [NOTICE](NOTICE).
+
+## Contributing
+
+Issues and pull requests are welcome in English or Chinese. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; the [code of conduct](CODE_OF_CONDUCT.md) applies.
+
+## License
+
+[MIT](LICENSE)

@@ -1,0 +1,47 @@
+name: Bug report / 問題回報
+description: Something draws wrong, a guard misfires, or a feature does nothing
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Claude Code and tessera versions
+      description: Output of `claude --version`, and tessera's version from `/plugin`
+      placeholder: 2.1.292, tessera 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Feature
+      options:
+        - Themed replies
+        - Paste previews (images or text)
+        - Guards (git, deletes, CJK escapes, models, Workflow quotes)
+        - Reply language
+        - Prompt cards
+        - /tessera peek
+        - Feedback inbox
+        - Resume after limits
+        - /tessera setup or commands
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and OS
+      placeholder: Windows Terminal on Windows 11, Orca, Ghostty on macOS 15, kitty in tmux on Linux, ...
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: For a rendering bug paste the raw reply (ctrl+o in Claude Code shows it); for a guard, the command or tool call it judged.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot

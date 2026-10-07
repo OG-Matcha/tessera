@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-const LOG = '22:55 Lin 首頁的預約按鈕按了沒有反應\n22:57 Lin 表單送出後頁面一片空白'
+const LOG = '22:55 Amy 首頁的預約按鈕按了沒有反應\n22:57 Amy 表單送出後頁面一片空白'
 const composer = { kind: 'composer' } as const
 
 test('with the inbox off, a pasted chat log adds nothing', { options: { feedbackInbox: false, diagramHints: false } }, async ($, on) => {
@@ -31,7 +31,7 @@ test('with the inbox on, a pasted log is filed, a repeat of a fixed item is flag
   const marked = await $.tool.call({ tool: 'mcp__tessera__inbox_fixed', ids: [1], commit: 'abc123' } as never)
   expect(JSON.stringify(marked)).toContain('abc123')
 
-  await $.prompt.submit({ text: '10:02 Lin 預約按鈕按了還是沒有反應\n10:03 Lin 價格顯示錯誤', origin: composer } as never)
+  await $.prompt.submit({ text: '10:02 Amy 預約按鈕按了還是沒有反應\n10:03 Amy 價格顯示錯誤', origin: composer } as never)
   expect(seen[1]?.join('\n')).toContain('#3')
   expect(seen[1]?.join('\n')).toContain('resembles #1')
 })

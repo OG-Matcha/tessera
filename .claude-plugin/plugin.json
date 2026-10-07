@@ -1,0 +1,7 @@
+{
+  "name": "tessera",
+  "version": "0.1.0",
+  "description": "One mod for Claude Code on Windows and zh-Hant: pasted-image previews in any truecolor terminal, themed replies, and a desk for long Workflow runs",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

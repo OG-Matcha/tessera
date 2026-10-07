@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On, Register, RenderElement } from 'claude-code'
+import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude-code'
 
 import type { DraftImage, DraftPaste, ImageView } from '../types'
 import type { Rgba } from './png'
@@ -24,6 +24,7 @@ import { completions } from './complete'
 import { FEATURES } from './features'
 import { newPastes, pastedNumbers } from './paste'
 import { peek } from './peek'
+import { resumeAt } from './limits'
 import type { Voice } from './voice'
 import { replyNote, voiceOf } from './voice'
 import { PRESET_NAMES } from './presets'
@@ -348,6 +349,29 @@ async function markInbox($: EngineInterface, ids: number[], commit: string): Pro
   return t().inboxMarked(ids, commit)
 }
 
+// Resume after a rate limit: one queued "go on" prompt at the reset, cancelled when the person types first.
+let pendingResume: Timer | undefined
+
+async function scheduleResume($: EngineInterface) {
+  const now = await $.clock.now()
+  const at = resumeAt((await $.session.usage()).rateLimits, now)
+  if (at === undefined) return
+  pendingResume?.cancel()
+  pendingResume = $.clock.after(at - now + 60_000, () => {
+    pendingResume = undefined
+    void $.prompt.submit({ text: t().resumePrompt })
+  })
+  $.ui.toast(t().resumeScheduled(new Date(at + 60_000).toTimeString().slice(0, 5)))
+}
+
+function registerResume(on: On) {
+  on('classic.StopFailure', async ($, e, next) => {
+    const done = await next(e)
+    if (e.error === 'rate_limit') await scheduleResume($)
+    return done
+  })
+}
+
 const SETUP_PANE = 'tessera-setup'
 
 // /tessera setup: one row per feature; a press writes its option, which reloads tessera with it.
@@ -492,6 +516,7 @@ export const register: Register = (on, options) => {
   if (options.guardGit !== false || options.guardCjkEscapes !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
+  if (options.resumeAfterLimit === true) registerResume(on)
   inboxOn = options.feedbackInbox === true
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)
@@ -513,6 +538,8 @@ export const register: Register = (on, options) => {
     const own = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
     const context = [...(e.context ?? [])]
     if (own) {
+      pendingResume?.cancel()
+      pendingResume = undefined
       voice = voiceOf(e.text) ?? voice
       if (!langSettled && (voice === 'zh-Hant' || voice === 'zh-Hans')) {
         lang = 'zh-TW'

@@ -381,6 +381,12 @@
       "title": "Guard CJK escapes",
       "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text (anthropics/claude-code#83033).",
       "default": true
+    },
+    "resumeAfterLimit": {
+      "type": "boolean",
+      "title": "Resume after limits",
+      "description": "Off by default. When a usage limit stops a turn, queue a prompt that continues the work a minute after the limit resets; anything you type first cancels it.",
+      "default": false
     }
   }
 }

@@ -1,0 +1,55 @@
+import { expect, test } from 'claude-code/testing'
+
+import { commandDir, quotesUser, scriptNamesModel, shellRisks } from '../hooks/guard'
+
+test('commands that rewrite the shared tree are flagged', () => {
+  for (const c of [
+    'git checkout 723c3e4 -- packages',
+    'git switch main',
+    'git stash',
+    'git stash push -m wip',
+    'git reset --hard HEAD~1',
+    'git restore src/a.ts',
+    'git clean -fd',
+    'cd "I:/repo" && git -C . stash',
+  ])
+    expect(shellRisks(c)).toContain('tree-rewrite')
+})
+
+test('read-only and narrow git calls pass', () => {
+  for (const c of ['git status', 'git stash list', 'git log --oneline', 'git diff --stat', 'git add hooks/a.ts', 'git clean -n', 'echo git reset'])
+    expect(shellRisks(c)).toEqual([])
+})
+
+test('staging everything is flagged', () => {
+  expect(shellRisks('git add -A && git commit -m x')).toEqual(['stage-all'])
+  expect(shellRisks('git add .')).toEqual(['stage-all'])
+  expect(shellRisks('git commit -am "x"')).toEqual(['stage-all'])
+})
+
+test('linking node_modules is flagged in cmd, PowerShell and sh', () => {
+  expect(shellRisks('mklink /J wt\\node_modules I:\\repo\\node_modules')).toEqual(['link-node-modules'])
+  expect(shellRisks('New-Item -ItemType Junction -Path wt/node_modules -Target ../node_modules')).toEqual(['link-node-modules'])
+  expect(shellRisks('ln -s ../repo/node_modules node_modules')).toEqual(['link-node-modules'])
+  expect(shellRisks('New-Item -ItemType Junction -Path cache -Target D:/cache')).toEqual([])
+})
+
+test('the directory comes from a leading cd or git -C', () => {
+  expect(commandDir('cd "I:/接案/repo" && git stash')).toBe('I:/接案/repo')
+  expect(commandDir('Set-Location C:\\w; git reset')).toBe('C:\\w')
+  expect(commandDir('git -C ../wt checkout main')).toBe('../wt')
+  expect(commandDir('git reset')).toBe(undefined)
+})
+
+test('a script quotes the user when ten of their characters appear verbatim', () => {
+  const prompts = ['好', '你先持續按照規格先幫我們把所有的內容先做起來']
+  expect(quotesUser('const COMMON = `User, 2026-09-30: 「你先持續按照規格先幫我們把所有的內容先做起來」`', prompts)).toBe(true)
+  expect(quotesUser('const COMMON = `Implement the spec.`', prompts)).toBe(false)
+  expect(quotesUser('anything', ['繼續'])).toBe(false)
+})
+
+test('a script with agent() calls must name a model', () => {
+  expect(scriptNamesModel("await agent('x', { label: 'a' })")).toBe(false)
+  expect(scriptNamesModel("await agent('x', { model: 'opus' })")).toBe(true)
+  expect(scriptNamesModel('return 1')).toBe(true)
+})

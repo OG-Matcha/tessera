@@ -12,6 +12,8 @@ import type { Drawn } from './render'
 import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
+import type { Risk } from './guard'
+import { commandDir, quotesUser, scriptNamesModel, shellRisks } from './guard'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { PRESET_NAMES } from './presets'
@@ -153,6 +155,79 @@ function registerImages(on: On) {
   })
 }
 
+// Guards for long multi-agent runs: a subagent's or workflow agent's tool call carries an agentId.
+const AGENTS_QUIET_MS = 180_000
+const AGENT_MODELS = ['opus', 'sonnet', 'haiku', 'fable'] as const
+type AgentModel = (typeof AGENT_MODELS)[number]
+
+let lastAgentCall = -Infinity
+let guardGit = true
+let agentModel: AgentModel | undefined
+let requireUserQuote = false
+const mainTrees = new Map<string, boolean>()
+
+const RISK_REASONS: Record<Risk, string> = {
+  'tree-rewrite': 'it rewrites the shared main working tree while agents are running; other agents and the person lose uncommitted work. Use a separate `git worktree add` (with its own install) or recorded numbers instead',
+  'stage-all': "it stages every change while agents are running, which can commit another agent's half-done or reverted files. Stage the files you edited by path",
+  'link-node-modules': 'a junction or symlink to node_modules lets a recursive delete (git worktree remove, rm -rf) follow it into the main repo. Run the install inside the worktree instead',
+}
+
+async function isMainTree($: EngineInterface, command: string): Promise<boolean> {
+  const cwd = await $.session.cwd()
+  const named = commandDir(command)
+  const dir = named === undefined ? cwd : /^([a-z]:)?[\\/]/i.test(named) ? named : `${cwd}/${named}`
+  if (!mainTrees.has(dir)) {
+    const run = await $.process.run(['git', '-C', dir, 'rev-parse', '--git-dir', '--git-common-dir'], { timeoutMs: 5_000 }).catch(() => undefined)
+    const [gitDir, commonDir] = (run?.stdout ?? '').trim().split(/\r?\n/)
+    mainTrees.set(dir, run?.exitCode === 0 && gitDir === commonDir)
+  }
+  return mainTrees.get(dir) ?? false
+}
+
+function refuse($: EngineInterface, rule: string, reason: string) {
+  $.ui.toast(t().blocked(rule))
+  return { deny: `tessera blocked this call: ${reason}.` }
+}
+
+async function judgeShell($: EngineInterface, command: string, agentId: string | undefined) {
+  if (!guardGit) return undefined
+  const risks = shellRisks(command)
+  if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
+  const shared = risks.filter(r => r !== 'link-node-modules')
+  if (shared.length === 0) return undefined
+  const agentsRunning = agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS
+  if (!agentsRunning || !(await isMainTree($, command))) return undefined
+  const risk = shared[0] as Risk
+  return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
+}
+
+async function judgeWorkflow($: EngineInterface, script: string | undefined, scriptPath: string | undefined) {
+  if (agentModel === undefined && !requireUserQuote) return undefined
+  const text = script ?? (scriptPath === undefined ? undefined : await $.fs.read(scriptPath).catch(() => undefined))
+  if (typeof text !== 'string') return undefined
+  if (agentModel !== undefined && !scriptNamesModel(text))
+    return refuse($, 'Workflow model', `its agent() calls name no model, so every agent runs on the session's model. Add model: '${agentModel}' to each agent()'s options`)
+  if (!requireUserQuote) return undefined
+  const prompts = (await $.session.messages()).filter(m => m.role === 'user').map(m => m.text)
+  if (quotesUser(text, prompts)) return undefined
+  return refuse($, 'Workflow authorization', 'the script does not quote the person. Paste their standing instruction verbatim, dated, into the shared prompt, and say that later status questions do not cancel it; agents only see the latest message and refuse to edit otherwise')
+}
+
+function registerGuards(on: On, options: Record<string, unknown>) {
+  guardGit = options.guardGit !== false
+  agentModel = AGENT_MODELS.find(m => m === options.agentModel)
+  requireUserQuote = options.requireUserQuote === true
+
+  on('tool.call', async ($, e, next) => {
+    if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
+    return next(e)
+  })
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))
+  on('tool.call', { tool: 'PowerShell' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))
+  on('tool.call', { tool: 'Agent' }, ($, e, next) => (agentModel !== undefined && e.model === undefined ? next({ ...e, model: agentModel }) : next(e)))
+  on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch(($, e, next) => next(e))
+}
+
 const HINT = [
   'Replies in this session are drawn by the tessera mod, which runs inside Claude Code and is not a command or tool to call: when the user asks to show something with tessera, write it as markdown in the reply.',
   'Markdown tables, GitHub alerts (> [!WARNING], > [!NOTE]), fenced code with a language tag, and ```mermaid blocks render as colored terminal graphics:',
@@ -243,6 +318,7 @@ export const register: Register = (on, options) => {
   })
 
   registerImages(on)
+  registerGuards(on, options)
   if (!isDrawing) return
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)

@@ -21,7 +21,7 @@ const flag = (key: string, onByDefault: boolean, name: Record<Lang, string>, abo
 // Every feature /tessera setup lists, with the option that switches it.
 export const FEATURES: Feature[] = [
   flag('enabled', true, { en: 'Themed replies', 'zh-TW': '回覆美化' }, { en: 'Tables, code, diagrams and tool rows drawn by tessera', 'zh-TW': '表格、程式碼、圖表和工具列由 tessera 繪製' }),
-  flag('imagePreview', true, { en: 'Image previews', 'zh-TW': '貼圖預覽' }, { en: 'Thumbnails above the prompt for pasted images', 'zh-TW': '輸入框上方顯示貼上圖片的縮圖' }),
+  flag('pastePreview', true, { en: 'Paste previews', 'zh-TW': '貼上預覽' }, { en: 'Pasted images and collapsed text shown above the prompt', 'zh-TW': '輸入框上方顯示貼上的圖片縮圖和被摺疊的文字' }),
   {
     key: 'replyLanguage',
     isOn: v => v !== 'off',

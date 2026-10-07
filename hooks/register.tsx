@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Register, RenderElement } from 'claude-code'
 
-import type { DraftImage, ImageView } from '../types'
+import type { DraftImage, DraftPaste, ImageView } from '../types'
 import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
@@ -22,6 +22,7 @@ import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
 import { FEATURES } from './features'
+import { newPastes, pastedNumbers } from './paste'
 import type { Voice } from './voice'
 import { replyNote, voiceOf } from './voice'
 import { PRESET_NAMES } from './presets'
@@ -32,7 +33,12 @@ import { TERMINALS, hasRtl } from './rtl'
 
 const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] as DraftImage[])
 
+const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
 const POLL_MS = 250
+const PASTE_HEAD = 4
+// Pasted text the editor collapsed to [Pasted text #n …], by n, as it was pasted.
+const pastes = new Map<number, string>()
+let shownPastes = ''
 const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: [40, 12], large: [64, 20] }
 
 let thumbBox: [number, number] = [40, 12]
@@ -116,6 +122,16 @@ async function check($: EngineInterface) {
   isChecking = true
   try {
     const draft = (await $.prompt.read()).text
+    const pasted = pastedNumbers(draft).filter(n => pastes.has(n))
+    if (pasted.join(',') !== shownPastes) {
+      shownPastes = pasted.join(',')
+      await update($, draftPastes, () =>
+        pasted.map(n => {
+          const lines = (pastes.get(n) ?? '').split(/\r?\n/)
+          return { n, total: lines.length, head: lines.slice(0, PASTE_HEAD) }
+        }),
+      )
+    }
     const numbers = [...new Set([...draft.matchAll(/\[Image #(\d+)\]/g)].map(m => Number(m[1])))]
     const key = numbers.join(',')
     if (key === shownKey) return
@@ -142,13 +158,32 @@ async function openOriginal($: EngineInterface, path: string) {
   }
 }
 
-function registerImages(on: On) {
+function registerPastes(on: On) {
+  on('prompt.edit', async ($, e, next) => {
+    const box = await next(e)
+    if (e.key !== undefined || !e.inputText.includes('\n')) return box
+    for (const n of newPastes(e.text, box.text)) pastes.set(n, e.inputText)
+    return box
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.surface !== 'terminal' || e.props.hasSurvey) return next(e)
     const list = await read($, draftImages)
-    if (list.length === 0) return next(e)
+    const texts = await read($, draftPastes)
+    if (list.length === 0 && texts.length === 0) return next(e)
     const { Box, Text, Raster, Image, Button } = $.ui.resolve(e)
+    const width = Math.max(20, (e.viewport?.columns ?? 80) - 4)
     return (
+      <Box flexDirection="column">
+        {texts.map(paste => (
+          <Box key={`paste-${paste.n}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+            <Text dimColor>{t().pastedText(paste.n, paste.total)}</Text>
+            {paste.head.map((line, i) => (
+              <Text key={`paste-${paste.n}-${i}`} wrap="truncate-end">{[...line].slice(0, width).join('') || ' '}</Text>
+            ))}
+            {paste.total > paste.head.length && <Text dimColor>…</Text>}
+          </Box>
+        ))}
       <Box flexDirection="row" gap={2}>
         {list.map(img => (
           <Box key={`img-${img.n}`} flexDirection="column" alignItems="center">
@@ -165,6 +200,7 @@ function registerImages(on: On) {
             </Box>
           </Box>
         ))}
+      </Box>
       </Box>
     )
   })
@@ -450,8 +486,8 @@ export const register: Register = (on, options) => {
     return started
   })
 
-  const imagesOn = options.imagePreview !== false
-  if (imagesOn) registerImages(on)
+  const imagesOn = options.pastePreview !== false
+  if (imagesOn) registerPastes(on)
   if (options.guardGit !== false || options.guardCjkEscapes !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)

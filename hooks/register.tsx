@@ -20,6 +20,7 @@ import type { Risk } from './guard'
 import { commandDir, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from './guard'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
+import { completions } from './complete'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { resolveStyle } from './theme'
@@ -36,6 +37,8 @@ let imageMode = 'auto'
 let usePixels = false
 let env: Env = {}
 let lang: Lang = 'en'
+// False while no setting or locale chose Chinese, so a prompt written in Chinese may still switch to it.
+let langSettled = false
 const t = () => STRINGS[lang]
 
 let tmpRoot: string | undefined
@@ -365,6 +368,8 @@ export const register: Register = (on, options) => {
   const isDrawing = options.enabled !== false
   const style = resolveStyle(options)
 
+  lang = pickLang(options.language, [])
+  langSettled = options.language === 'en' || options.language === 'zh-TW'
   imageMode = typeof options.imageMode === 'string' ? options.imageMode : 'auto'
   thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
 
@@ -372,12 +377,14 @@ export const register: Register = (on, options) => {
     env = await readEnv($)
     usePixels = drawsPixels(imageMode, env)
     const settings = await $.settings.read({}).catch(() => ({}) as Record<string, unknown>)
-    lang = pickLang(options.language, [
+    const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
       await $.env.get('LC_ALL'),
       await $.env.get('LANG'),
       Intl.DateTimeFormat().resolvedOptions().locale,
-    ])
+    ]
+    lang = pickLang(options.language, hints)
+    langSettled = options.language === 'en' || options.language === 'zh-TW' || lang === 'zh-TW'
     $.clock.every(POLL_MS, () => void check($))
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
@@ -408,8 +415,18 @@ export const register: Register = (on, options) => {
     return { result: { content: [{ type: 'text', text }], isError: false } } as never
   })
 
+  on('prompt.autocomplete', async ($, e, next) => {
+    const rows = completions(e.text, e.start, e.token, PRESET_NAMES, lang)
+    if (rows.length === 0) return next(e)
+    return { suggestions: [...(await next(e)).suggestions, ...rows] }
+  })
+
   on('prompt.submit', async ($, e, next) => {
     const own = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
+    if (own && !langSettled && /\p{Script=Han}/u.test(e.text)) {
+      lang = 'zh-TW'
+      langSettled = true
+    }
     const context = [...(e.context ?? [])]
     if (isDrawing) {
       await applyRtl($, style)

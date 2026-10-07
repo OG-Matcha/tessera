@@ -23,6 +23,7 @@ import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
 import { FEATURES } from './features'
 import { newPastes, pastedNumbers } from './paste'
+import { peek } from './peek'
 import type { Voice } from './voice'
 import { replyNote, voiceOf } from './voice'
 import { PRESET_NAMES } from './presets'
@@ -532,6 +533,15 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'tessera' }, async ($, e) => {
     const [sub, name, ...rest] = e.args.trim().split(/\s+/)
+    if (sub === 'peek') {
+      const target = [name, ...rest].filter(Boolean).join(' ').replace(/^["']|["']$/g, '')
+      if (target === '') return { text: t().peekUsage }
+      const path = isAbsolute(target) ? target : `${await $.session.cwd()}/${target}`
+      const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
+      if (file === undefined) return { text: t().peekUnreadable(target) }
+      const summary = peek(path, Uint8Array.fromBase64(file.base64))
+      return { text: summary === null ? t().peekUnknown(target) : `### ${target.replace(/^.*[\\/]/, '')}\n\n${summary}` }
+    }
     if (sub === 'setup') {
       await $.store.set('setupSeen', true).catch(() => undefined)
       await $.ui.open({ id: SETUP_PANE, title: 'tessera' })

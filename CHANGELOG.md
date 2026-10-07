@@ -18,5 +18,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - Optional resume after limits: a rate-limit stop continues the work after the reset ([anthropics/claude-code#13354](https://github.com/anthropics/claude-code/issues/13354)).
 - `/tessera setup` switches features on and off; a feature that is off registers nothing. Typeahead for `/tessera` subcommands. English and Traditional Chinese throughout.
 
+### Requires
+
+- Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
+
 [Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/OG-Matcha/tessera/releases/tag/v0.1.0

@@ -21,7 +21,7 @@ jobs:
         claude: [latest]
         include:
           - os: windows-latest
-            claude: 2.1.287
+            claude: 2.1.292
     name: test (${{ matrix.os }}, claude ${{ matrix.claude }})
     runs-on: ${{ matrix.os }}
     env:

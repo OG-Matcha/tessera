@@ -3,3 +3,6 @@ contact_links:
   - name: Security issue
     url: https://github.com/OG-Matcha/tessera/security/advisories/new
     about: Report a vulnerability privately
+  - name: Question or idea
+    url: https://github.com/OG-Matcha/tessera/discussions
+    about: Ask and discuss in GitHub Discussions

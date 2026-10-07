@@ -5,7 +5,6 @@ const pieces = (command: string) => command.split(/;|&&|&|\|\||\||\n/).map(p => 
 
 const GIT = /^(?:git|git\.exe)\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(\S+)(.*)$/i
 
-// Commands that rewrite the shared working tree or index, or link node_modules where a recursive delete can follow it.
 export function shellRisks(command: string): Risk[] {
   const risks = new Set<Risk>()
   for (const piece of pieces(command)) {
@@ -25,7 +24,6 @@ export function shellRisks(command: string): Risk[] {
   return [...risks]
 }
 
-// The directory a command runs git in: its -C path, or the target of a leading cd / Set-Location.
 export function commandDir(command: string): string | undefined {
   const unquote = (s: string) => s.replace(/^["']|["']$/g, '')
   const cd = /^\s*(?:cd|Set-Location|sl|pushd)\s+(?:\/d\s+)?("[^"]+"|'[^']+'|[^\s;&|]+)/i.exec(command)
@@ -37,7 +35,6 @@ export function commandDir(command: string): string | undefined {
 const QUOTE = 10
 const flat = (s: string) => [...s.replace(/\s+/g, ' ')]
 
-// Whether the script carries the user's own words: any run of QUOTE characters from one of their prompts, verbatim.
 export function quotesUser(script: string, userPrompts: string[]): boolean {
   const chars = flat(script)
   const grams = new Set<string>()
@@ -55,7 +52,6 @@ export function quotesUser(script: string, userPrompts: string[]): boolean {
 // A Workflow script whose agent() calls name no model runs them all on the session's model.
 export const scriptNamesModel = (script: string) => !/\bagent\s*\(/.test(script) || /\bmodel\s*:/.test(script)
 
-// Splits one command into words, keeping quoted runs whole and dropping the quotes.
 const words = (piece: string) => [...piece.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3] ?? '')
 
 // The paths a command deletes recursively: rm -r, Remove-Item -Recurse, rmdir /s, rd /s and git worktree remove.
@@ -89,8 +85,7 @@ const CJK = (code: number) =>
 const ESCAPE = /\\u([0-9a-fA-F]{4})/g
 const LITERAL_CJK = /[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]/
 
-// The first \uXXXX escape of a CJK character in a text, as written.
-export function cjkEscape(text: string): string | undefined {
+function cjkEscape(text: string): string | undefined {
   for (const m of text.matchAll(ESCAPE)) if (CJK(parseInt(m[1] ?? '', 16))) return m[0]
   return undefined
 }

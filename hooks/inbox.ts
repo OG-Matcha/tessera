@@ -1,4 +1,4 @@
-export type ChatLine = { at: string; who: string; text: string }
+type ChatLine = { at: string; who: string; text: string }
 
 export type InboxItem = ChatLine & { id: number; status: 'open' | 'fixed'; fixedBy?: string; reopenedFrom?: number }
 
@@ -33,9 +33,8 @@ export function similarity(a: string, b: string): number {
 
 const SIMILAR = 0.55
 
-export type Intake = { items: InboxItem[]; added: InboxItem[]; regressions: { item: InboxItem; like: InboxItem }[] }
+type Intake = { items: InboxItem[]; added: InboxItem[]; regressions: { item: InboxItem; like: InboxItem }[] }
 
-// Files new lines as open items, skips exact repeats of an open item, and links each to a fixed item it resembles.
 export function intake(items: InboxItem[], lines: ChatLine[]): Intake {
   const next = [...items]
   const added: InboxItem[] = []
@@ -62,7 +61,6 @@ export function markFixed(items: InboxItem[], ids: number[], commit: string): In
 
 const clip = (s: string, n: number) => ([...s].length > n ? `${[...s].slice(0, n - 1).join('')}…` : s)
 
-// The model-only note that rides with a pasted log.
 export function intakeNote(result: Intake): string {
   const lines = [`tessera feedback inbox: filed ${result.added.map(i => `#${i.id}`).join(', ')} from the pasted chat log.`]
   for (const { item, like } of result.regressions)

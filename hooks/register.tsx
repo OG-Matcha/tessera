@@ -5,6 +5,8 @@ import type { DraftImage, ImageView } from '../types'
 import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
+import type { Env } from './platform'
+import { drawsPixels, opener, pasteRoot } from './platform'
 
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
@@ -30,6 +32,7 @@ const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: 
 let thumbBox: [number, number] = [40, 12]
 let imageMode = 'auto'
 let usePixels = false
+let env: Env = {}
 let lang: Lang = 'en'
 const t = () => STRINGS[lang]
 
@@ -40,18 +43,29 @@ let isChecking = false
 const pixels = new Map<string, Rgba | null>()
 
 // Claude Code caches each paste as <tmp>/<project>/<session>/images/<n>.png; on Windows <tmp> is %TEMP%\claude.
-async function root($: EngineInterface): Promise<string> {
-  if (tmpRoot !== undefined) return tmpRoot
-  const fromEnv = await $.env.get('CLAUDE_CODE_TMPDIR')
-  const winTemp = (await isWindows($)) ? await $.env.get('TEMP') : undefined
-  tmpRoot =
-    fromEnv ??
-    (winTemp !== undefined ? `${winTemp.replace(/\\/g, '/')}/claude` : undefined) ??
-    `/tmp/claude-${(await $.process.run(['id', '-u'])).stdout.trim()}`
-  return tmpRoot
+// Every variable the platform decisions read, each named literally so the engine can list them.
+async function readEnv($: EngineInterface): Promise<Env> {
+  return {
+    OS: await $.env.get('OS'),
+    TEMP: await $.env.get('TEMP'),
+    HOME: await $.env.get('HOME'),
+    CLAUDE_CODE_TMPDIR: await $.env.get('CLAUDE_CODE_TMPDIR'),
+    CLAUDE_CODE_FORCE_TERMINAL_IMAGES: await $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES'),
+    TERM: await $.env.get('TERM'),
+    TERM_PROGRAM: await $.env.get('TERM_PROGRAM'),
+    KITTY_WINDOW_ID: await $.env.get('KITTY_WINDOW_ID'),
+    TMUX: await $.env.get('TMUX'),
+    STY: await $.env.get('STY'),
+    WSL_DISTRO_NAME: await $.env.get('WSL_DISTRO_NAME'),
+  }
 }
 
-const isWindows = async ($: EngineInterface) => (await $.env.get('OS')) === 'Windows_NT'
+async function root($: EngineInterface): Promise<string> {
+  if (tmpRoot !== undefined) return tmpRoot
+  const base = pasteRoot(env)
+  tmpRoot = base.includes('{uid}') ? base.replace('{uid}', (await $.process.run(['id', '-u'])).stdout.trim()) : base
+  return tmpRoot
+}
 
 async function findImagesDir($: EngineInterface): Promise<string | undefined> {
   const sessionId = await $.session.id()
@@ -74,15 +88,6 @@ async function pixelsOf($: EngineInterface, path: string): Promise<Rgba | null> 
     pixels.set(path, file === undefined ? null : decodePng(Uint8Array.fromBase64(file.base64)))
   }
   return pixels.get(path) ?? null
-}
-
-// Terminals that draw Image as real pixels (kitty graphics with Unicode placeholders); the rest get cell art.
-async function detectPixels($: EngineInterface): Promise<boolean> {
-  if (imageMode !== 'auto') return imageMode === 'pixels'
-  if ((await $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES')) === '1') return true
-  const term = await $.env.get('TERM')
-  const program = await $.env.get('TERM_PROGRAM')
-  return term === 'xterm-kitty' || term === 'xterm-ghostty' || program === 'ghostty' || (await $.env.get('KITTY_WINDOW_ID')) !== undefined
 }
 
 async function viewOf($: EngineInterface, path: string): Promise<ImageView | null> {
@@ -121,10 +126,7 @@ async function check($: EngineInterface) {
 }
 
 async function openOriginal($: EngineInterface, path: string) {
-  const argv = (await isWindows($))
-    ? ['explorer.exe', path.replace(/\//g, '\\')]
-    : [(await $.env.get('XDG_CURRENT_DESKTOP')) === undefined ? 'open' : 'xdg-open', path]
-  await $.process.run(argv, { timeoutMs: 5_000 }).catch(() => undefined)
+  await $.process.run(opener(env, path), { timeoutMs: 5_000 }).catch(() => undefined)
 }
 
 function registerImages(on: On) {
@@ -299,7 +301,8 @@ export const register: Register = (on, options) => {
   thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
 
   on('session.start', async ($, e, next) => {
-    usePixels = await detectPixels($)
+    env = await readEnv($)
+    usePixels = drawsPixels(imageMode, env)
     const settings = await $.settings.read({}).catch(() => ({}) as Record<string, unknown>)
     lang = pickLang(options.language, [
       typeof settings.language === 'string' ? settings.language : undefined,

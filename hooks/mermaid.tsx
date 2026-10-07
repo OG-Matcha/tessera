@@ -15,9 +15,9 @@ const textCache = new Map<string, string | null>()
 
 export const chartSize = (columns: number, source = '') => {
   const labels = (/^\s*x-axis\b[^[\n]*\[([^\]\n]*)\]/m.exec(source)?.[1] ?? '').split(',').map(s => s.trim().replace(/^"|"$/g, ''))
-  const fit = labels.length * (Math.max(...labels.map(l => l.length)) + 2)
-  const width = Math.max(24, Math.min(60, Math.max(Math.floor(columns / 6), fit), columns - 12))
-  return { width, height: Math.max(8, Math.min(20, Math.round(width * 0.3))) }
+  const fit = labels.length * (Math.max(...labels.map(width)) + 2)
+  const w = Math.max(24, Math.min(60, Math.max(Math.floor(columns / 6), fit), columns - 12))
+  return { width: w, height: Math.max(8, Math.min(20, Math.round(w * 0.3))) }
 }
 
 const unquoteCategories = (source: string) =>
@@ -53,7 +53,7 @@ export const mermaidText =(source: string, ascii: boolean, columns: number): str
   return remember(textCache, key, () => {
     try {
       if (isChart) setChartSize(size.width, size.height)
-      const art = renderMermaidAscii(unquoteCategories((isChart ? source : padWide(source)).replace(/^(\s*%%[^\n]*\n)+/, '')).replace(/(-->|-\.->|==>|---|-\.-|===)[ \t]+\|/g, '$1|'), { useAscii: ascii, colorMode: 'none', paddingX: 3, paddingY: 1 }).replace(/[ \t]+$/gm, '').trimEnd().replace(/▶/g, '►').replace(/◀/g, '◄')
+      const art = renderMermaidAscii(unquoteCategories(padWide(source).replace(/^(\s*%%[^\n]*\n)+/, '')).replace(/(-->|-\.->|==>|---|-\.-|===)[ \t]+\|/g, '$1|'), { useAscii: ascii, colorMode: 'none', paddingX: 3, paddingY: 1 }).replace(/[ \t]+$/gm, '').trimEnd().replace(/▶/g, '►').replace(/◀/g, '◄')
       return isChart ? labelBars(art, source) : art.split('\n').filter(l => !/^[\s│|]*$/.test(l)).join('\n')
     } catch {
       return null

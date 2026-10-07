@@ -29,3 +29,13 @@ test('every diagram in the Chinese demo draws as art', () => {
   expect(sources.length).toBe(2)
   for (const source of sources) expect(mermaidText(source, false, 100)).not.toBe(null)
 })
+
+test('Chinese chart categories sit under their ticks', () => {
+  const art = lines('xychart-beta\n    x-axis [第1天, 第2天, 第3天, 第4天, 第5天]\n    bar [100, 136, 123, 183, 167]')
+  const axis = art.findLastIndex(l => l.includes('┬'))
+  const ticks = [...art[axis]!].flatMap((ch, x) => (ch === '┬' ? [x] : []))
+  const row = art[axis + 1]!
+  const centers = [...row.matchAll(/第\d天/g)].map(m => width(row.slice(0, m.index)) + width(m[0]) / 2)
+  expect(centers.length).toBe(ticks.length)
+  centers.forEach((c, i) => expect(Math.abs(c - ticks[i]!)).toBeLessThanOrEqual(1.5))
+})

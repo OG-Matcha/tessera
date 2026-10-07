@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Chinese, Japanese and Korean category labels on mermaid bar and line charts sit under their bars instead of drifting right.
+
 ## [0.1.0] - 2026-10-08
 
 ### Added

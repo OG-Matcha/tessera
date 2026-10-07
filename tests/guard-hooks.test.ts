@@ -4,11 +4,11 @@ const ran: string[] = []
 
 test('a junction to node_modules is refused even with no agent running', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
-  on('tool.call', { tool: 'PowerShell' }, (_, e) => {
-    ran.push(e.command)
+  on('tool.call', { tool: 'PowerShell' as never }, (_, e) => {
+    ran.push(String((e as { command?: unknown }).command))
     return { result: 'ran' } as never
   })
-  const result = await $.tool.call({ tool: 'PowerShell', command: 'New-Item -ItemType Junction -Path wt/node_modules -Target ../node_modules' })
+  const result = await $.tool.call({ tool: 'PowerShell', command: 'New-Item -ItemType Junction -Path wt/node_modules -Target ../node_modules' } as never)
   expect(result.deny).toContain('node_modules')
   expect(ran).toEqual([])
 })

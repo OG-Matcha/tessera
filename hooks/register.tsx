@@ -307,10 +307,11 @@ function registerGuards(on: On, options: Record<string, unknown>) {
     const escape = guardCjk ? misEscapedCjk(String(e.tool), e as unknown as Record<string, unknown>) : undefined
     if (escape !== undefined)
       return refuse($, 'CJK as \\u escapes', `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`)
+    // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
+    const tool = String(e.tool)
+    if (tool === 'Bash' || tool === 'PowerShell') return (await judgeShell($, String((e as { command?: unknown }).command ?? ''), e.agentId)) ?? next(e)
     return next(e)
-  })
-  on('tool.call', { tool: 'Bash' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch((_, e, next) => next(e))
-  on('tool.call', { tool: 'PowerShell' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch((_, e, next) => next(e))
+  }).catch((_, e, next) => next(e))
   on('tool.call', { tool: 'Agent' }, ($, e, next) => {
     if (agentModel === undefined || e.model !== undefined) return next(e)
     if (agentModel === 'choose') return refuse($, 'Agent model', `the call names no model, so the agent runs on the session's model. Pass the model this task needs: ${PICK}`)

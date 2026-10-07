@@ -11,6 +11,11 @@
 </p>
 
 <p align="center">
+  <img src="docs/demo.gif" alt="Pasting a chart into Claude Code with tessera: a thumbnail above the prompt, then a reply with a CJK-aligned table and a bar chart" width="760">
+  <br><sub>Recorded from a real session in a plain terminal: the pasted image shows as a thumbnail, the reply draws its table and chart.</sub>
+</p>
+
+<p align="center">
   English · <a href="README.zh-TW.md">繁體中文</a>
 </p>
 
@@ -102,7 +107,7 @@ Reply rendering is adapted from [prismantis](https://github.com/NahumLitvin/pris
 
 ## Contributing
 
-Issues and pull requests are welcome in English or Chinese. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; the [code of conduct](CODE_OF_CONDUCT.md) applies.
+Issues and pull requests are welcome in English or Chinese. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; the [code of conduct](CODE_OF_CONDUCT.md) applies. Questions go to [Discussions](https://github.com/OG-Matcha/tessera/discussions) ([SUPPORT.md](SUPPORT.md)); every release is listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

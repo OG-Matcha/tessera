@@ -11,6 +11,11 @@
 </p>
 
 <p align="center">
+  <img src="docs/demo.gif" alt="在 Claude Code 貼上圖表：輸入框上方出現縮圖，回覆畫出中文對齊的表格和長條圖" width="760">
+  <br><sub>錄自一般終端機裡的真實 session：貼上的圖片顯示成縮圖，回覆畫出表格和長條圖。</sub>
+</p>
+
+<p align="center">
   <a href="README.md">English</a> · 繁體中文
 </p>
 
@@ -102,7 +107,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 ## 參與
 
-歡迎用中文或英文開 issue 和 PR。請先讀 [CONTRIBUTING.md](CONTRIBUTING.md)，並遵守[行為準則](CODE_OF_CONDUCT.md)。
+歡迎用中文或英文開 issue 和 PR。請先讀 [CONTRIBUTING.md](CONTRIBUTING.md)，並遵守[行為準則](CODE_OF_CONDUCT.md)。問題請到 [Discussions](https://github.com/OG-Matcha/tessera/discussions)（見 [SUPPORT.md](SUPPORT.md)），每個版本的變更記在 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 授權
 

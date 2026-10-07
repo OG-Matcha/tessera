@@ -5,12 +5,9 @@ import type { DraftImage } from '../types'
 import { decodePng } from './png'
 import type { Rgba } from './png'
 import { thumbnail } from './raster'
-import type { Thumb } from './raster'
 
 const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] as DraftImage[])
-const zoomed = atom({ plugin: 'tessera', key: 'zoomed' } as const, null as DraftImage | null)
 
-const PANE = 'tessera-image'
 const POLL_MS = 250
 const THUMB_COLUMNS = 40
 const THUMB_ROWS = 12
@@ -20,7 +17,6 @@ let imagesDir: { sessionId: string; dir: string } | undefined
 let shownKey = ''
 let isChecking = false
 const pixels = new Map<string, Rgba | null>()
-const zooms = new Map<string, Thumb>()
 
 // Claude Code caches each paste as <tmp>/<project>/<session>/images/<n>.png; on Windows <tmp> is %TEMP%\claude.
 async function root($: EngineInterface): Promise<string> {
@@ -91,11 +87,6 @@ async function openOriginal($: EngineInterface, path: string) {
   await $.process.run(argv, { timeoutMs: 5_000 }).catch(() => undefined)
 }
 
-async function zoom($: EngineInterface, img: DraftImage) {
-  await update($, zoomed, () => img)
-  await $.ui.open({ id: PANE, title: `圖 #${img.n}` })
-}
-
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     $.clock.every(POLL_MS, () => void check($))
@@ -118,35 +109,10 @@ export const register: Register = on => {
             )}
             <Box flexDirection="row" gap={1}>
               <Text dimColor>#{img.n}</Text>
-              {img.thumb !== null && <Button key={`zoom-${img.n}`} label="放大" onPress={() => zoom($, img)} />}
               <Button key={`open-${img.n}`} label="原圖" onPress={() => openOriginal($, img.path)} />
             </Box>
           </Box>
         ))}
-      </Box>
-    )
-  })
-
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
-    if (e.surface !== 'terminal') return next(e)
-    const { Box, Text, Raster, Button } = $.ui.resolve(e)
-    const img = await read($, zoomed)
-    const rgba = img === null ? null : await pixelsOf($, img.path)
-    if (img === null || rgba === null) return <Text dimColor>沒有可放大的圖。</Text>
-    const columns = Math.min(512, e.props.bodyColumns)
-    const rows = Math.min(256, Math.max(4, e.props.scroll.bodyRows - 2))
-    const key = `${img.path}:${columns}x${rows}`
-    const big = zooms.get(key) ?? thumbnail(rgba, columns, rows)
-    zooms.set(key, big)
-    return (
-      <Box flexDirection="column">
-        <Raster key="zoom" columns={big.columns} rows={big.rows} cells={big.cells} />
-        <Box flexDirection="row" gap={1}>
-          <Text dimColor>
-            #{img.n} · {rgba.width}×{rgba.height}
-          </Text>
-          <Button key="open" label="原圖" onPress={() => openOriginal($, img.path)} />
-        </Box>
       </Box>
     )
   })

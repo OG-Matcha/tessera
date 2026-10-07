@@ -2,6 +2,6 @@ export type DraftImage = { n: number; path: string; thumb: { columns: number; ro
 
 declare module 'claude-code' {
   interface PluginState {
-    tessera: { draftImages: DraftImage[]; zoomed: DraftImage | null }
+    tessera: { draftImages: DraftImage[] }
   }
 }

@@ -13,7 +13,8 @@
 | 貼圖預覽 | 支援 kitty 圖片協定的終端機（kitty、Ghostty）顯示原圖；其他終端機（Windows Terminal、Orca、VS Code）改用色塊縮圖，不會只剩 `[Image #1]`。「原圖」按鈕用系統檢視器開全解析度 |
 | Windows | 貼圖快取在 `%TEMP%\claude`，路徑、開檔都照 Windows 的方式處理 |
 | 中文 | 表格與 mermaid 節點都以全形寬度計算，框線不跑版；按鈕、提示、`/tessera` 說明有繁體中文 |
-| 守門 | 有 agent 在跑時，擋下主樹的 checkout/stash/reset 與 `git add -A`；永遠擋下把 node_modules 用 junction/symlink 連出去；可設定 Agent 預設模型、要求 Workflow 腳本引用你的原話 |
+| 客戶回饋收件匣（選用，預設關閉） | 貼上帶時間的聊天紀錄（22:55 名字 訊息）就自動拆成編號項目，依 repo 保存；新抱怨和已修過的項目相似時，同時提醒你和 Claude「可能是回歸」。Claude 修好後會用工具標記 commit；`/tessera inbox` 查看 |
+| 守門 | 有 agent 在跑時，擋下主樹的 checkout/stash/reset 與 `git add -A`；永遠擋下把 node_modules 用 junction/symlink 連出去，以及目標裡有 junction/symlink 的遞迴刪除（rm -r、Remove-Item -Recurse、rmdir /s、git worktree remove）；可設定 Agent 預設模型、要求 Workflow 腳本引用你的原話 |
 
 ## 相容性
 
@@ -63,7 +64,8 @@ The reply rendering (themes, tables, Prism code, mermaid art, tool rows) is buil
 - **Image previews everywhere.** Real pixels where kitty graphics draw (kitty, Ghostty); quadrant-block cell art elsewhere (Windows Terminal, Orca, VS Code), plus an "original" button that opens the system viewer.
 - **Windows.** The paste cache under `%TEMP%\claude`, Windows paths and viewers.
 - **CJK.** Tables and mermaid boxes measure full-width characters as two columns; zh-TW buttons, toasts and help.
-- **Guards.** While agents work, tree-rewriting git and `git add -A` in the main tree are refused; junctions or symlinks to node_modules always are. Optionally, model-less Agent calls get a set model and a Workflow must quote you.
+- **Client feedback inbox** (optional, off by default): a pasted chat log with timestamped lines becomes numbered items per repository; a new complaint that resembles an item marked fixed is flagged as a likely regression, to you and to Claude. `/tessera inbox` lists them.
+- **Guards.** While agents work, tree-rewriting git and `git add -A` in the main tree are refused; junctions or symlinks to node_modules always are, and so is a recursive delete whose target holds a junction or symlink. Optionally, model-less Agent calls get a set model and a Workflow must quote you.
 - **Every terminal.** Real pixels in kitty and Ghostty (not inside tmux or screen), cell art elsewhere; the original opens with explorer, open, xdg-open or, under WSL, through `\\wsl.localhost`. Workflow progress and finish alerts stay with Claude Code's own tasks list, `/workflows` and notification settings.
 
 ```sh

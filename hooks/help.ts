@@ -108,6 +108,7 @@ export const helpText = (themes: readonly string[]): string => `
 | \`/tessera copy\` | Copy the last reply, or \`copy code\` for its last code block |
 | \`/tessera demo\` | Full showcase, every element and diagram |
 | \`/tessera demo-rtl\` | Hebrew right-to-left showcase |
+| \`/tessera inbox\` | Client feedback inbox (turn on feedbackInbox in /config); \`inbox fixed 3 5\` marks items fixed |
 
 ### ${themes.length} themes
 

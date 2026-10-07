@@ -18,13 +18,20 @@ test('a non-PNG is null', () => {
   expect(decodePng(new Uint8Array([1, 2, 3]))).toBe(null)
 })
 
-test('a thumbnail packs two pixels per cell with the upper-half block', () => {
+test('each cell picks the quadrant glyph and two colors that split its samples best', () => {
   const thumb = thumbnail(decodePng(Uint8Array.fromBase64(FIXTURE))!, 24, 8)
   expect(thumb.columns).toBe(4)
   expect(thumb.rows).toBe(1)
   const words = new Uint32Array(Uint8Array.fromBase64(thumb.cells).buffer)
   expect([...words.subarray(0, 3)]).toEqual([0x2580, 0xff0000, 0x0a141e])
-  expect(words[10]).toBe(0x01000000)
+  expect([...words.subarray(9, 12)]).toEqual([0x20, 0x01000000, 0x646e78])
+})
+
+test('a vertical edge inside one cell becomes a left-half block', () => {
+  const rgba = new Uint8Array([255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255])
+  const thumb = thumbnail({ width: 2, height: 2, rgba }, 1, 1)
+  const words = new Uint32Array(Uint8Array.fromBase64(thumb.cells).buffer)
+  expect([...words]).toEqual([0x258c, 0xffffff, 0x000000])
 })
 
 test('a big image fits the cell box and keeps its aspect', () => {

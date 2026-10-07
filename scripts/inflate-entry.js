@@ -1,1 +1,1 @@
-export { unzlibSync } from 'fflate'
+export { inflateSync, unzlibSync } from 'fflate'

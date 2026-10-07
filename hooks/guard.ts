@@ -1,7 +1,7 @@
 export type Risk = 'tree-rewrite' | 'stage-all' | 'link-node-modules'
 
 // One shell command line split at ;, &&, || and | so each git call is judged on its own.
-const pieces = (command: string) => command.split(/;|&&|\|\||\||\n/).map(p => p.trim())
+const pieces = (command: string) => command.split(/;|&&|&|\|\||\||\n/).map(p => p.trim())
 
 const GIT = /^(?:git|git\.exe)\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(\S+)(.*)$/i
 

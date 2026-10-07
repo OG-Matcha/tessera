@@ -13,7 +13,21 @@
 | 貼圖預覽 | 支援 kitty 圖片協定的終端機（kitty、Ghostty）顯示原圖；其他終端機（Windows Terminal、Orca、VS Code）改用色塊縮圖，不會只剩 `[Image #1]`。「原圖」按鈕用系統檢視器開全解析度 |
 | Windows | 貼圖快取在 `%TEMP%\claude`，路徑、開檔都照 Windows 的方式處理 |
 | 中文 | 表格與 mermaid 節點都以全形寬度計算，框線不跑版；按鈕、提示、`/tessera` 說明有繁體中文 |
-| Workflow 指揮台 | 開發中：跑前守門、跑中進度、跑後摘要 |
+| 守門 | 有 agent 在跑時，擋下主樹的 checkout/stash/reset 與 `git add -A`；永遠擋下把 node_modules 用 junction/symlink 連出去；可設定 Agent 預設模型、要求 Workflow 腳本引用你的原話 |
+
+## 相容性
+
+| 環境 | 貼圖預覽 | 「原圖」按鈕 |
+|---|---|---|
+| kitty、Ghostty | 原圖（kitty 圖片協定） | 系統檢視器 |
+| Windows Terminal、Orca、VS Code、iTerm2、Apple Terminal、SSH | 色塊縮圖 | Windows：explorer；macOS：open；Linux：xdg-open |
+| tmux、screen 裡（任何終端機） | 色塊縮圖（多工器會擋圖片協定） | 同上 |
+| WSL | 色塊縮圖 | 透過 `\\wsl.localhost` 用 Windows 檢視器開 |
+| Claude Code 桌面版 | 桌面版本來就會顯示貼圖，tessera 不重畫 | — |
+
+偵測不準時，到 `/config` 把 `imageMode` 設成 `pixels` 或 `cells`。
+
+Workflow 的進度看 Claude Code 內建的工作清單或 `/workflows`；跑完想收到提醒，用 `/config` 裡內建的通知設定。tessera 不重做這些。
 
 ## 安裝
 
@@ -49,7 +63,8 @@ The reply rendering (themes, tables, Prism code, mermaid art, tool rows) is buil
 - **Image previews everywhere.** Real pixels where kitty graphics draw (kitty, Ghostty); quadrant-block cell art elsewhere (Windows Terminal, Orca, VS Code), plus an "original" button that opens the system viewer.
 - **Windows.** The paste cache under `%TEMP%\claude`, Windows paths and viewers.
 - **CJK.** Tables and mermaid boxes measure full-width characters as two columns; zh-TW buttons, toasts and help.
-- **Workflow desk** (in progress): guards before a run, progress during it, a digest after it.
+- **Guards.** While agents work, tree-rewriting git and `git add -A` in the main tree are refused; junctions or symlinks to node_modules always are. Optionally, model-less Agent calls get a set model and a Workflow must quote you.
+- **Every terminal.** Real pixels in kitty and Ghostty (not inside tmux or screen), cell art elsewhere; the original opens with explorer, open, xdg-open or, under WSL, through `\\wsl.localhost`. Workflow progress and finish alerts stay with Claude Code's own tasks list, `/workflows` and notification settings.
 
 ```sh
 claude plugin marketplace add OG-Matcha/tessera

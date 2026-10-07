@@ -53,3 +53,8 @@ test('a script with agent() calls must name a model', () => {
   expect(scriptNamesModel("await agent('x', { model: 'opus' })")).toBe(true)
   expect(scriptNamesModel('return 1')).toBe(true)
 })
+
+test('cmd chains with a single & are split too', () => {
+  expect(shellRisks('cd /d I:/repo & git stash')).toEqual(['tree-rewrite'])
+  expect(shellRisks('npm test 2>&1 | tail')).toEqual([])
+})

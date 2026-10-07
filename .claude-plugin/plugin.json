@@ -337,10 +337,11 @@
     "agentModel": {
       "type": "string",
       "title": "Model for agents",
-      "description": "Agent calls that name no model get this one, and a Workflow whose agent() calls name no model is refused. off leaves models alone.",
+      "description": "Agents that name no model run on the session's model. choose: refuse those calls and ask for a model picked for the task. opus, sonnet, haiku or fable: fill that model in. off: leave models alone.",
       "default": "off",
       "options": [
         "off",
+        "choose",
         "opus",
         "sonnet",
         "haiku",

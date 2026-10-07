@@ -46,3 +46,19 @@ test('a Workflow whose agents name no model is refused when a model is configure
   const result = await $.tool.call({ tool: 'Workflow', script: "await agent('x', { label: 'a' })" })
   expect(result.deny).toContain("model: 'opus'")
 })
+
+test('choose refuses a model-less Agent call and passes one that picked a model', { options: { agentModel: 'choose' } }, async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'Agent' }, () => ({ result: 'done' }) as never)
+  const bare = await $.tool.call({ tool: 'Agent', description: 'a', prompt: 'b' })
+  expect(bare.deny).toContain('haiku for quick mechanical work')
+  const picked = await $.tool.call({ tool: 'Agent', description: 'a', prompt: 'b', model: 'sonnet' })
+  expect(picked.deny).toBe(undefined)
+})
+
+test('choose refuses a Workflow whose agents name no model', { options: { agentModel: 'choose' } }, async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'Workflow' }, () => ({ result: 'started' }) as never)
+  const result = await $.tool.call({ tool: 'Workflow', script: "await agent('x', { label: 'a' })" })
+  expect(result.deny).toContain('the model its task needs')
+})

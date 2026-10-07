@@ -92,7 +92,7 @@ No network requests. It reads Claude Code's paste cache, Workflow scripts when o
 
 **Does it slow Claude Code down?** A feature that is off registers no hooks and no timers. Paste previews check the prompt box four times a second while on.
 
-**Does it add tokens?** Short notes ride with your prompts: the diagram hint (about 150 tokens) and, when your words are not English, a one-line language note. Both are switchable.
+**Does it add tokens?** About 250 for the diagram hint and, when your words are not English, about 65 for the language note. Each is sent once per context, not with every prompt, and again only after a compaction drops it or your language changes. Both are switchable.
 
 **Why not just install prismantis and cc-mod-image-view?** You can, if you use macOS or Linux and a kitty-graphics terminal. tessera exists for everything else: Windows, CJK, terminals without image protocols, and long agent runs.
 

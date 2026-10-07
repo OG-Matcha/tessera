@@ -50,6 +50,9 @@ let lang: Lang = 'en'
 // False while no setting or locale chose Chinese, so a prompt written in Chinese may still switch to it.
 let langSettled = false
 let voice: Voice | undefined
+// Notes stay in the transcript once sent, so each goes once per context: again only after a compaction drops it.
+let hintSent = false
+let notedVoice: Voice | undefined
 let matchReplyLanguage = true
 const t = () => STRINGS[lang]
 
@@ -475,6 +478,8 @@ export const register: Register = (on, options) => {
   langSettled = options.language === 'en' || options.language === 'zh-TW'
   matchReplyLanguage = options.replyLanguage !== 'off'
   voice = undefined
+  hintSent = false
+  notedVoice = undefined
   imageMode = typeof options.imageMode === 'string' ? options.imageMode : 'auto'
   thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
 
@@ -528,6 +533,13 @@ export const register: Register = (on, options) => {
     return { result: { content: [{ type: 'text', text }], isError: false } } as never
   })
 
+  on('session.compact', async (_, e, next) => {
+    const done = await next(e)
+    hintSent = false
+    notedVoice = undefined
+    return done
+  })
+
   on('prompt.autocomplete', async (_, e, next) => {
     const rows = completions(e.text, e.start, e.token, PRESET_NAMES, lang)
     if (rows.length === 0) return next(e)
@@ -545,11 +557,15 @@ export const register: Register = (on, options) => {
         lang = 'zh-TW'
         langSettled = true
       }
-      if (matchReplyLanguage && voice !== undefined && voice !== 'en') context.push(replyNote(voice))
+      if (matchReplyLanguage && voice !== undefined && voice !== 'en' && voice !== notedVoice) context.push(replyNote(voice))
+      if (voice !== undefined) notedVoice = voice
     }
     if (isDrawing) {
       await applyRtl($, style)
-      if (style.diagramHints && own) context.push(HINT)
+      if (style.diagramHints && own && !hintSent) {
+        context.push(HINT)
+        hintSent = true
+      }
     }
     if (inboxOn && own) {
       const note = await fileFeedback($, e.text)

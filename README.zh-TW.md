@@ -92,7 +92,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 **會拖慢 Claude Code 嗎？** 關掉的功能不登記任何 hook 和計時器。貼上預覽開啟時，每秒檢查輸入框四次。
 
-**會多用 token 嗎？** 會附上簡短的說明：圖表提示約 150 tokens；你打的字不是英文時，再多一行語言說明。兩者都能關。
+**會多用 token 嗎？** 圖表提示約 250 tokens；你打的字不是英文時，語言說明約 65 tokens。兩者都是每段 context 只送一次，不會每則 prompt 都送；只有 compaction 把它們清掉、或你換了語言時才會再送。兩者都能關。
 
 **為什麼不直接裝 prismantis 和 cc-mod-image-view？** 如果你用 macOS 或 Linux，而且終端機支援 kitty 圖片，可以。tessera 是為其他情況而做的：Windows、中日韓文字、沒有圖片協定的終端機，以及長時間的 agent 執行。
 

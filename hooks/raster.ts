@@ -11,9 +11,7 @@ const QUADRANT = [SPACE, 0x2598, 0x259d, 0x2580, 0x2596, 0x258c, 0x259e, 0x259b]
 // image is laid on a columns x rows*2 grid of square pixels, then sampled at twice that in each
 // direction: every cell picks the quadrant glyph and two colors that best split its 2x2 samples.
 export function thumbnail(img: Rgba, maxColumns: number, maxRows: number): Thumb {
-  const scale = Math.min(maxColumns / img.width, (maxRows * 2) / img.height, 1)
-  const columns = Math.max(1, Math.round(img.width * scale))
-  const rows = Math.max(1, Math.round((img.height * scale) / 2))
+  const { columns, rows } = fitCells(img.width, img.height, maxColumns, maxRows)
   const pixel = sampler(img, columns * 2, rows * 2)
   const words = new Uint32Array(columns * rows * 3)
   for (let y = 0; y < rows; y++) {
@@ -25,7 +23,13 @@ export function thumbnail(img: Rgba, maxColumns: number, maxRows: number): Thumb
   return { columns, rows, cells: new Uint8Array(words.buffer).toBase64() }
 }
 
-type Rgb = [number, number, number] | null
+// The cell box a width x height picture fills inside maxColumns x maxRows, a cell being about twice as tall as wide.
+export function fitCells(width: number, height: number, maxColumns: number, maxRows: number): { columns: number; rows: number } {
+  const scale = Math.min(maxColumns / width, (maxRows * 2) / height, 1)
+  return { columns: Math.max(1, Math.round(width * scale)), rows: Math.max(1, Math.round((height * scale) / 2)) }
+}
+
+type Rgb =[number, number, number] | null
 
 function cell(quad: Rgb[]): [number, number, number] {
   const seen = quad.filter((p): p is [number, number, number] => p !== null)

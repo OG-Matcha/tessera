@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { decodePng } from '../hooks/png'
-import { thumbnail } from '../hooks/raster'
+import { fitCells, thumbnail } from '../hooks/raster'
 
 // 4x2 RGBA: row 0 red, green, blue, transparent (Sub filter); row 1 four greys (Up filter)
 const FIXTURE = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAAJklEQVR4nGP8z8Dwn/E/AwMDhGBk4haRY9AwtmFwC4hmSMmr+A8Ah4IIErQVpFYAAAAASUVORK5CYII='
@@ -39,4 +39,10 @@ test('a big image fits the cell box and keeps its aspect', () => {
   const thumb = thumbnail({ width: 400, height: 200, rgba }, 24, 8)
   expect(thumb.columns).toBe(24)
   expect(thumb.rows).toBe(6)
+})
+
+test('fitCells keeps the aspect in a box of cells twice as tall as wide', () => {
+  expect(fitCells(1600, 900, 40, 12)).toEqual({ columns: 40, rows: 11 })
+  expect(fitCells(900, 1600, 40, 12)).toEqual({ columns: 14, rows: 12 })
+  expect(fitCells(10, 10, 40, 12)).toEqual({ columns: 10, rows: 5 })
 })

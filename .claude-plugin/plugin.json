@@ -28,6 +28,28 @@
       "description": "Draw replies with this mod. Off falls back to Claude Code's own renderer.",
       "default": true
     },
+    "imageMode": {
+      "type": "string",
+      "title": "Image previews",
+      "description": "How pasted images preview above the prompt. auto: real pixels in terminals with kitty graphics (kitty, Ghostty), cell art everywhere else. pixels: always real pixels. cells: always cell art.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "pixels",
+        "cells"
+      ]
+    },
+    "thumbnailSize": {
+      "type": "string",
+      "title": "Preview size",
+      "description": "Largest preview box: small (28x8 cells), medium (40x12), large (64x20).",
+      "default": "medium",
+      "options": [
+        "small",
+        "medium",
+        "large"
+      ]
+    },
     "theme": {
       "type": "string",
       "title": "Theme",

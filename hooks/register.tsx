@@ -1,10 +1,10 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Register, RenderElement } from 'claude-code'
 
-import type { DraftImage } from '../types'
-import { decodePng } from './png'
+import type { DraftImage, ImageView } from '../types'
 import type { Rgba } from './png'
-import { thumbnail } from './raster'
+import { decodePng, pngSize } from './png'
+import { fitCells, thumbnail } from './raster'
 
 import { parse } from './markdown'
 import { boxArt, mermaidText } from './mermaid'
@@ -20,8 +20,11 @@ import { TERMINALS, hasRtl } from './rtl'
 const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] as DraftImage[])
 
 const POLL_MS = 250
-const THUMB_COLUMNS = 40
-const THUMB_ROWS = 12
+const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: [40, 12], large: [64, 20] }
+
+let thumbBox: [number, number] = [40, 12]
+let imageMode = 'auto'
+let usePixels = false
 
 let tmpRoot: string | undefined
 let imagesDir: { sessionId: string; dir: string } | undefined
@@ -66,6 +69,26 @@ async function pixelsOf($: EngineInterface, path: string): Promise<Rgba | null> 
   return pixels.get(path) ?? null
 }
 
+// Terminals that draw Image as real pixels (kitty graphics with Unicode placeholders); the rest get cell art.
+async function detectPixels($: EngineInterface): Promise<boolean> {
+  if (imageMode !== 'auto') return imageMode === 'pixels'
+  if ((await $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES')) === '1') return true
+  const term = await $.env.get('TERM')
+  const program = await $.env.get('TERM_PROGRAM')
+  return term === 'xterm-kitty' || term === 'xterm-ghostty' || program === 'ghostty' || (await $.env.get('KITTY_WINDOW_ID')) !== undefined
+}
+
+async function viewOf($: EngineInterface, path: string): Promise<ImageView | null> {
+  const [maxColumns, maxRows] = thumbBox
+  if (usePixels) {
+    const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
+    const size = file === undefined ? null : pngSize(Uint8Array.fromBase64(file.base64))
+    return { kind: 'pixels', ...fitCells(size?.width ?? 16, size?.height ?? 9, maxColumns, maxRows) }
+  }
+  const img = await pixelsOf($, path)
+  return img === null ? null : { kind: 'cells', ...thumbnail(img, maxColumns, maxRows) }
+}
+
 async function check($: EngineInterface) {
   if (isChecking) return
   isChecking = true
@@ -80,8 +103,7 @@ async function check($: EngineInterface) {
       for (const n of numbers) {
         const path = `${dir}/${n}.png`
         if (!(await $.fs.exists(path))) continue
-        const img = await pixelsOf($, path)
-        list.push({ n, path, thumb: img === null ? null : thumbnail(img, THUMB_COLUMNS, THUMB_ROWS) })
+        list.push({ n, path, view: await viewOf($, path) })
       }
     }
     shownKey = list.length === numbers.length ? key : ''
@@ -103,15 +125,17 @@ function registerImages(on: On) {
     if (e.surface !== 'terminal' || e.props.hasSurvey) return next(e)
     const list = await read($, draftImages)
     if (list.length === 0) return next(e)
-    const { Box, Text, Raster, Button } = $.ui.resolve(e)
+    const { Box, Text, Raster, Image, Button } = $.ui.resolve(e)
     return (
       <Box flexDirection="row" gap={2}>
         {list.map(img => (
           <Box key={`img-${img.n}`} flexDirection="column" alignItems="center">
-            {img.thumb === null ? (
+            {img.view === null ? (
               <Text dimColor>（無法預覽）</Text>
+            ) : img.view.kind === 'pixels' ? (
+              <Image key={`image-${img.n}`} source={{ file: img.path, format: 'png' }} columns={img.view.columns} rows={img.view.rows} alt={`[Image #${img.n}]`} />
             ) : (
-              <Raster key={`raster-${img.n}`} columns={img.thumb.columns} rows={img.thumb.rows} cells={img.thumb.cells} />
+              <Raster key={`raster-${img.n}`} columns={img.view.columns} rows={img.view.rows} cells={img.view.cells} />
             )}
             <Box flexDirection="row" gap={1}>
               <Text dimColor>#{img.n}</Text>
@@ -191,7 +215,11 @@ export const register: Register = (on, options) => {
   const isDrawing = options.enabled !== false
   const style = resolveStyle(options)
 
+  imageMode = typeof options.imageMode === 'string' ? options.imageMode : 'auto'
+  thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
+
   on('session.start', async ($, e, next) => {
+    usePixels = await detectPixels($)
     $.clock.every(POLL_MS, () => void check($))
     if (!isDrawing) return next(e)
     await applyRtl($, style)

@@ -62,3 +62,22 @@ test('choose refuses a Workflow whose agents name no model', { options: { agentM
   const result = await $.tool.call({ tool: 'Workflow', script: "await agent('x', { label: 'a' })" })
   expect(result.deny).toContain('the model its task needs')
 })
+
+test('a recursive delete whose target holds a junction is refused', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('fs.stat', (_, e) => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: e.path.endsWith('/link') } }) as never)
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '/w/wt-a/node_modules\n', stderr: '' } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const result = await $.tool.call({ tool: 'Bash', command: 'git worktree remove --force wt-a' })
+  expect(result.deny).toContain('wt-a is or holds a junction')
+})
+
+test('a recursive delete with no link inside goes through', async ($, on) => {
+  on('session.cwd', () => ({ value: '/w' }))
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const result = await $.tool.call({ tool: 'Bash', command: 'rm -rf dist' })
+  expect(result.deny).toBe(undefined)
+})

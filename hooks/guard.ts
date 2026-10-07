@@ -54,3 +54,23 @@ export function quotesUser(script: string, userPrompts: string[]): boolean {
 
 // A Workflow script whose agent() calls name no model runs them all on the session's model.
 export const scriptNamesModel = (script: string) => !/\bagent\s*\(/.test(script) || /\bmodel\s*:/.test(script)
+
+// Splits one command into words, keeping quoted runs whole and dropping the quotes.
+const words = (piece: string) => [...piece.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3] ?? '')
+
+// The paths a command deletes recursively: rm -r, Remove-Item -Recurse, rmdir /s, rd /s and git worktree remove.
+export function recursiveDeletes(command: string): string[] {
+  const targets: string[] = []
+  for (const piece of pieces(command)) {
+    let [verb = '', ...args] = words(piece)
+    if (/^cmd(\.exe)?$/i.test(verb) && /^\/c$/i.test(args[0] ?? '')) [verb = '', ...args] = args.slice(1)
+    const name = verb.toLowerCase().replace(/\.exe$/, '')
+    const plain = args.filter(a => !a.startsWith('-') && !/^\/[a-z]$/i.test(a))
+    if (name === 'rm' && args.some(a => /^-\w*r/i.test(a) || a === '--recursive' || /^-Recurse$/i.test(a))) targets.push(...plain)
+    else if ((name === 'remove-item' || name === 'ri' || name === 'rd' || name === 'rmdir' || name === 'del') && args.some(a => /^-Recurse$/i.test(a) || /^\/s$/i.test(a))) {
+      const named = args.findIndex(a => /^-(Literal)?Path$/i.test(a))
+      targets.push(...(named >= 0 && args[named + 1] ? [args[named + 1] as string] : plain))
+    } else if (name === 'git' && args[0] === 'worktree' && args[1] === 'remove') targets.push(...plain.slice(2))
+  }
+  return targets.filter(t => t !== '' && !/[$*?`]/.test(t))
+}

@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, quotesUser, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('commands that rewrite the shared tree are flagged', () => {
   for (const c of [
@@ -57,4 +57,20 @@ test('a script with agent() calls must name a model', () => {
 test('cmd chains with a single & are split too', () => {
   expect(shellRisks('cd /d I:/repo & git stash')).toEqual(['tree-rewrite'])
   expect(shellRisks('npm test 2>&1 | tail')).toEqual([])
+})
+
+test('recursive deletes name their targets in sh, PowerShell, cmd and git', () => {
+  expect(recursiveDeletes('rm -rf ../wt/a "b c"')).toEqual(['../wt/a', 'b c'])
+  expect(recursiveDeletes('Remove-Item -Recurse -Force -Path C:/w/wt-a')).toEqual(['C:/w/wt-a'])
+  expect(recursiveDeletes('Remove-Item C:/w/x -Recurse')).toEqual(['C:/w/x'])
+  expect(recursiveDeletes('cmd /c rmdir /s /q I:/scratch/ab')).toEqual(['I:/scratch/ab'])
+  expect(recursiveDeletes('rm -rf /tmp/wt-a')).toEqual(['/tmp/wt-a'])
+  expect(recursiveDeletes('rmdir /s /q I:/scratch/ab')).toEqual(['I:/scratch/ab'])
+  expect(recursiveDeletes('git worktree remove --force ../wt-a && echo ok')).toEqual(['../wt-a'])
+})
+
+test('plain deletes, globs and variables are not judged', () => {
+  expect(recursiveDeletes('rm a.txt')).toEqual([])
+  expect(recursiveDeletes('Remove-Item a.txt')).toEqual([])
+  expect(recursiveDeletes('rm -rf $TMP/x dist/*')).toEqual([])
 })

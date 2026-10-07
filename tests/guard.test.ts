@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('commands that rewrite the shared tree are flagged', () => {
   for (const c of [
@@ -73,4 +73,17 @@ test('plain deletes, globs and variables are not judged', () => {
   expect(recursiveDeletes('rm a.txt')).toEqual([])
   expect(recursiveDeletes('Remove-Item a.txt')).toEqual([])
   expect(recursiveDeletes('rm -rf $TMP/x dist/*')).toEqual([])
+})
+
+test('CJK written as \\u escapes in prompt-like parameters is caught', () => {
+  expect(misEscapedCjk('AskUserQuestion', { questions: [{ question: '\\uD55C\\uAD6D\\uC5B4 OK?' }] })).toBe('\\uD55C')
+  expect(misEscapedCjk('TodoWrite', { todos: [{ content: '\\u4fee\\u6b63 bug' }] })).toBe('\\u4fee')
+  expect(misEscapedCjk('TodoWrite', { todos: [{ content: '修正 bug \\u0041' }] })).toBe(undefined)
+})
+
+test('in files, only prose or text that also holds literal CJK is judged', () => {
+  expect(misEscapedCjk('Write', { file_path: 'docs/a.md', content: '\\uD55C\\uAD6D' })).toBe('\\uD55C')
+  expect(misEscapedCjk('Edit', { file_path: 'src/a.ts', old_string: 'x', new_string: "label = '한국 \\uC5B4'" })).toBe('\\uC5B4')
+  expect(misEscapedCjk('Write', { file_path: 'src/re.ts', content: 'const HAN = /[\\u4e00-\\u9fff]/' })).toBe(undefined)
+  expect(misEscapedCjk('Bash', { command: 'echo \\u4e2d' })).toBe(undefined)
 })

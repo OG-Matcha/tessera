@@ -17,7 +17,7 @@ import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToo
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
-import { commandDir, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from './guard'
+import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from './guard'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
@@ -176,6 +176,7 @@ let agentModel: AgentModel | 'choose' | undefined
 
 const PICK = 'haiku for quick mechanical work (search, renames, formatting), sonnet for routine edits, opus for hard reasoning, design or review, fable for the hardest and longest work where quality outweighs speed and cost'
 let requireUserQuote = false
+let guardCjk = true
 const mainTrees = new Map<string, boolean>()
 
 const RISK_REASONS: Record<Risk, string> = {
@@ -257,9 +258,13 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   guardGit = options.guardGit !== false
   agentModel = options.agentModel === 'choose' ? 'choose' : AGENT_MODELS.find(m => m === options.agentModel)
   requireUserQuote = options.requireUserQuote === true
+  guardCjk = options.guardCjkEscapes !== false
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
+    const escape = guardCjk ? misEscapedCjk(String(e.tool), e as unknown as Record<string, unknown>) : undefined
+    if (escape !== undefined)
+      return refuse($, 'CJK as \\u escapes', `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`)
     return next(e)
   })
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => (await judgeShell($, e.command, e.agentId)) ?? next(e)).catch(($, e, next) => next(e))

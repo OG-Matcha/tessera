@@ -74,3 +74,38 @@ export function recursiveDeletes(command: string): string[] {
   }
   return targets.filter(t => t !== '' && !/[$*?`]/.test(t))
 }
+
+// Hangul, kana, CJK ideographs and their punctuation: scripts a model should write as themselves.
+const CJK = (code: number) =>
+  (code >= 0x1100 && code <= 0x11ff) ||
+  (code >= 0x3000 && code <= 0x30ff) ||
+  (code >= 0x3130 && code <= 0x318f) ||
+  (code >= 0x3400 && code <= 0x4dbf) ||
+  (code >= 0x4e00 && code <= 0x9fff) ||
+  (code >= 0xac00 && code <= 0xd7a3) ||
+  (code >= 0xf900 && code <= 0xfaff) ||
+  (code >= 0xff00 && code <= 0xffef)
+
+const ESCAPE = /\\u([0-9a-fA-F]{4})/g
+const LITERAL_CJK = /[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]/
+
+// The first \uXXXX escape of a CJK character in a text, as written.
+export function cjkEscape(text: string): string | undefined {
+  for (const m of text.matchAll(ESCAPE)) if (CJK(parseInt(m[1] ?? '', 16))) return m[0]
+  return undefined
+}
+
+const PROSE = /\.(md|mdx|markdown|txt|rst|adoc|org)$/i
+
+// Text a tool call writes where a CJK escape is a mistake rather than code: anything in a prompt-like
+// parameter, and in files only for prose files or when the same text also holds literal CJK.
+export function misEscapedCjk(tool: string, input: Record<string, unknown>): string | undefined {
+  const texts = (v: unknown): string[] => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(texts) : v !== null && typeof v === 'object' ? Object.values(v).flatMap(texts) : [])
+  if (tool === 'Write' || tool === 'Edit' || tool === 'MultiEdit' || tool === 'NotebookEdit') {
+    const path = String(input.file_path ?? input.notebook_path ?? '')
+    const written = [input.content, input.new_string, input.new_source, ...(Array.isArray(input.edits) ? input.edits.map(e => (e as { new_string?: unknown }).new_string) : [])].flatMap(texts)
+    return written.map(t => (PROSE.test(path) || LITERAL_CJK.test(t) ? cjkEscape(t) : undefined)).find(Boolean)
+  }
+  if (tool === 'AskUserQuestion' || tool === 'TodoWrite' || tool === 'TaskCreate' || tool === 'TaskUpdate') return texts(input).map(cjkEscape).find(Boolean)
+  return undefined
+}

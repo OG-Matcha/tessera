@@ -6,7 +6,7 @@ import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
 import type { Env } from './platform'
-import { drawsPixels, openers, pasteRoot } from './platform'
+import { drawsPixels, openers, pasteRoot, platformOf } from './platform'
 
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
@@ -15,7 +15,7 @@ import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToo
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
-import { commandDir, quotesUser, scriptNamesModel, shellRisks } from './guard'
+import { commandDir, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from './guard'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { PRESET_NAMES } from './presets'
@@ -179,10 +179,32 @@ const RISK_REASONS: Record<Risk, string> = {
   'link-node-modules': 'a junction or symlink to node_modules lets a recursive delete (git worktree remove, rm -rf) follow it into the main repo. Run the install inside the worktree instead',
 }
 
-async function isMainTree($: EngineInterface, command: string): Promise<boolean> {
+const isAbsolute = (path: string) => /^([a-z]:)?[\\/]/i.test(path)
+
+// A path as the command would see it: absolute as given, else under the command's cd / git -C, else the session's directory.
+async function resolveIn($: EngineInterface, command: string, path?: string): Promise<string> {
   const cwd = await $.session.cwd()
   const named = commandDir(command)
-  const dir = named === undefined ? cwd : /^([a-z]:)?[\\/]/i.test(named) ? named : `${cwd}/${named}`
+  const dir = named === undefined ? cwd : isAbsolute(named) ? named : `${cwd}/${named}`
+  return path === undefined ? dir : isAbsolute(path) ? path : `${dir}/${path}`
+}
+
+// Whether a path is, or holds, a junction or symlink that a recursive delete would follow; false when unknown.
+async function holdsLink($: EngineInterface, path: string): Promise<boolean> {
+  const stat = await $.fs.stat(path).catch(() => undefined)
+  if (stat === undefined) return false
+  if (stat.isLink) return true
+  if (stat.kind !== 'dir') return false
+  const argv =
+    platformOf(env) === 'windows'
+      ? ['cmd', '/c', 'dir', '/AL', '/S', '/B', path.replace(/\//g, '\\')]
+      : ['find', path, '-maxdepth', '8', '-type', 'l', '-print', '-quit']
+  const run = await $.process.run(argv, { timeoutMs: 8_000 }).catch(() => undefined)
+  return run?.exitCode === 0 && run.stdout.trim() !== ''
+}
+
+async function isMainTree($: EngineInterface, command: string): Promise<boolean> {
+  const dir = await resolveIn($, command)
   if (!mainTrees.has(dir)) {
     const run = await $.process.run(['git', '-C', dir, 'rev-parse', '--git-dir', '--git-common-dir'], { timeoutMs: 5_000 }).catch(() => undefined)
     const [gitDir, commonDir] = (run?.stdout ?? '').trim().split(/\r?\n/)
@@ -200,6 +222,10 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   if (!guardGit) return undefined
   const risks = shellRisks(command)
   if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
+  for (const target of recursiveDeletes(command)) {
+    if (await holdsLink($, await resolveIn($, command, target)))
+      return refuse($, 'delete through a link', `it deletes ${target} recursively and ${target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
+  }
   const shared = risks.filter(r => r !== 'link-node-modules')
   if (shared.length === 0) return undefined
   const agentsRunning = agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS

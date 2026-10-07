@@ -25,8 +25,18 @@ export function drawsPixels(mode: string, env: Env): boolean {
   return env.TERM === 'xterm-kitty' || env.TERM === 'xterm-ghostty' || env.TERM_PROGRAM === 'ghostty' || env.KITTY_WINDOW_ID !== undefined
 }
 
+const fileUrl = (path: string) => `file:///${encodeURI(path.replace(/\\/g, '/').replace(/^\//, ''))}`
+
+// Commands to try in order: a tab inside the app hosting the terminal (Orca, VS Code), then the system viewer.
+export function openers(env: Env, path: string): string[][] {
+  const host: string[][] = []
+  if (env.TERM_PROGRAM === 'Orca') host.push(['orca', 'tab', 'create', '--url', fileUrl(path)])
+  if (env.TERM_PROGRAM === 'vscode') host.push(platformOf(env) === 'windows' ? ['cmd', '/c', 'code', '--reuse-window', path] : ['code', '--reuse-window', path])
+  return [...host, opener(env, path)]
+}
+
 // The command that opens a file in the system's picture viewer.
-export function opener(env: Env, path: string): string[] {
+function opener(env: Env, path: string): string[] {
   switch (platformOf(env)) {
     case 'windows':
       return ['explorer.exe', path.replace(/\//g, '\\')]

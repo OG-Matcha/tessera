@@ -6,7 +6,7 @@ import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
 import type { Env } from './platform'
-import { drawsPixels, opener, pasteRoot } from './platform'
+import { drawsPixels, openers, pasteRoot } from './platform'
 
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
@@ -126,7 +126,10 @@ async function check($: EngineInterface) {
 }
 
 async function openOriginal($: EngineInterface, path: string) {
-  await $.process.run(opener(env, path), { timeoutMs: 5_000 }).catch(() => undefined)
+  for (const argv of openers(env, path)) {
+    const run = await $.process.run(argv, { timeoutMs: 5_000 }).catch(() => undefined)
+    if (run?.exitCode === 0) return
+  }
 }
 
 function registerImages(on: On) {

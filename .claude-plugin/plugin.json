@@ -28,6 +28,17 @@
       "description": "Draw replies with this mod. Off falls back to Claude Code's own renderer.",
       "default": true
     },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of tessera's own words (buttons, toasts, /tessera). auto follows Claude Code's language setting, then LC_ALL / LANG, then the system locale; any Chinese reads Traditional Chinese.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "en",
+        "zh-TW"
+      ]
+    },
     "imageMode": {
       "type": "string",
       "title": "Image previews",

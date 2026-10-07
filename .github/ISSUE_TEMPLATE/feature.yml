@@ -1,0 +1,21 @@
+name: Feature request / 功能建議
+description: A problem tessera could solve
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What goes wrong or takes too long today, and how often. Link the Claude Code issue if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What tessera could do
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: It changes an outcome (prevents a loss, saves time or tokens), not only what is displayed

@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        claude: [latest]
+        include:
+          - os: windows-latest
+            claude: 2.1.287
+    name: test (${{ matrix.os }}, claude ${{ matrix.claude }})
+    runs-on: ${{ matrix.os }}
+    env:
+      DISABLE_AUTOUPDATER: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code@${{ matrix.claude }}
+      - run: claude plugin validate .
+      - run: claude plugin test .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code@latest
+      - name: Lay the mod API types
+        run: claude --plugin-dir . -p hi || test -d .claude-plugin/types/claude-code
+      - run: npx --yes -p typescript@5 tsc -p .
+
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: scripts
+      - name: The vendored inflate rebuilds byte for byte
+        run: |
+          cd scripts
+          npx esbuild inflate-entry.js --bundle --format=esm --minify --outfile=../hooks/vendor/inflate.js
+          git diff --exit-code ../hooks/vendor/inflate.js
+
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versions agree
+        run: |
+          v=$(jq -r .version .claude-plugin/plugin.json)
+          m=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          c=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')
+          echo "plugin=$v marketplace=$m changelog=$c"
+          test "$v" = "$m" && test "$v" = "$c"
+
+  install:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code@latest
+      - name: Installs from a clean config
+        shell: bash
+        env:
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude
+        run: |
+          claude plugin marketplace add ./
+          claude plugin install tessera@tessera
+          claude plugin list | grep -A3 tessera | grep -q enabled

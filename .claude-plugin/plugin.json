@@ -1,6 +1,6 @@
 {
   "name": "tessera",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One mod for Claude Code on Windows and zh-Hant: pasted-image previews in any truecolor terminal, themed replies, and a desk for long Workflow runs",
   "author": {
     "name": "OG-Matcha",

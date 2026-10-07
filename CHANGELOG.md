@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-08
+
 ### Fixed
 
 - Chinese, Japanese and Korean category labels on mermaid bar and line charts sit under their bars instead of drifting right.
@@ -26,5 +28,6 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/OG-Matcha/tessera/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/OG-Matcha/tessera/releases/tag/v0.1.0

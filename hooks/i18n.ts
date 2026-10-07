@@ -14,6 +14,11 @@ const EN = {
   original: 'original',
   noPreview: '(no preview)',
   blocked: (rule: string) => `tessera blocked: ${rule}`,
+  inboxFiled: (count: number, regressed: number[]) => `Inbox: filed ${count}${regressed.length ? ` · looks like fixed ${regressed.map(n => `#${n}`).join(', ')} again` : ''}`,
+  inboxMarked: (ids: number[], commit: string) => `Marked ${ids.map(n => `#${n}`).join(', ') || 'nothing'} fixed in ${commit}.`,
+  inboxEmpty: 'The inbox is empty. Paste a chat log with timestamped lines (22:55 Name message) to fill it.',
+  inboxOff: 'The feedback inbox is off. Turn on feedbackInbox in /config.',
+  drawingOff: 'tessera drawing is off (enabled in /config).',
 }
 
 const ZH: typeof EN = {
@@ -30,6 +35,11 @@ const ZH: typeof EN = {
   original: '原圖',
   noPreview: '（無法預覽）',
   blocked: rule => `tessera 已攔下：${rule}`,
+  inboxFiled: (count, regressed) => `收件匣：新增 ${count} 則${regressed.length ? ` · 疑似 ${regressed.map(n => `#${n}`).join('、')} 又壞了` : ''}`,
+  inboxMarked: (ids, commit) => `已將 ${ids.map(n => `#${n}`).join('、') || '（無）'} 標為已修（${commit}）。`,
+  inboxEmpty: '收件匣是空的。貼上帶時間的聊天紀錄（22:55 名字 訊息）就會建立項目。',
+  inboxOff: '回饋收件匣沒有開啟，請到 /config 打開 feedbackInbox。',
+  drawingOff: 'tessera 的畫面美化已關閉（/config 的 enabled）。',
 }
 
 export type Strings = typeof EN

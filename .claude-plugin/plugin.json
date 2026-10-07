@@ -353,6 +353,12 @@
       "title": "Workflows quote you",
       "description": "Refuse a Workflow whose script carries none of your own words verbatim, so its agents keep your standing instruction even after a later status question.",
       "default": false
+    },
+    "feedbackInbox": {
+      "type": "boolean",
+      "title": "Client feedback inbox",
+      "description": "Off by default. When on, a pasted chat log with timestamped lines (22:55 Name message) is filed as numbered items per repository; a new complaint that resembles an item marked fixed is flagged as a likely regression, to you and to Claude. /tessera inbox lists them.",
+      "default": false
     }
   }
 }

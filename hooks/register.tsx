@@ -7,6 +7,8 @@ import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
 import type { Env } from './platform'
 import { drawsPixels, openers, pasteRoot, platformOf } from './platform'
+import type { InboxItem } from './inbox'
+import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
@@ -267,6 +269,35 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch(($, e, next) => next(e))
 }
 
+// The optional client-feedback inbox: pasted chat logs become numbered items per repository, kept across sessions.
+let inboxOn = false
+
+async function inboxKey($: EngineInterface): Promise<string> {
+  return `inbox:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
+}
+
+async function readInbox($: EngineInterface, key: string): Promise<InboxItem[]> {
+  const stored = await $.store.get(key).catch(() => undefined)
+  return Array.isArray(stored) ? (stored as InboxItem[]) : []
+}
+
+async function fileFeedback($: EngineInterface, text: string): Promise<string | undefined> {
+  const lines = parseChat(text)
+  if (lines.length === 0) return undefined
+  const key = await inboxKey($)
+  const result = intake(await readInbox($, key), lines)
+  if (result.added.length === 0) return undefined
+  await $.store.set(key, result.items)
+  $.ui.toast(t().inboxFiled(result.added.length, result.regressions.map(r => r.like.id)))
+  return intakeNote(result)
+}
+
+async function markInbox($: EngineInterface, ids: number[], commit: string): Promise<string> {
+  const key = await inboxKey($)
+  await $.store.set(key, markFixed(await readInbox($, key), ids, commit))
+  return t().inboxMarked(ids, commit)
+}
+
 const HINT = [
   'Replies in this session are drawn by the tessera mod, which runs inside Claude Code and is not a command or tool to call: when the user asks to show something with tessera, write it as markdown in the reply.',
   'Markdown tables, GitHub alerts (> [!WARNING], > [!NOTE]), fenced code with a language tag, and ```mermaid blocks render as colored terminal graphics:',
@@ -348,37 +379,63 @@ export const register: Register = (on, options) => {
       Intl.DateTimeFormat().resolvedOptions().locale,
     ])
     $.clock.every(POLL_MS, () => void check($))
-    if (!isDrawing) return next(e)
-    await applyRtl($, style)
+    if (isDrawing) await applyRtl($, style)
     const started = await next(e)
     await $.command
-      .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[theme <name> | copy [code] | demo]' })
+      .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[inbox [fixed <n…>] | theme <name> | copy [code] | demo]' })
       .catch(() => undefined)
+    if (inboxOn)
+      await $.tool
+        .register({
+          name: 'inbox_fixed',
+          description: "Mark client-feedback inbox items as fixed once a commit fixes them, so a later complaint like them is flagged as a regression. Pass the item numbers from tessera's inbox note and the commit hash.",
+          inputSchema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'number' } }, commit: { type: 'string' } }, required: ['ids', 'commit'] },
+        })
+        .catch(() => undefined)
     return started
   })
 
   registerImages(on)
   registerGuards(on, options)
-  if (!isDrawing) return
+  inboxOn = options.feedbackInbox === true
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)
 
-  if (options.toolRows !== false) {
-    on('ui.render', { component: 'ToolGroup' }, ($, e, next) => {
-      if (e.props.isExpanded) {
-        for (const call of e.props.calls) if (call.tool_use_id) expandedCalls.add(call.tool_use_id)
-        return next(e)
-      }
-      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns)
-    })
-    on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns)
-      return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, e.props) : next(e)
-    })
-  }
+  on('tool.call', { tool: 'mcp__tessera__inbox_fixed' }, async ($, e) => {
+    const input = e as unknown as { ids?: unknown; commit?: unknown }
+    const ids = Array.isArray(input.ids) ? input.ids.filter((n): n is number => typeof n === 'number') : []
+    const text = await markInbox($, ids, typeof input.commit === 'string' ? input.commit : '')
+    return { result: { content: [{ type: 'text', text }], isError: false } } as never
+  })
+
+  on('prompt.submit', async ($, e, next) => {
+    const own = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
+    const context = [...(e.context ?? [])]
+    if (isDrawing) {
+      await applyRtl($, style)
+      if (style.diagramHints && own) context.push(HINT)
+    }
+    if (inboxOn && own) {
+      const note = await fileFeedback($, e.text)
+      if (note !== undefined) context.push(note)
+    }
+    return context.length === (e.context ?? []).length ? next(e) : next({ ...e, context })
+  })
 
   on('command.run', { command: 'tessera' }, async ($, e) => {
-    const [sub, name] = e.args.trim().split(/\s+/)
+    const [sub, name, ...rest] = e.args.trim().split(/\s+/)
+    if (sub === 'inbox') {
+      if (!inboxOn) return { text: t().inboxOff }
+      if (name === 'fixed') {
+        const ids = rest.map(Number).filter(n => Number.isInteger(n) && n > 0)
+        const head = await $.process.run(['git', '-C', await $.session.cwd(), 'rev-parse', '--short', 'HEAD'], { timeoutMs: 5_000 }).catch(() => undefined)
+        return { text: await markInbox($, ids, head?.exitCode === 0 ? head.stdout.trim() : 'manual') }
+      }
+      return { text: listText(await readInbox($, await inboxKey($)), t().inboxEmpty) }
+    }
+    if (!isDrawing) return { text: t().drawingOff }
+
+
     if (sub === 'demo') return { text: lang === 'zh-TW' ? showcaseTextZh(PRESET_NAMES) : showcaseText(PRESET_NAMES) }
     if (sub === 'copy') {
       const reply = (await $.session.messages()).findLast(m => m.role === 'assistant' && m.text.trim())
@@ -398,13 +455,24 @@ export const register: Register = (on, options) => {
     return { text: result.deny ? `${t().themeFailed}: ${result.deny}` : t().themeSet(name) }
   })
 
+  if (!isDrawing) return
+
+  if (options.toolRows !== false) {
+    on('ui.render', { component: 'ToolGroup' }, ($, e, next) => {
+      if (e.props.isExpanded) {
+        for (const call of e.props.calls) if (call.tool_use_id) expandedCalls.add(call.tool_use_id)
+        return next(e)
+      }
+      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns)
+    })
+    on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
+      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns)
+      return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, e.props) : next(e)
+    })
+  }
+
   on('ui.render', { component: 'TurnDuration' }, ($, e) => renderTurnDuration($.ui.resolve(e), style, e.props.word, e.props.durationMs))
 
-  on('prompt.submit', async ($, e, next) => {
-    await applyRtl($, style)
-    if (!style.diagramHints || (e.origin.kind !== 'composer' && e.origin.kind !== 'bridge')) return next(e)
-    return next({ ...e, context: [...(e.context ?? []), HINT] })
-  })
 
   on('ui.render', { component: 'CommandOutput' }, ($, e, next) => {
     if (e.props.isErrored) return next(e)

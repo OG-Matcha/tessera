@@ -9,6 +9,7 @@ export const helpTextZh = (themes: readonly string[]): string => `
 | \`/tessera theme <名稱>\` | 立即切換主題 |
 | \`/tessera copy\` | 複製上一則回覆；\`copy code\` 只複製最後一個程式碼區塊 |
 | \`/tessera demo\` | 完整示範：每種元素和圖表 |
+| \`/tessera inbox\` | 客戶回饋收件匣（需在 /config 開啟 feedbackInbox）；\`inbox fixed 3 5\` 標為已修 |
 
 ### ${themes.length} 套主題
 

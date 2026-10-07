@@ -1,0 +1,25 @@
+{
+  "name": "tessera",
+  "owner": {
+    "name": "OG-Matcha",
+    "url": "https://github.com/OG-Matcha"
+  },
+  "plugins": [
+    {
+      "name": "tessera",
+      "source": "./",
+      "description": "One mod for Claude Code on Windows and zh-Hant: pasted-image previews in any terminal, themed replies, and a desk for long Workflow runs",
+      "version": "0.1.0",
+      "category": "appearance",
+      "tags": [
+        "mod",
+        "images",
+        "theme",
+        "windows",
+        "zh-tw",
+        "workflow"
+      ]
+    }
+  ],
+  "description": "tessera: one Claude Code mod for image previews, themed replies and Workflow runs, Windows and zh-Hant first."
+}

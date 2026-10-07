@@ -41,5 +41,6 @@ export const FEATURES: Feature[] = [
     about: { en: 'Agent and Workflow calls must name a model for their task', 'zh-TW': 'Agent 與 Workflow 必須依任務指定模型' },
   },
   flag('requireUserQuote', false, { en: 'Workflows quote you', 'zh-TW': 'Workflow 引用原話' }, { en: 'A Workflow script must carry your own words', 'zh-TW': 'Workflow 腳本必須逐字引用你說過的話' }),
+  flag('resumeAfterLimit', false, { en: 'Resume after limits', 'zh-TW': '額度重置後續跑' }, { en: 'When a usage limit stops work, continue at the reset', 'zh-TW': '額度用完中斷時，在重置後自動繼續' }),
   flag('feedbackInbox', false, { en: 'Client feedback inbox', 'zh-TW': '客戶回饋收件匣' }, { en: 'Pasted chat logs become items; regressions are flagged', 'zh-TW': '貼上的聊天紀錄變成項目，並偵測回歸' }),
 ]

@@ -2,7 +2,7 @@ export type ChatLine = { at: string; who: string; text: string }
 
 export type InboxItem = ChatLine & { id: number; status: 'open' | 'fixed'; fixedBy?: string; reopenedFrom?: number }
 
-// "22:55 Lin 首頁按鈕沒反應", "[09:01] 王小明：表單送不出去", "14:03:12 Amy: login fails"
+// "22:55 Amy 首頁按鈕沒反應", "[09:01] 王小明：表單送不出去", "14:03:12 Amy: login fails"
 const LINE = /^\s*\[?(\d{1,2}:\d{2})(?::\d{2})?\]?\s+([^\s:：\]]{1,20})(?:\s*[:：]\s*|\s+)(\S.{2,})$/
 
 // A paste counts as a chat log only when at least two of its lines look like timestamped messages.

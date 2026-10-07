@@ -462,7 +462,28 @@ const renderList = (el: ElementTable, style: Style, block: Extract<Block, { kind
   )
 }
 
-export type CopyButton = (text: string | (() => string), key: string, label?: string) => RenderElement | null
+// Rough token count: about four Latin characters or one CJK character per token.
+export const roughTokens = (text: string) => {
+  const cjk = (text.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu) ?? []).length
+  return Math.max(1, Math.round(cjk + (text.length - cjk) / 4))
+}
+
+// A prompt written for another agent or tool: boxed, wrapped, unhighlighted, copied verbatim.
+const renderPrompt = (el: ElementTable, style: Style, lines: string[], columns: number, key: string, button: RenderElement | null | undefined): RenderElement => {
+  const { Box, Text } = el
+  const t = style.theme
+  return (
+    <Box key={key} flexDirection="column" borderStyle="round" borderColor={t.accent} paddingX={1} width={Math.min(columns, 100)}>
+      <Box flexDirection="row" justifyContent="space-between" columnGap={2}>
+        <Text color={t.accent} bold>{`prompt · ≈${roughTokens(lines.join('\n'))} tokens`}</Text>
+        {button ?? null}
+      </Box>
+      {lines.map((line, i) => <Text key={`${key}.${i}`}>{line === '' ? ' ' : line}</Text>)}
+    </Box>
+  )
+}
+
+export type CopyButton =(text: string | (() => string), key: string, label?: string) => RenderElement | null
 export type Drawn = Map<number, { element: RenderElement; art: string }>
 
 const copySource = (block: Block): string | undefined =>
@@ -485,6 +506,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
       case 'rule':
         return <Text key={key} color={t.rule} dimColor={!t.rule}>{'─'.repeat(Math.max(8, Math.min(columns, 80)))}</Text>
       case 'code':
+        if (block.lang === 'prompt') return renderPrompt(el, style, block.lines, columns, key, copy?.(block.lines.join('\n'), `copy${b}`, '⧉ copy prompt'))
         return drawn.get(b)?.element ?? (
           <Box key={key} flexDirection="column" alignSelf="flex-start">
             <Box flexDirection="row" justifyContent="space-between" columnGap={4}>

@@ -18,8 +18,8 @@ const SUBCOMMANDS: Record<Lang, [string, string][]> = {
 }
 
 const SECOND: Record<Lang, Record<string, [string, string][]>> = {
-  en: { copy: [['code', 'Only the last code block']], inbox: [['fixed', 'Mark items fixed at the current commit: inbox fixed 3 5']] },
-  'zh-TW': { copy: [['code', '只複製最後一個程式碼區塊']], inbox: [['fixed', '以目前的 commit 標為已修：inbox fixed 3 5']] },
+  en: { copy: [['code', 'Only the last code block'], ['prompt', 'The prompt card, verbatim']], inbox: [['fixed', 'Mark items fixed at the current commit: inbox fixed 3 5']] },
+  'zh-TW': { copy: [['code', '只複製最後一個程式碼區塊'], ['prompt', '原文複製 prompt 卡片']], inbox: [['fixed', '以目前的 commit 標為已修：inbox fixed 3 5']] },
 }
 
 // Rows for the word being typed after /tessera: its subcommands, then theme names or the second word.

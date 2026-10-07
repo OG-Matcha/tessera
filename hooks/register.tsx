@@ -316,6 +316,7 @@ const HINT = [
   'flowcharts, sequence diagrams and xychart-beta bar or line charts.',
   'When a reply carries a numeric series or a flow that is easier to see than read, add one small diagram or chart with short labels.',
   'Skip diagrams for simple answers.',
+  'When you write a prompt meant for another AI agent or tool, put the whole prompt in one ```prompt fenced block: it draws as a card with a copy button.',
   'Put any command or snippet the user may run or copy in a fenced block with a language tag, never inline code: fenced blocks get a copy button, inline code does not.',
 ].join(' ')
 
@@ -472,10 +473,12 @@ export const register: Register = (on, options) => {
     if (sub === 'copy') {
       const reply = (await $.session.messages()).findLast(m => m.role === 'assistant' && m.text.trim())
       if (!reply) return { text: t().nothingToCopy }
-      const code = name === 'code' ? parseCached(reply.text).findLast(b => b.kind === 'code') : undefined
-      if (name === 'code' && code?.kind !== 'code') return { text: t().noCodeBlock }
+      const wanted = name === 'code' || name === 'prompt' ? name : undefined
+      const code = wanted === undefined ? undefined : parseCached(reply.text).findLast(b => b.kind === 'code' && (wanted === 'code' || b.lang === 'prompt'))
+      if (wanted !== undefined && code?.kind !== 'code') return { text: wanted === 'prompt' ? t().noPromptBlock : t().noCodeBlock }
       const result = await $.ui.copy({ text: code?.kind === 'code' ? code.lines.join('\n') : reply.text })
-      return { text: result.isCopied ? (code ? t().copiedCode : t().copiedReply) : `${t().copyFailed}: ${result.reason}` }
+      const done = wanted === 'prompt' ? t().copiedPrompt : code ? t().copiedCode : t().copiedReply
+      return { text: result.isCopied ? done : `${t().copyFailed}: ${result.reason}` }
     }
     if (sub === 'demo-rtl') {
       await applyRtl($, style)

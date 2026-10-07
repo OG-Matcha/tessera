@@ -21,6 +21,7 @@ import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesMod
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
+import { FEATURES } from './features'
 import type { Voice } from './voice'
 import { replyNote, voiceOf } from './voice'
 import { PRESET_NAMES } from './presets'
@@ -310,6 +311,37 @@ async function markInbox($: EngineInterface, ids: number[], commit: string): Pro
   return t().inboxMarked(ids, commit)
 }
 
+const SETUP_PANE = 'tessera-setup'
+
+// /tessera setup: one row per feature; a press writes its option, which reloads tessera with it.
+function registerSetup(on: On, options: Record<string, unknown>) {
+  on('ui.render', { component: 'Pane', requestId: SETUP_PANE }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const s = t()
+    return (
+      <Box flexDirection="column">
+        <Box flexDirection="row" justifyContent="space-between">
+          <Text bold>{s.setupTitle}</Text>
+          <Button key="close" label={s.closePane} onPress={() => $.ui.close({ id: SETUP_PANE })} />
+        </Box>
+        {FEATURES.map(feature => {
+          const isOn = feature.isOn(options[feature.key])
+          return (
+            <Box key={feature.key} flexDirection="column" marginTop={1}>
+              <Button
+                key={`toggle-${feature.key}`}
+                label={`${isOn ? '☑' : '☐'} ${feature.name[lang]}`}
+                onPress={() => $.config.set({ key: `${$.plugin.name}.${feature.key}`, value: isOn ? feature.off : feature.on })}
+              />
+              <Text dimColor>{`   ${feature.about[lang]}`}</Text>
+            </Box>
+          )
+        })}
+      </Box>
+    )
+  })
+}
+
 const HINT = [
   'Replies in this session are drawn by the tessera mod, which runs inside Claude Code and is not a command or tool to call: when the user asks to show something with tessera, write it as markdown in the reply.',
   'Markdown tables, GitHub alerts (> [!WARNING], > [!NOTE]), fenced code with a language tag, and ```mermaid blocks render as colored terminal graphics:',
@@ -397,7 +429,11 @@ export const register: Register = (on, options) => {
     ]
     lang = pickLang(options.language, hints)
     langSettled = options.language === 'en' || options.language === 'zh-TW' || lang === 'zh-TW'
-    $.clock.every(POLL_MS, () => void check($))
+    if (imagesOn) $.clock.every(POLL_MS, () => void check($))
+    if ((await $.store.get('setupSeen').catch(() => true)) !== true) {
+      await $.store.set('setupSeen', true).catch(() => undefined)
+      $.ui.toast(t().setupHint)
+    }
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
     await $.command
@@ -414,8 +450,11 @@ export const register: Register = (on, options) => {
     return started
   })
 
-  registerImages(on)
-  registerGuards(on, options)
+  const imagesOn = options.imagePreview !== false
+  if (imagesOn) registerImages(on)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
+    registerGuards(on, options)
+  registerSetup(on, options)
   inboxOn = options.feedbackInbox === true
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)
@@ -457,6 +496,11 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'tessera' }, async ($, e) => {
     const [sub, name, ...rest] = e.args.trim().split(/\s+/)
+    if (sub === 'setup') {
+      await $.store.set('setupSeen', true).catch(() => undefined)
+      await $.ui.open({ id: SETUP_PANE, title: 'tessera' })
+      return { text: t().setupOpened }
+    }
     if (sub === 'inbox') {
       if (!inboxOn) return { text: t().inboxOff }
       if (name === 'fixed') {

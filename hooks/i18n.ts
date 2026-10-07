@@ -13,6 +13,7 @@ const EN = {
   commandDescription: 'Switch the tessera theme, copy the last reply, or show the demo',
   original: 'original',
   noPreview: '(no preview)',
+  blocked: (rule: string) => `tessera blocked: ${rule}`,
 }
 
 const ZH: typeof EN = {
@@ -28,6 +29,7 @@ const ZH: typeof EN = {
   commandDescription: '切換 tessera 主題、複製上一則回覆，或顯示示範',
   original: '原圖',
   noPreview: '（無法預覽）',
+  blocked: rule => `tessera 已攔下：${rule}`,
 }
 
 export type Strings = typeof EN

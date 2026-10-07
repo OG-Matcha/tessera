@@ -11,6 +11,9 @@ import { boxArt, mermaidText, unpad } from './mermaid'
 import type { Drawn } from './render'
 import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
+import { helpTextZh, showcaseTextZh } from './help-zh'
+import type { Lang } from './i18n'
+import { STRINGS, pickLang } from './i18n'
 import { PRESET_NAMES } from './presets'
 import type { Style } from './theme'
 import { resolveStyle } from './theme'
@@ -25,6 +28,8 @@ const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: 
 let thumbBox: [number, number] = [40, 12]
 let imageMode = 'auto'
 let usePixels = false
+let lang: Lang = 'en'
+const t = () => STRINGS[lang]
 
 let tmpRoot: string | undefined
 let imagesDir: { sessionId: string; dir: string } | undefined
@@ -131,7 +136,7 @@ function registerImages(on: On) {
         {list.map(img => (
           <Box key={`img-${img.n}`} flexDirection="column" alignItems="center">
             {img.view === null ? (
-              <Text dimColor>（無法預覽）</Text>
+              <Text dimColor>{t().noPreview}</Text>
             ) : img.view.kind === 'pixels' ? (
               <Image key={`image-${img.n}`} source={{ file: img.path, format: 'png' }} columns={img.view.columns} rows={img.view.rows} alt={`[Image #${img.n}]`} />
             ) : (
@@ -139,7 +144,7 @@ function registerImages(on: On) {
             )}
             <Box flexDirection="row" gap={1}>
               <Text dimColor>#{img.n}</Text>
-              <Button key={`open-${img.n}`} label="原圖" onPress={() => openOriginal($, img.path)} />
+              <Button key={`open-${img.n}`} label={t().original} onPress={() => openOriginal($, img.path)} />
             </Box>
           </Box>
         ))}
@@ -193,8 +198,8 @@ const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['
         label={label}
         onPress={press => {
           $.ui.copy({ text: typeof text === 'function' ? text() : text, surface: press.surface })
-            .then(r => $.ui.toast(r.isCopied ? 'Copied' : `Copy failed: ${r.reason}`))
-            .catch(() => $.ui.toast('Copy failed'))
+            .then(r => $.ui.toast(r.isCopied ? t().copied : `${t().copyFailed}: ${r.reason}`))
+            .catch(() => $.ui.toast(t().copyFailed))
         }}
       />
     ) : null
@@ -220,12 +225,19 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     usePixels = await detectPixels($)
+    const settings = await $.settings.read({}).catch(() => ({}) as Record<string, unknown>)
+    lang = pickLang(options.language, [
+      typeof settings.language === 'string' ? settings.language : undefined,
+      await $.env.get('LC_ALL'),
+      await $.env.get('LANG'),
+      Intl.DateTimeFormat().resolvedOptions().locale,
+    ])
     $.clock.every(POLL_MS, () => void check($))
     if (!isDrawing) return next(e)
     await applyRtl($, style)
     const started = await next(e)
     await $.command
-      .register({ name: 'tessera', description: 'Switch the tessera theme, copy the last reply, or show the demo', argumentHint: '[theme <name> | copy [code] | demo]' })
+      .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[theme <name> | copy [code] | demo]' })
       .catch(() => undefined)
     return started
   })
@@ -251,23 +263,23 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'tessera' }, async ($, e) => {
     const [sub, name] = e.args.trim().split(/\s+/)
-    if (sub === 'demo') return { text: showcaseText(PRESET_NAMES) }
+    if (sub === 'demo') return { text: lang === 'zh-TW' ? showcaseTextZh(PRESET_NAMES) : showcaseText(PRESET_NAMES) }
     if (sub === 'copy') {
       const reply = (await $.session.messages()).findLast(m => m.role === 'assistant' && m.text.trim())
-      if (!reply) return { text: 'Nothing to copy yet.' }
+      if (!reply) return { text: t().nothingToCopy }
       const code = name === 'code' ? parseCached(reply.text).findLast(b => b.kind === 'code') : undefined
-      if (name === 'code' && code?.kind !== 'code') return { text: 'The last reply has no code block.' }
+      if (name === 'code' && code?.kind !== 'code') return { text: t().noCodeBlock }
       const result = await $.ui.copy({ text: code?.kind === 'code' ? code.lines.join('\n') : reply.text })
-      return { text: result.isCopied ? `Copied the last ${code ? 'code block' : 'reply'}.` : `Copy failed: ${result.reason}` }
+      return { text: result.isCopied ? (code ? t().copiedCode : t().copiedReply) : `${t().copyFailed}: ${result.reason}` }
     }
     if (sub === 'demo-rtl') {
       await applyRtl($, style)
       return { text: rtlShowcaseText() }
     }
-    if (sub !== 'theme' || !name) return { text: helpText(PRESET_NAMES) }
-    if (!(PRESET_NAMES as readonly string[]).includes(name)) return { text: `Unknown theme "${name}". Themes: ${PRESET_NAMES.join(', ')}` }
+    if (sub !== 'theme' || !name) return { text: lang === 'zh-TW' ? helpTextZh(PRESET_NAMES) : helpText(PRESET_NAMES) }
+    if (!(PRESET_NAMES as readonly string[]).includes(name)) return { text: t().unknownTheme(name, PRESET_NAMES.join(', ')) }
     const result = await $.config.set({ key: `${$.plugin.name}.theme`, value: name })
-    return { text: result.deny ? `Could not switch theme: ${result.deny}` : `Theme set to ${name}.` }
+    return { text: result.deny ? `${t().themeFailed}: ${result.deny}` : t().themeSet(name) }
   })
 
   on('ui.render', { component: 'TurnDuration' }, ($, e) => renderTurnDuration($.ui.resolve(e), style, e.props.word, e.props.durationMs))

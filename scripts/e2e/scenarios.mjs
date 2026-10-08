@@ -12,12 +12,15 @@ const REPLY = 90_000
 const tail = text => (text ?? '').split('\n').filter(l => l.trim()).slice(-8).join('\n')
 const seen = (shot, pattern) => (pattern.test(shot?.text ?? '') ? undefined : `not on screen: ${pattern}\n${tail(shot?.text)}`)
 
-// Claude Code keeps each subagent's transcript under ~/.claude/projects/<cwd with non-alphanumerics as ->.
+// Claude Code keeps each session's transcript under ~/.claude/projects/<cwd with non-alphanumerics as ->.
+const projectDir = dir => join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects', dir.replace(/[^A-Za-z0-9]/g, '-'))
+const transcripts = (dir, pattern) =>
+  existsSync(projectDir(dir)) ? readdirSync(projectDir(dir), { recursive: true }).map(String).filter(f => pattern.test(f)).map(f => readFileSync(join(projectDir(dir), f), 'utf8')) : []
+
+const transcriptText = dir => transcripts(dir, /^[^\\/]+\.jsonl$/).join('\n')
+
 function subagentModels(dir) {
-  const project = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects', dir.replace(/[^A-Za-z0-9]/g, '-'))
-  if (!existsSync(project)) return []
-  const files = readdirSync(project, { recursive: true }).filter(f => /subagents[\\/].*\.jsonl$/.test(String(f)))
-  return [...new Set(files.flatMap(f => [...readFileSync(join(project, String(f)), 'utf8').matchAll(/"model":"(claude-[^"]+)"/g)].map(m => m[1])))]
+  return [...new Set(transcripts(dir, /subagents[\\/].*\.jsonl$/).flatMap(text => [...text.matchAll(/"model":"(claude-[^"]+)"/g)].map(m => m[1])))]
 }
 
 const thirtyLines = ['錯誤：無法連線到資料庫', '  at connect (db.ts:12:3)', ...Array.from({ length: 28 }, (_, i) => `第 ${i + 3} 行 log`)].join('\n')
@@ -51,6 +54,30 @@ export const scenarios = [
       },
     ],
     check: s => seen(s.reply, /● [^\n]*[一-鿿]/),
+  },
+  {
+    name: 'reply-language-drift',
+    prompts: true,
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: '用一句話說明什麼是 HTTP 快取' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY },
+          { type: '下一題請只用英文回答：CDN 是什麼？一句話就好' },
+          { key: '\r', wait: 2_000, until: /✻ \w+ for[\s\S]*✻ \w+ for/, timeoutMs: REPLY },
+          { type: '再用一句話說明 ETag' },
+          { key: '\r', wait: 2_000, until: /(✻ \w+ for[\s\S]*){3}/, timeoutMs: REPLY, shot: 'reply' },
+          { wait: 2_000 },
+        ],
+      },
+    ],
+    // The note is model-only context, so the transcript is where it shows: once at the start, and once
+    // more after the English reply.
+    check: (_, dir) => {
+      const notes = transcriptText(dir).split('\n').filter(line => line.includes('hook_additional_context') && line.includes('Reply in Traditional Chinese')).length
+      return notes >= 2 ? undefined : `the reply note reached the model ${notes} time(s), expected 2`
+    },
   },
   {
     name: 'heredoc-guard',
@@ -102,7 +129,7 @@ export const scenarios = [
       else execFileSync('ln', ['-s', join(dir, 'shared'), join(dir, 'wt', 'node_modules')])
     },
     sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command and nothing else: rm -rf wt' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
-    check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink/) : 'the delete went through the link: shared/keep.txt is gone'),
+    check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink|tessera (refused|blocked)|1 failed · last: rm -rf wt/i) : 'the delete went through the link: shared/keep.txt is gone'),
   },
   {
     name: 'copy-reply',

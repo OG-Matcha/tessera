@@ -55,3 +55,21 @@ test('replyLanguage off adds nothing', { options: { diagramHints: false, replyLa
   await $.prompt.submit({ text: '幫我看這個錯誤', origin: { kind: 'composer' } } as never)
   expect(seen[0]).toEqual([])
 })
+
+test('the reply note goes again when the last reply drifted into another language', { options: { diagramHints: false } }, async ($, on) => {
+  on('env.get', () => ({ value: undefined }))
+  let reply = 'Here is the fix: the map call runs before the data loads, so guard it.'
+  on('session.messages', () => ({ value: [{ role: 'user', text: '幫我看這個錯誤' }, { role: 'assistant', text: reply }] }) as never)
+  const seen: string[][] = []
+  on('prompt.submit', (_, e) => {
+    seen.push([...(e.context ?? [])])
+    return { text: e.text } as never
+  })
+  await $.prompt.submit({ text: '幫我看這個錯誤', origin: { kind: 'composer' } } as never)
+  await $.prompt.submit({ text: '那要怎麼修比較好', origin: { kind: 'composer' } } as never)
+  reply = '這是因為資料還沒載入就呼叫了 map，先檢查資料是否存在就好。'
+  await $.prompt.submit({ text: '還有其他寫法嗎', origin: { kind: 'composer' } } as never)
+  expect(seen[0]?.join('\n')).toContain('Reply in Traditional Chinese')
+  expect(seen[1]?.join('\n')).toContain('Reply in Traditional Chinese')
+  expect(seen[2]).toEqual([])
+})

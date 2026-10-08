@@ -420,6 +420,15 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch((_, e, next) => next(e))
 }
 
+// The reply note sits far back in a long context and stops holding; a last reply in another language
+// than the person's gets the note sent again.
+async function replyDrifted($: EngineInterface, wanted: Voice): Promise<boolean> {
+  const messages = await $.session.messages().catch(() => [])
+  const last = messages.findLast(m => m.role === 'assistant')
+  const spoken = last === undefined ? undefined : voiceOf(last.text)
+  return spoken !== undefined && spoken !== wanted
+}
+
 // Carry-over: what this session's task lists leave open is kept per repository, and the next session
 // there offers it back above the prompt.
 let carryOn = true
@@ -742,7 +751,7 @@ export const register: Register = (on, options) => {
         lang = 'zh-TW'
         langSettled = true
       }
-      if (matchReplyLanguage && voice !== undefined && voice !== 'en' && voice !== notedVoice) context.push(replyNote(voice))
+      if (matchReplyLanguage && voice !== undefined && voice !== 'en' && (voice !== notedVoice || (await replyDrifted($, voice)))) context.push(replyNote(voice))
       if (voice !== undefined) notedVoice = voice
     }
     if (isDrawing) {

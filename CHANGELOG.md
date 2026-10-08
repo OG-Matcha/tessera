@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - `agentModel: auto`: an Agent call with no model, for a general-purpose agent, gets haiku, sonnet, opus or fable picked from its task by one Haiku classification, and a toast names the pick. Agent types with their own model are left alone, and a failed classification lets the call through unchanged. `/tessera setup` now turns the feature on as `auto`.
 
+### Fixed
+
+- The reply-language note, sent once per context, stopped holding in long sessions and Claude drifted back to English. It is now sent again whenever Claude's last reply was in another language than the person's own words.
+
 ## [0.3.1] - 2026-10-08
 
 ### Changed

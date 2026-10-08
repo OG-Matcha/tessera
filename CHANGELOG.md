@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Carry over tasks turns on Claude's task tools for the session (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`, process only, never written to settings) when the person has not set that variable, since Claude Code leaves them off for Claude 5.x and the feature had nothing to keep there.
+
 ## [0.3.0] - 2026-10-08
 
 ### Fixed

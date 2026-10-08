@@ -1,3 +1,4 @@
+import type { TestBody } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
 test('task tool calls record what stays open for this repository', async ($, on) => {
@@ -41,3 +42,19 @@ test('carryOver off records nothing', { options: { carryOver: false } }, async (
   await $.tool.call({ tool: 'TaskCreate', subject: 'a', description: 'x' })
   expect(saved).toEqual([])
 })
+
+const startWith = (preset: string | undefined, expected: [string, unknown][]) => async ($: Parameters<TestBody>[0], on: Parameters<TestBody>[1]) => {
+  const writes: [string, unknown][] = []
+  on('env.get', (_, e) => ({ value: (e as { name?: string }).name === 'CLAUDE_CODE_ENABLE_TODO_TOOLS' ? preset : undefined }) as never)
+  on('env.set', (_, e) => {
+    writes.push([(e as { name: string }).name, (e as { value?: unknown }).value])
+    return { value: undefined } as never
+  })
+  on('session.start', () => ({ cwd: '/tmp' }))
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  expect(writes.filter(([name]) => name === 'CLAUDE_CODE_ENABLE_TODO_TOOLS')).toEqual(expected)
+}
+
+test('carry-over turns on the task tools for the session when nobody chose', startWith(undefined, [['CLAUDE_CODE_ENABLE_TODO_TOOLS', '1']]))
+
+test('a task-tools setting the person made stands', startWith('0', []))

@@ -640,6 +640,9 @@ export const register: Register = (on, options) => {
   thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
 
   on('session.start', async ($, e, next) => {
+    // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
+    // value the person set, on or off, stands.
+    if (carryOn && (await $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS')) === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
     env = await readEnv($)
     usePixels = drawsPixels(imageMode, env)
     const settings = await $.settings.read({}).catch(() => ({}) as Record<string, unknown>)

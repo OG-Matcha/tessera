@@ -13,7 +13,7 @@ New features ship behind an option in `.claude-plugin/plugin.json`, listed in `h
 | Path | What |
 | --- | --- |
 | `hooks/register.tsx` | Every hook and every function that touches `$` (the engine requires them in the hooks module itself) |
-| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `carry`, `platform`, `voice`, `inbox`, `peek`, `paste`, `limits`, `complete`, `features`, `i18n`, `png`, `raster` |
+| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `carry`, `fold`, `platform`, `voice`, `inbox`, `peek`, `paste`, `limits`, `complete`, `features`, `i18n`, `png`, `raster` |
 | `hooks/markdown.ts`, `render.tsx`, `theme.ts`, `presets.ts`, `mermaid.tsx`, `rtl.ts`, `help.ts`, `help-zh.ts` | Reply rendering, adapted from [prismantis](https://github.com/NahumLitvin/prismantis) |
 | `hooks/vendor/` | Generated; rebuild with the command in `.github/workflows/ci.yml`, never edit by hand |
 | `types/index.d.ts` | The `$.state` contract |
@@ -42,7 +42,7 @@ node e2e/run.mjs                 # every scenario
 node e2e/run.mjs paste-text      # one by name
 ```
 
-It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends.
+It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends. Screens of failed scenarios land in `scripts/e2e/last/`; `E2E_KEEP=1` keeps every screen, which is how a UI change is compared before and after. Sessions share your Claude Code config, so tessera may draw them in the language you last wrote in: match both languages in checks.
 
 ## Rules
 

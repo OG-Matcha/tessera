@@ -23,7 +23,8 @@ async function attempt(scenario) {
     const shots = {}
     for (const run of scenario.sessions(dir, repo)) Object.assign(shots, await session({ cwd: dir, ...run }))
     const failure = scenario.check(shots, dir)
-    if (failure !== undefined) {
+    // E2E_KEEP=1 keeps every screen, for comparing the UI before and after a change.
+    if (failure !== undefined || process.env.E2E_KEEP === '1') {
       mkdirSync(join(repo, 'scripts', 'e2e', 'last'), { recursive: true })
       writeFileSync(join(repo, 'scripts', 'e2e', 'last', `${scenario.name}.txt`), Object.entries(shots).map(([name, shot]) => `===== ${name}\n${typeof shot === 'string' ? shot : shot.text ?? ''}`).join('\n'))
     }

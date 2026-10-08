@@ -22,20 +22,38 @@ export const clipboardImage = path =>
   powershell(`Add-Type -AssemblyName System.Windows.Forms,System.Drawing; [Windows.Forms.Clipboard]::SetImage([Drawing.Image]::FromFile('${path}'))`)
 export const readClipboard = () => powershell('[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-Clipboard -Raw').toString('utf8')
 
-// Clicks the last reply's copy button where it is drawn on screen. A terminal copy reaches the system
-// clipboard directly or as an OSC 52 request the terminal carries out, so both are read back.
-async function pressCopyReply(term, write, osc52) {
+// Clicks the last button on screen with one of the labels (a string, or a list for both UI languages)
+// at its terminal column: a CJK character takes two cells, so the column comes from the cells, not the
+// string index.
+async function press(term, write, label) {
   const buffer = term.buffer.active
-  let rows = []
-  let row = -1
-  for (const end = Date.now() + 5_000; row === -1 && Date.now() < end; await sleep(250)) {
-    rows = Array.from({ length: ROWS }, (_, i) => buffer.getLine(buffer.viewportY + i)?.translateToString(true) ?? '')
-    row = rows.findLastIndex(l => l.includes('⧉ copy reply'))
+  for (const end = Date.now() + 5_000; Date.now() < end; await sleep(250)) {
+    for (let y = ROWS - 1; y >= 0; y--) {
+      const line = buffer.getLine(buffer.viewportY + y)
+      if (line === undefined) continue
+      const cells = []
+      for (let x = 0; x < COLS; x++) {
+        // The second cell of a wide character has width 0 and is skipped; a blank cell is a space.
+        const cell = line.getCell(x)
+        if (cell !== undefined && cell.getWidth() > 0) cells.push({ x, chars: cell.getChars() || ' ' })
+      }
+      const text = cells.map(c => c.chars).join('')
+      const at = Math.max(...[label].flat().map(l => text.lastIndexOf(l)))
+      if (at === -1) continue
+      write(CLICK(cells[at].x + 1, y + 1))
+      await sleep(1_500)
+      return undefined
+    }
   }
-  if (row === -1) return `no copy reply button on screen:\n${rows.filter(l => l.trim()).slice(-12).join('\n')}`
-  write(CLICK(rows[row].indexOf('⧉ copy reply') + 1, row + 1))
-  await sleep(1_500)
-  return `${osc52()}\n${readClipboard()}`
+  return `no ${[label].flat().join(' or ')} on screen`
+}
+
+// Clicks the last reply's copy button. A terminal copy reaches the system clipboard directly or as an
+// OSC 52 request the terminal carries out, so both are read back.
+async function pressCopyReply(term, write, osc52) {
+  const missing = await press(term, write, '⧉ copy reply')
+  return missing ?? `${osc52()}
+${readClipboard()}`
 }
 
 export async function session({ cwd, args = [], env = {}, steps }) {
@@ -83,6 +101,7 @@ export async function session({ cwd, args = [], env = {}, steps }) {
       if (step.wait) await sleep(step.wait)
       if (step.shot) shots[step.shot] = { ...shots[step.shot], text: await screen() }
       if (step.copyReply) shots.clipboard = await pressCopyReply(term, data => child.write(data), () => osc52)
+      if (step.press) shots.pressed = (await press(term, data => child.write(data), step.press)) ?? 'pressed'
     }
   } finally {
     // claude runs as a child of cmd on Windows, so the whole tree goes, or it keeps the directory busy.

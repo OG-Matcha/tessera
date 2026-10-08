@@ -133,19 +133,20 @@ export const scenarios = [
   },
   {
     name: 'copy-reply',
+    // The reply button shows on replies of more than one block, so the reply is asked for in two.
     prompts: true,
     clipboard: true,
     sessions: () => [
       {
         args: HAIKU,
         steps: [
-          { type: 'Reply with exactly this line and nothing else: hello from tessera e2e' },
+          { type: 'Reply with exactly two paragraphs and nothing else. First: hello from tessera e2e. Second: copy check.' },
           { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
           { copyReply: true },
         ],
       },
     ],
-    check: s => (s.clipboard?.includes('hello from tessera e2e') ? undefined : `clipboard holds: ${JSON.stringify((s.clipboard ?? '').slice(0, 80))}`),
+    check: s => (/hello from tessera e2e/i.test(s.clipboard ?? '') ? undefined : `clipboard holds: ${JSON.stringify((s.clipboard ?? '').slice(0, 80))}`),
   },
   {
     name: 'agent-model-auto',
@@ -184,6 +185,24 @@ export const scenarios = [
       { steps: [{ until: /unfinished from your last session|項沒完成/, timeoutMs: 15_000, shot: 'next' }] },
     ],
     check: s => seen(s.next, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
+  },
+  {
+    name: 'fold-diff',
+    prompts: true,
+    setup: dir => writeFileSync(join(dir, 'list.txt'), Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n') + '\n'),
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use the Edit tool once on list.txt: replace the lines "line 5" through "line 24" with "item 5" through "item 24". Do nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+          { press: ['[ 展開 ]', '[ expand ]'] },
+          { wait: 1_000, shot: 'expanded' },
+        ],
+      },
+    ],
+    // Folded, the edit shows a few of its lines; expanded, Claude Code draws all of them again.
+    check: s => seen(s.reply, /more lines|行未顯示/) ?? seen(s.expanded, /\+item 24/),
   },
   {
     name: 'carry-over-reload',

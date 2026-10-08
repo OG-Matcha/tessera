@@ -18,7 +18,7 @@ import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
 import { commandDir, expandedHeredoc, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
-import { taiwanFixes } from './hans'
+import { zhTwFixes } from './hans'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
@@ -293,11 +293,11 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
 async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {
   if (guardHans === 'off' || (guardHans === 'auto' && voice !== 'zh-Hant')) return undefined
   const file = writtenFile(tool, input)
-  if (file === undefined || taiwanFixes(file.path, file.texts, '').length === 0) return undefined
+  if (file === undefined || zhTwFixes(file.path, file.texts, '').length === 0) return undefined
   const existing = await $.fs.read(file.path).catch(() => '')
-  const found = taiwanFixes(file.path, file.texts, typeof existing === 'string' ? existing : '')
+  const found = zhTwFixes(file.path, file.texts, typeof existing === 'string' ? existing : '')
   if (found.length === 0) return undefined
-  return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'Taiwan Chinese', `it writes Simplified characters or mainland terms into Taiwan Chinese text (${found.slice(0, 8).join(', ')}). Use the Taiwan forms. If the original is intended here, such as a quotation or a zh-CN string`)
+  return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'zh-TW wording', `it writes Simplified characters or zh-CN terms into zh-TW text (${found.slice(0, 8).join(', ')}). Use the zh-TW forms. If the original is intended here, such as a quotation or a zh-CN string`)
 }
 
 function judgeHeredoc($: EngineInterface, command: string) {

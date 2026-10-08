@@ -2,7 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 const write = { tool: 'Write', file_path: 'C:/p/README.md', content: '# 說明\n\n这个功能会自动更新。' } as never
 
-test('a Simplified write is refused with the Taiwan forms, and the same call sent again goes through', { options: { guardSimplified: 'on' } }, async ($, on) => {
+test('a Simplified write is refused with the zh-TW forms, and the same call sent again goes through', { options: { guardSimplified: 'on' } }, async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
   on('fs.read', () => ({ value: '' }) as never)
   on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)

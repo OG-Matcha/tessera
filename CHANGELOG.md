@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- Taiwan Chinese guard (`guardSimplified`, auto by default): while the person writes Traditional Chinese, a write that puts Simplified-only characters or mainland software terms (服務器, 默認, 視頻) into a file is refused with the Taiwan forms. Files named for zh-CN, zh-SG or zh-Hans, files already in Simplified, terms the file already uses and lines with kana are left alone; the same call sent again goes through, for intended quotes.
+- Traditional Chinese guard (`guardSimplified`, auto by default): while the person writes Traditional Chinese, a write that puts Simplified-only characters or zh-CN software terms (服務器, 默認, 視頻) into a file is refused with the zh-TW forms. Files named for zh-CN, zh-SG or zh-Hans, files already in Simplified, terms the file already uses and lines with kana are left alone; the same call sent again goes through, for intended quotes.
 - Heredoc guard (`guardHeredoc`, on by default): a Bash heredoc with an unquoted delimiter whose body holds `${...}`, `$(...)`, backticks or backslash escapes is refused, since the shell rewrites them before the file is written; sending the same command again lets an intended expansion through.
 
 ## [0.1.1] - 2026-10-08

@@ -1,9 +1,9 @@
 import HANS from './vendor/hans.js'
 
-// Characters that only Simplified Chinese uses, each with its Taiwan Traditional form.
+// Characters that only Simplified Chinese uses, each with its zh-TW Traditional form.
 const TRADITIONAL = new Map(HANS.split('|').map(pair => [...pair] as [string, string]))
 
-// Mainland software and interface terms with the word Taiwan uses. Terms Taiwan writing also uses for the
+// zh-CN software and interface terms with their usual zh-TW wording. Terms zh-TW writing also uses for the
 // same meaning (代碼 in 錯誤代碼, 用戶 in 用戶端, 優化, 參數, 支持, 項目) and ones that cut across words (字符 in 文字符號) stay out.
 const TERMS = new Map(
   (
@@ -31,18 +31,18 @@ export function simplifiedChars(text: string): string[] {
   return [...found]
 }
 
-export const mainlandTerms = (text: string): string[] => [...new Set(text.match(TERM) ?? [])]
+export const cnTerms = (text: string): string[] => [...new Set(text.match(TERM) ?? [])]
 
-// What a write would bring into a file that reads as Taiwan Chinese, as "简→簡" and "代碼→程式碼" pairs.
+// What a write would bring into a file written in zh-TW, as "简→簡" and "代碼→程式碼" pairs.
 // A file named for a Simplified locale or already holding Simplified text is left alone, and so is
 // any term the file already uses.
-export function taiwanFixes(path: string, texts: string[], existing: string): string[] {
+export function zhTwFixes(path: string, texts: string[], existing: string): string[] {
   if (SIMPLIFIED_FILE.test(path) || simplifiedChars(existing).length > 0) return []
   const chinese = texts.flatMap(t => t.split('\n')).filter(line => !KANA.test(line)).join('\n')
-  const known = new Set(mainlandTerms(existing))
+  const known = new Set(cnTerms(existing))
   return [
     ...simplifiedChars(chinese).map(ch => `${ch}→${TRADITIONAL.get(ch)}`),
-    ...mainlandTerms(chinese)
+    ...cnTerms(chinese)
       .filter(term => !known.has(term))
       .map(term => `${term}→${TERMS.get(term)}`),
   ]

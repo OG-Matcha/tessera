@@ -36,8 +36,8 @@ export const FEATURES: Feature[] = [
     isOn: v => v !== 'off',
     on: 'auto',
     off: 'off',
-    name: { en: 'Taiwan Chinese guard', 'zh-TW': '繁簡守門' },
-    about: { en: 'While you write Traditional Chinese, blocks Simplified characters and mainland terms in files', 'zh-TW': '你用繁體中文時，擋下寫進檔案的簡體字和大陸用語' },
+    name: { en: 'Traditional Chinese guard', 'zh-TW': '繁簡守門' },
+    about: { en: 'While you write Traditional Chinese, blocks Simplified characters and zh-CN terms in files', 'zh-TW': '你用繁體中文時，擋下寫進檔案的簡體字和簡中用語' },
   },
   flag('guardHeredoc', true, { en: 'Heredoc guard', 'zh-TW': 'heredoc 守門' }, { en: 'Blocks unquoted heredocs that would expand ${...} or eat backslashes', 'zh-TW': '擋下沒加引號、會展開 ${...} 或吃掉反斜線的 heredoc' }),
   {

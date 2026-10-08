@@ -13,13 +13,13 @@ for (let lead = 0xa4; lead <= 0xf9; lead++)
   for (let trail = 0x40; trail <= 0xfe; trail++)
     if ((trail <= 0x7e || trail >= 0xa1) && standard(code(lead, trail))) big5.add(decoder.decode(new Uint8Array([lead, trail])))
 
-const taiwan = new Map(tw.split('|').map(e => e.split(' ')))
+const twVariants = new Map(tw.split('|').map(e => e.split(' ')))
 
 const pairs = st
   .split('|')
   .map(e => e.split(' '))
   .filter(([s, t]) => t !== undefined && s !== t && !big5.has(s))
-  .map(([s, t]) => s + (taiwan.get(t) ?? t))
+  .map(([s, t]) => s + (twVariants.get(t) ?? t))
 
 writeFileSync(
   new URL('../hooks/vendor/hans.js', import.meta.url),

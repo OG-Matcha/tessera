@@ -63,7 +63,7 @@ claude plugin update tessera@tessera
 | Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
 | Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
 | CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
-| Taiwan Chinese guard | auto | While you write Traditional Chinese, refuses Simplified characters and mainland terms written into a file and names the Taiwan forms (`这→這`, `服務器→伺服器`); zh-CN files, files already in Simplified, terms the file already uses and Japanese lines are left alone |
+| Traditional Chinese guard | auto | While you write Traditional Chinese, refuses Simplified characters and zh-CN terms written into a file and names the zh-TW forms (`这→這`, `服務器→伺服器`); zh-CN files, files already in Simplified, terms the file already uses and Japanese lines are left alone |
 | Heredoc guard | on | Refuses a Bash heredoc with an unquoted delimiter (`<<EOF`) whose body the shell would change: `${x}`, `$(cmd)` and backticks expanded, `\\` turned into `\`; send it again if the expansion is intended |
 | Agents pick a model | off | Agent and Workflow calls must name a model chosen for their task |
 | Workflows quote you | off | A Workflow script must carry your own words, so its agents keep your standing instruction |
@@ -100,7 +100,7 @@ If detection is wrong, set `imageMode` to `pixels` or `cells` in `/config`. Orca
 
 ## What it does on your machine
 
-No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, and a file Claude is about to write Simplified characters or mainland terms into; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
+No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, and a file Claude is about to write Simplified characters or zh-CN terms into; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
 
 ## FAQ
 

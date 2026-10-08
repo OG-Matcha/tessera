@@ -24,6 +24,29 @@ export function shellRisks(command: string): Risk[] {
   return [...risks]
 }
 
+// A force push to the default branch rewrites history that others and CI build on. Each forced push
+// names its destination branches; undefined stands for the current branch, which a push with no refspec
+// (or HEAD) sends.
+export function forcePushes(command: string): (string | undefined)[] {
+  const found: (string | undefined)[] = []
+  for (const piece of pieces(command)) {
+    const git = GIT.exec(piece)
+    if (git?.[1]?.toLowerCase() !== 'push') continue
+    const words = (git[2] ?? '').trim().split(/\s+/).filter(w => w !== '')
+    const forced = words.some(w => /^(--force(-with-lease)?(=.*)?|-[a-zA-Z]*f[a-zA-Z]*)$/.test(w))
+    const refspecs = words.filter(w => !w.startsWith('-')).slice(1)
+    for (const spec of refspecs) {
+      if (!forced && !spec.startsWith('+')) continue
+      const dest = spec.replace(/^\+/, '').split(':').pop() ?? ''
+      found.push(dest === 'HEAD' || dest === '' ? undefined : dest)
+    }
+    if (forced && refspecs.length === 0) found.push(undefined)
+  }
+  return found
+}
+
+export const isDefaultBranch = (branch: string) => /^(refs\/heads\/)?(main|master)$/.test(branch)
+
 // A heredoc with an unquoted delimiter is expanded before it is written: ${x}, $(cmd) and backticks are
 // replaced and \\ becomes \, so code written through one loses its template literals and escapes.
 const HEREDOC = /<<(-?)\s*(["']?)([A-Za-z_][\w-]*)\2/g

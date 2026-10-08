@@ -31,7 +31,7 @@ export const FEATURES: Feature[] = [
     about: { en: 'Claude replies in the language of your own words', 'zh-TW': 'Claude 依你自己打的字的語言回覆' },
   },
   flag('carryOver', true, { en: 'Carry over tasks', 'zh-TW': '接續未完成' }, { en: 'Offers tasks left open here, in a new session or after /clear; turns on Claude task tools', 'zh-TW': '新 session 或 /clear 後提示這個專案上次沒做完的待辦，並替 Claude 打開待辦工具' }),
-  flag('guardGit', true, { en: 'Tree guard', 'zh-TW': '工作區守門' }, { en: 'Blocks tree rewrites while agents run and deletes through links', 'zh-TW': 'agent 執行時擋下改寫主樹，以及會穿過連結的刪除' }),
+  flag('guardGit', true, { en: 'Tree guard', 'zh-TW': '工作區守門' }, { en: 'Blocks tree rewrites while agents run, deletes through links; reminds before force-pushing main', 'zh-TW': 'agent 執行時擋下改寫主樹、會穿過連結的刪除；強制推送 main 前提醒' }),
   flag('guardCjkEscapes', true, { en: 'CJK escape guard', 'zh-TW': '中日韓跳脫守門' }, { en: 'Blocks Korean, Chinese or Japanese written as \\u escapes', 'zh-TW': '擋下把中日韓文字寫成 \\u 跳脫碼' }),
   {
     key: 'guardSimplified',

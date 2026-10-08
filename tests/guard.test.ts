@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('commands that rewrite the shared tree are flagged', () => {
   for (const c of [
@@ -86,4 +86,20 @@ test('in files, only prose or text that also holds literal CJK is judged', () =>
   expect(misEscapedCjk('Edit', { file_path: 'src/a.ts', old_string: 'x', new_string: "label = '한국 \\uC5B4'" })).toBe('\\uC5B4')
   expect(misEscapedCjk('Write', { file_path: 'src/re.ts', content: 'const HAN = /[\\u4e00-\\u9fff]/' })).toBe(undefined)
   expect(misEscapedCjk('Bash', { command: 'echo \\u4e2d' })).toBe(undefined)
+})
+
+test('forced pushes name their destination, or the current branch when they name none', () => {
+  expect(forcePushes('git push --force origin main')).toEqual(['main'])
+  expect(forcePushes('git push -f origin HEAD:refs/heads/master')).toEqual(['refs/heads/master'])
+  expect(forcePushes('git push origin +main')).toEqual(['main'])
+  expect(forcePushes('git push --force-with-lease')).toEqual([undefined])
+  expect(forcePushes('git push -uf origin HEAD')).toEqual([undefined])
+  expect(forcePushes('npm test && git push --force origin feature/x')).toEqual(['feature/x'])
+  expect(forcePushes('git push origin main')).toEqual([])
+  expect(forcePushes('git push --follow-tags origin main')).toEqual([])
+})
+
+test('main and master are the default branches', () => {
+  expect(['main', 'master', 'refs/heads/main'].every(isDefaultBranch)).toBe(true)
+  expect(['mainline', 'feature/main', 'dev'].some(isDefaultBranch)).toBe(false)
 })

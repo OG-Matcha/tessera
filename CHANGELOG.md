@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- The tree guard reminds once before a force push to `main` or `master` (`--force`, `-f`, `--force-with-lease` or a `+` refspec; with no branch named, the current one), since it rewrites history others build on. The same command sent again goes through.
 - A one-time reminder above the prompt when tessera was installed from GitHub and its marketplace has auto-update off, the Claude Code default for third-party marketplaces. It names the marketplace and the steps; **open /plugin** fills in the command, **not now** dismisses it. It reads your settings and writes nothing.
 - The READMEs carry a measured token table: what each feature adds to the context or to separate model calls, and when.
 - Fold long diffs (`foldDiffs`, on by default): an Edit or Write result over 12 diff lines shows up to 8 lines, the first of what was removed and of what was added, with the counts and an **expand** button, so one large edit no longer fills the screen. ctrl+o and `--verbose` show diffs whole, and what Claude reads is unchanged.

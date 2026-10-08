@@ -132,6 +132,13 @@ export const scenarios = [
     check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink|tessera (refused|blocked)|1 failed · last: rm -rf wt/i) : 'the delete went through the link: shared/keep.txt is gone'),
   },
   {
+    name: 'force-push-guard',
+    prompts: true,
+    // The throwaway repository has no remote, so a push that gets through goes nowhere.
+    sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command once and nothing else: git push --force origin main' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
+    check: s => seen(s.reply, /force-pushes to main|force push|強制推送|tessera (refused|blocked)|1 failed · last: git push --force/i),
+  },
+  {
     name: 'copy-reply',
     // The reply button shows on replies of more than one block, so the reply is asked for in two.
     prompts: true,

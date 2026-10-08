@@ -17,7 +17,7 @@ import { remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderTo
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
-import { commandDir, expandedHeredoc, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, expandedHeredoc, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
 import type { CarryStore, TaskLog } from './carry'
 import { carriedFrom, recordSession, restoredTasks } from './carry'
@@ -282,6 +282,11 @@ async function holdsLink($: EngineInterface, path: string): Promise<boolean> {
   return run?.exitCode === 0 && run.stdout.trim() !== ''
 }
 
+async function currentBranch($: EngineInterface, command: string): Promise<string | undefined> {
+  const run = await $.process.run(['git', '-C', await resolveIn($, command), 'rev-parse', '--abbrev-ref', 'HEAD'], { timeoutMs: 5_000 }).catch(() => undefined)
+  return run?.exitCode === 0 ? run.stdout.trim() : undefined
+}
+
 async function isMainTree($: EngineInterface, command: string): Promise<boolean> {
   const dir = await resolveIn($, command)
   if (!mainTrees.has(dir)) {
@@ -304,6 +309,12 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   for (const target of recursiveDeletes(command)) {
     if (await holdsLink($, await resolveIn($, command, target)))
       return refuse($, 'delete through a link', `it deletes ${target} recursively and ${target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
+  }
+  // Sometimes intended, such as cleaning up a fresh repository, so it is a reminder.
+  for (const branch of forcePushes(command)) {
+    const target = branch ?? (await currentBranch($, command))
+    if (target !== undefined && isDefaultBranch(target))
+      return refuseOnce($, command, 'force push', `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended`)
   }
   const shared = risks.filter(r => r !== 'link-node-modules')
   if (shared.length === 0) return undefined

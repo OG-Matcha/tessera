@@ -74,7 +74,7 @@ On by default and quiet until they matter.
 
 | Feature | Default | What it does |
 | --- | --- | --- |
-| Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
+| Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; reminds once before a force push to `main` or `master`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
 | Heredoc guard | on | Refuses a Bash heredoc with an unquoted delimiter (`<<EOF`) whose body the shell would change: `${x}`, `$(cmd)` and backticks expanded, `\\` turned into `\`; send it again if the expansion is intended |
 | Model per agent | auto | An agent with no model gets haiku, sonnet, opus or fable picked from its task by a short Haiku call, with a toast naming it; `choose` asks Claude to name one instead. A Workflow script without models is reminded once to name one per `agent()` |
 

@@ -169,3 +169,24 @@ test('auto reminds a Workflow without models once, and runs the same script when
   expect((await $.tool.call(call)).deny).toContain('the model its task needs')
   expect((await $.tool.call(call)).deny).toBe(undefined)
 })
+
+test('a force push to main is refused once, and goes through when sent again', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'pushed' }) as never)
+  const call = { tool: 'Bash', command: 'git push --force origin main' } as const
+  expect((await $.tool.call(call)).deny).toContain('force-pushes to main')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('a bare force push asks git for the branch, and a feature branch goes through', async ($, on) => {
+  let branch = 'master'
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: `${branch}
+`, stderr: '' } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'pushed' }) as never)
+  expect((await $.tool.call({ tool: 'Bash', command: 'git push -f' })).deny).toContain('force-pushes to master')
+  branch = 'feature/x'
+  expect((await $.tool.call({ tool: 'Bash', command: 'git push --force-with-lease' })).deny).toBe(undefined)
+})

@@ -94,13 +94,19 @@ const PROSE = /\.(md|mdx|markdown|txt|rst|adoc|org)$/i
 
 // Text a tool call writes where a CJK escape is a mistake rather than code: anything in a prompt-like
 // parameter, and in files only for prose files or when the same text also holds literal CJK.
-export function misEscapedCjk(tool: string, input: Record<string, unknown>): string | undefined {
-  const texts = (v: unknown): string[] => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(texts) : v !== null && typeof v === 'object' ? Object.values(v).flatMap(texts) : [])
-  if (tool === 'Write' || tool === 'Edit' || tool === 'MultiEdit' || tool === 'NotebookEdit') {
-    const path = String(input.file_path ?? input.notebook_path ?? '')
-    const written = [input.content, input.new_string, input.new_source, ...(Array.isArray(input.edits) ? input.edits.map(e => (e as { new_string?: unknown }).new_string) : [])].flatMap(texts)
-    return written.map(t => (PROSE.test(path) || LITERAL_CJK.test(t) ? cjkEscape(t) : undefined)).find(Boolean)
+const texts = (v: unknown): string[] => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(texts) : v !== null && typeof v === 'object' ? Object.values(v).flatMap(texts) : [])
+
+export function writtenFile(tool: string, input: Record<string, unknown>): { path: string; texts: string[] } | undefined {
+  if (tool !== 'Write' && tool !== 'Edit' && tool !== 'MultiEdit' && tool !== 'NotebookEdit') return undefined
+  return {
+    path: String(input.file_path ?? input.notebook_path ?? ''),
+    texts: [input.content, input.new_string, input.new_source, ...(Array.isArray(input.edits) ? input.edits.map(e => (e as { new_string?: unknown }).new_string) : [])].flatMap(texts),
   }
+}
+
+export function misEscapedCjk(tool: string, input: Record<string, unknown>): string | undefined {
+  const file = writtenFile(tool, input)
+  if (file !== undefined) return file.texts.map(t => (PROSE.test(file.path) || LITERAL_CJK.test(t) ? cjkEscape(t) : undefined)).find(Boolean)
   if (tool === 'AskUserQuestion' || tool === 'TodoWrite' || tool === 'TaskCreate' || tool === 'TaskUpdate') return texts(input).map(cjkEscape).find(Boolean)
   return undefined
 }

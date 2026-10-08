@@ -4,9 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-08
+
 ### Changed
 
 - Carry over tasks turns on Claude's task tools for the session (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`, process only, never written to settings) when the person has not set that variable, since Claude Code leaves them off for Claude 5.x and the feature had nothing to keep there.
+- The Chinese `/tessera demo` no longer shows the Workflow desk, removed before 0.1.0, in its table and flowchart; the plugin description mentions text previews and carry-over.
 
 ## [0.3.0] - 2026-10-08
 
@@ -54,7 +57,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/OG-Matcha/tessera/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/OG-Matcha/tessera/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/OG-Matcha/tessera/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/OG-Matcha/tessera/compare/v0.1.0...v0.1.1

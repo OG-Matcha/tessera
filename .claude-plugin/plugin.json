@@ -1,7 +1,7 @@
 {
   "name": "tessera",
-  "version": "0.3.0",
-  "description": "One mod for Claude Code, Windows and CJK first: pasted-image previews in any terminal, themed replies with CJK-correct tables and charts, and guards for multi-agent runs and Traditional Chinese writing",
+  "version": "0.3.1",
+  "description": "One mod for Claude Code, Windows and CJK first: pasted-image and text previews in any terminal, themed replies with CJK-correct tables and charts, unfinished tasks carried into the next session, and guards for multi-agent runs and Traditional Chinese writing",
   "author": {
     "name": "OG-Matcha",
     "url": "https://github.com/OG-Matcha"

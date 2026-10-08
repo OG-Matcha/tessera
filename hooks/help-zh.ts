@@ -34,11 +34,11 @@ export const showcaseTextZh = (themes: readonly string[]): string => `
 
 ## 表格會算中文寬度
 
-| 階段 | 狀態 | 耗時 |
+| 功能 | 狀態 | 何時出現 |
 |------|------|------|
-| 跑前守門 | ✅ 通過 | 3 秒 |
-| 跑中面板 | 🔄 執行中 | 86 分 |
-| 跑後摘要 | ⏳ 等待 | — |
+| 貼上預覽 | ✅ 開 | 貼上圖片或長文字 |
+| 繁簡守門 | ✅ 開 | 寫入簡體字或簡中用語 |
+| 接續未完成 | ✅ 開 | 新 session 開始 |
 
 > [!NOTE]
 > 共 ${themes.length} 套主題。深色：${dark(themes)}；淺色：${light(themes)}；mono 不用顏色。
@@ -64,9 +64,9 @@ claude plugin install tessera@tessera --scope user
 
 \`\`\`mermaid
 flowchart LR
-    A[跑前守門] --> B[跑中面板]
-    B --> C[跑後摘要]
-    C --> D[執行帳本]
+    A[貼上圖片] --> B[輸入框預覽]
+    B --> C[送出]
+    C --> D[回覆上色]
 \`\`\`
 
 \`\`\`mermaid

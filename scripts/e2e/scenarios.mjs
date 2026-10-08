@@ -186,6 +186,28 @@ export const scenarios = [
     ],
     check: s => seen(s.next, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
   },
+  // Token cost: the first request's input tokens with features on and off, for the README table. Run
+  // with CLAUDE_CODE_ENABLE_TODO_TOOLS unset: node e2e/run.mjs cost-all cost-no-hints cost-no-language cost-none
+  ...[
+    ['cost-all', {}],
+    ['cost-no-hints', { diagramHints: false }],
+    ['cost-no-language', { replyLanguage: 'off' }],
+    ['cost-none', { diagramHints: false, replyLanguage: 'off' }],
+  ].map(([name, options]) => ({
+    name,
+    manual: true,
+    prompts: true,
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options } } })],
+        steps: [{ type: '用一句話說明什麼是快取' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY }, { wait: 2_000 }],
+      },
+    ],
+    check: (_, dir) => {
+      const usage = transcriptText(dir).match(/"usage":\{"input_tokens":(\d+),"cache_creation_input_tokens":(\d+),"cache_read_input_tokens":(\d+)/)
+      return `input ${usage ? Number(usage[1]) + Number(usage[2]) + Number(usage[3]) : 'none'}`
+    },
+  })),
   {
     name: 'fold-diff',
     prompts: true,

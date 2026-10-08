@@ -62,5 +62,6 @@ Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a releas
 - Both READMEs describe current behavior, commands and footprint; `SECURITY.md` lists every file read and process run.
 - `docs/demo.gif`, `docs/banner.svg`, the social preview and `/tessera demo` in both languages (`hooks/help.ts`, `hooks/help-zh.ts`) show nothing removed.
 - The GitHub topics still fit.
+- The token table in both READMEs still holds: re-measure with the `cost-*` scenarios in `scripts/e2e/scenarios.mjs` when a feature adds to the context.
 
 Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, turn `[Unreleased]` into the new version in `CHANGELOG.md`, then push a `vX.Y.Z` tag. The release workflow checks the versions agree and publishes the notes.

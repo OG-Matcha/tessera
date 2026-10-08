@@ -123,7 +123,19 @@ No network requests of its own: the one model call, a short Haiku classification
 
 **Does it slow Claude Code down?** A feature that is off registers no hooks and no timers. Paste previews check the prompt box four times a second while on.
 
-**Does it add tokens?** About 250 for the diagram hint and, when your words are not English, about 65 for the language note. Each is sent once per context, not with every prompt, and again only after a compaction drops it, your language changes, or Claude's last reply drifted into another language. Both are switchable.
+**Does it add tokens?** Little, and only where it says. Measured on Claude Code 2.1.294 against a first request of about 55,000 tokens:
+
+| Feature | Adds | When |
+| --- | --- | --- |
+| Diagram hint (themed replies, `diagramHints`) | about 300 tokens | once per context, again after a compaction |
+| Reply in my language | about 70–100 tokens | once per context, again when your language changes or Claude's last reply drifted |
+| Guards | the refusal's reason, a short paragraph | only when a call is refused |
+| Model per agent | one separate Haiku call with the agent's task (its first 2,000 characters) | each Agent call without a model; nothing in your conversation |
+| Carry over tasks | no measurable change: Claude Code loads the task tools on demand | |
+| Client feedback inbox | a note naming the filed items | when you paste a chat log |
+| Themed replies, paste previews, fold long diffs | nothing: display only | |
+
+Each one can be switched off in `/tessera setup` or `/config`.
 
 **Why not just install prismantis and cc-mod-image-view?** You can, if you use macOS or Linux and a kitty-graphics terminal. tessera exists for everything else: Windows, CJK, terminals without image protocols, and long agent runs.
 

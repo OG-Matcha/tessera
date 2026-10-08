@@ -6,7 +6,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- The READMEs carry a measured token table: what each feature adds to the context or to separate model calls, and when.
 - Fold long diffs (`foldDiffs`, on by default): an Edit or Write result over 12 diff lines shows up to 8 lines, the first of what was removed and of what was added, with the counts and an **expand** button, so one large edit no longer fills the screen. ctrl+o and `--verbose` show diffs whole, and what Claude reads is unchanged.
+
+### Changed
+
+- `agentModel: auto` sends Haiku the first 2,000 characters of an agent's task instead of 4,000: the difficulty shows in the description and opening, and a long CJK prompt cost up to twice the tokens.
+
+### Fixed
+
+- The feedback inbox's `inbox_fixed` tool failed every call: it answered with a whole MCP result object where Claude Code takes the text.
 
 ## [0.5.0] - 2026-10-08
 
@@ -17,7 +26,6 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
-- The feedback inbox's `inbox_fixed` tool failed every call: it answered with a whole MCP result object where Claude Code takes the text.
 - Carry over tasks kept offering tasks already done when tessera was reloaded mid-session (`/reload-plugins`, an update): the reloaded module lost the task ids, so later completions went unrecorded. The task list is now kept with its ids and picked back up on reload.
 - tessera's own text (the carry-over band, toasts) was English at the start of a session for people who write Chinese on an English system locale, until their first prompt. The language they last wrote in is remembered and used from the start.
 

@@ -11,7 +11,8 @@ import { scenarios } from './scenarios.mjs'
 
 const repo = fileURLToPath(new URL('../..', import.meta.url))
 const only = process.argv.slice(2)
-const picked = scenarios.filter(s => only.length === 0 || only.includes(s.name))
+// Manual scenarios measure rather than check, and run only when named.
+const picked = scenarios.filter(s => (only.length === 0 ? !s.manual : only.includes(s.name)))
 const results = []
 const leftover = []
 

@@ -123,7 +123,19 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 **會拖慢 Claude Code 嗎？** 關掉的功能不登記任何 hook 和計時器。貼上預覽開啟時，每秒檢查輸入框四次。
 
-**會多用 token 嗎？** 圖表提示約 250 tokens；你打的字不是英文時，語言說明約 65 tokens。兩者都是每段 context 只送一次，不會每則 prompt 都送；只有 compaction 把它們清掉、你換了語言、或 Claude 上一則回覆跑成別的語言時才會再送。兩者都能關。
+**會多用 token 嗎？** 很少，而且只在寫明的地方。以下在 Claude Code 2.1.294 實測，第一次請求約 55,000 tokens：
+
+| 功能 | 增加 | 時機 |
+| --- | --- | --- |
+| 圖表提示（回覆美化，`diagramHints`） | 約 300 tokens | 每段 context 一次，compaction 後再送 |
+| 用我的語言回覆 | 約 70–100 tokens | 每段 context 一次；你換語言、或 Claude 上一則回覆跑成別的語言時再送 |
+| 守門 | 擋下的理由，一小段 | 只有真的擋下時 |
+| agent 自動選模型 | 另外一次 Haiku 呼叫，帶 agent 任務的前 2,000 字 | 每次沒指定模型的 Agent 呼叫；不進你的對話 |
+| 接續未完成 | 量不出差別：Claude Code 用到待辦工具時才載入 | |
+| 客戶回饋收件匣 | 一段列出收進哪些項目的說明 | 你貼上聊天紀錄時 |
+| 回覆美化、貼上預覽、摺疊長差異 | 0：只改顯示 | |
+
+每一項都能在 `/tessera setup` 或 `/config` 關掉。
 
 **為什麼不直接裝 prismantis 和 cc-mod-image-view？** 如果你用 macOS 或 Linux，而且終端機支援 kitty 圖片，可以。tessera 是為其他情況而做的：Windows、中日韓文字、沒有圖片協定的終端機，以及長時間的 agent 執行。
 

@@ -418,7 +418,8 @@ function registerGuards(on: On, options: Record<string, unknown>) {
     if (agentModel !== 'auto') return next({ ...e, model: agentModel })
     // Other agent types carry their own model in their definition, which an override would replace.
     if (e.subagent_type !== undefined && e.subagent_type !== 'general-purpose') return next(e)
-    const model = await pickModel($, `Agent type: ${e.subagent_type ?? 'general-purpose'}\nTask: ${e.description}\n\n${e.prompt.slice(0, 4000)}`)
+    // The task's description and opening tell its difficulty; a longer prompt only costs Haiku tokens.
+    const model = await pickModel($, `Agent type: ${e.subagent_type ?? 'general-purpose'}\nTask: ${e.description}\n\n${e.prompt.slice(0, 2000)}`)
     if (model === undefined) return next(e)
     $.ui.toast(t().agentPicked(e.description, model))
     return next({ ...e, model })

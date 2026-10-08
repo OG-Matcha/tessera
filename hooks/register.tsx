@@ -17,7 +17,8 @@ import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToo
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
-import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from './guard'
+import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { simplifiedWrite } from './hans'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
@@ -222,6 +223,9 @@ let agentModel: AgentModel | 'choose' | undefined
 const PICK = 'haiku for quick mechanical work (search, renames, formatting), sonnet for routine edits, opus for hard reasoning, design or review, fable for the hardest and longest work where quality outweighs speed and cost'
 let requireUserQuote = false
 let guardCjk = true
+let guardHans = 'auto'
+// The last write refused for Simplified text; the same call sent again goes through, for quotes and zh-CN strings.
+let refusedHans = ''
 const mainTrees = new Map<string, boolean>()
 
 const RISK_REASONS: Record<Risk, string> = {
@@ -285,6 +289,22 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
 }
 
+async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {
+  if (guardHans === 'off' || (guardHans === 'auto' && voice !== 'zh-Hant')) return undefined
+  const file = writtenFile(tool, input)
+  if (file === undefined || simplifiedWrite(file.path, file.texts, '').length === 0) return undefined
+  const existing = await $.fs.read(file.path).catch(() => '')
+  const found = simplifiedWrite(file.path, file.texts, typeof existing === 'string' ? existing : '')
+  if (found.length === 0) return undefined
+  const key = `${file.path}\n${file.texts.join('\n')}`
+  if (key === refusedHans) {
+    refusedHans = ''
+    return undefined
+  }
+  refusedHans = key
+  return refuse($, 'Simplified Chinese', `it writes Simplified characters into Traditional Chinese text (${found.slice(0, 8).join(', ')}). Write them as Taiwan Traditional Chinese. If Simplified is intended here, such as a quotation or a zh-CN string, send the same call again unchanged and it goes through`)
+}
+
 async function judgeWorkflow($: EngineInterface, script: string | undefined, scriptPath: string | undefined) {
   if (agentModel === undefined && !requireUserQuote) return undefined
   const text = script ?? (scriptPath === undefined ? undefined : await $.fs.read(scriptPath).catch(() => undefined))
@@ -304,6 +324,7 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   agentModel = options.agentModel === 'choose' ? 'choose' : AGENT_MODELS.find(m => m === options.agentModel)
   requireUserQuote = options.requireUserQuote === true
   guardCjk = options.guardCjkEscapes !== false
+  guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
@@ -312,6 +333,8 @@ function registerGuards(on: On, options: Record<string, unknown>) {
       return refuse($, 'CJK as \\u escapes', `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`)
     // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
     const tool = String(e.tool)
+    const hans = await judgeHans($, tool, e as unknown as Record<string, unknown>)
+    if (hans !== undefined) return hans
     if (tool === 'Bash' || tool === 'PowerShell') return (await judgeShell($, String((e as { command?: unknown }).command ?? ''), e.agentId)) ?? next(e)
     return next(e)
   }).catch((_, e, next) => next(e))
@@ -518,7 +541,7 @@ export const register: Register = (on, options) => {
 
   const imagesOn = options.pastePreview !== false
   if (imagesOn) registerPastes(on)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
   if (options.resumeAfterLimit === true) registerResume(on)

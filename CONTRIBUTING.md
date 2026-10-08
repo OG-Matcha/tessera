@@ -41,4 +41,6 @@ To try a change live, disable the installed copy first (`claude plugin disable t
 
 ## Releases
 
+Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a release with new features or changed options bumps the minor version (0.2.0) and a release with fixes only bumps the patch (0.1.2). Changes collect under `## [Unreleased]` and ship together: a release is cut when a set of features is done, or sooner for a fix that blocks people. Installs follow the `version` in `plugin.json`, so commits between releases reach no one.
+
 Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, turn `[Unreleased]` into the new version in `CHANGELOG.md`, then push a `vX.Y.Z` tag. The release workflow checks the versions agree and publishes the notes.

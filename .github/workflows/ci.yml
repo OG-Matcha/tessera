@@ -61,6 +61,11 @@ jobs:
           cd scripts
           npx esbuild inflate-entry.js --bundle --format=esm --minify --outfile=../hooks/vendor/inflate.js
           git diff --exit-code ../hooks/vendor/inflate.js
+      - name: The Simplified character table rebuilds byte for byte
+        run: |
+          cd scripts
+          node build-hans.mjs
+          git diff --exit-code ../hooks/vendor/hans.js
 
   conventions:
     runs-on: ubuntu-latest

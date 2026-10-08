@@ -44,6 +44,13 @@ claude plugin install tessera@tessera --scope user
 
 Start a new session, then run `/tessera setup` to pick the features you want.
 
+To get new releases automatically, open `/plugin`, go to **Marketplaces**, choose **tessera** and select **Enable auto-update**. Claude Code leaves auto-update off for marketplaces other than Anthropic's own. Without it, update by hand:
+
+```sh
+claude plugin marketplace update tessera
+claude plugin update tessera@tessera
+```
+
 > [!IMPORTANT]
 > tessera includes the reply rendering of [prismantis](https://github.com/NahumLitvin/prismantis) and the paste preview idea of [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view). Uninstall those two first; two mods drawing the same part of the screen fight over it.
 
@@ -56,6 +63,7 @@ Start a new session, then run `/tessera setup` to pick the features you want.
 | Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
 | Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
 | CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
+| Simplified guard | auto | While you write Traditional Chinese, refuses Simplified characters written into a file and names the Taiwan forms (`这→這`); zh-CN files, files already in Simplified and Japanese lines are left alone |
 | Agents pick a model | off | Agent and Workflow calls must name a model chosen for their task |
 | Workflows quote you | off | A Workflow script must carry your own words, so its agents keep your standing instruction |
 | Client feedback inbox | off | Pasted chat logs (`22:55 Name message`) become numbered items; a complaint like a fixed item is flagged as a likely regression |
@@ -91,7 +99,7 @@ If detection is wrong, set `imageMode` to `pixels` or `cells` in `/config`. Orca
 
 ## What it does on your machine
 
-No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, and files you `peek`; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
+No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, and a file Claude is about to write Simplified characters into; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
 
 ## FAQ
 

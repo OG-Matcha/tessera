@@ -32,6 +32,14 @@ export const FEATURES: Feature[] = [
   flag('guardGit', true, { en: 'Tree guard', 'zh-TW': '工作區守門' }, { en: 'Blocks tree rewrites while agents run and deletes through links', 'zh-TW': 'agent 執行時擋下改寫主樹，以及會穿過連結的刪除' }),
   flag('guardCjkEscapes', true, { en: 'CJK escape guard', 'zh-TW': '中日韓跳脫守門' }, { en: 'Blocks Korean, Chinese or Japanese written as \\u escapes', 'zh-TW': '擋下把中日韓文字寫成 \\u 跳脫碼' }),
   {
+    key: 'guardSimplified',
+    isOn: v => v !== 'off',
+    on: 'auto',
+    off: 'off',
+    name: { en: 'Simplified guard', 'zh-TW': '繁簡守門' },
+    about: { en: 'While you write Traditional Chinese, blocks Simplified characters in files', 'zh-TW': '你用繁體中文時，擋下寫進檔案的簡體字' },
+  },
+  {
     key: 'agentModel',
     isOn: v => v !== undefined && v !== 'off',
     on: 'choose',

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Simplified guard (`guardSimplified`, auto by default): while the person writes Traditional Chinese, a write that puts Simplified-only characters into a file holding none is refused with the Taiwan forms. Files named for zh-CN, zh-SG or zh-Hans, files already in Simplified and lines with kana are left alone; the same call sent again goes through, for intended quotes.
+
 ## [0.1.1] - 2026-10-08
 
 ### Fixed

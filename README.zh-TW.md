@@ -44,6 +44,13 @@ claude plugin install tessera@tessera --scope user
 
 開一個新 session，輸入 `/tessera setup` 選擇要開的功能。
 
+想自動收到新版本：開啟 `/plugin`，到 **Marketplaces** 選 **tessera**，再選 **Enable auto-update**。Anthropic 官方以外的 marketplace，Claude Code 預設不自動更新。沒開的話，可以手動更新：
+
+```sh
+claude plugin marketplace update tessera
+claude plugin update tessera@tessera
+```
+
 > [!IMPORTANT]
 > tessera 已經包含 [prismantis](https://github.com/NahumLitvin/prismantis) 的回覆美化，以及 [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view) 的貼圖預覽概念。請先移除這兩個 mod，兩個 mod 畫同一塊畫面會互相衝突。
 
@@ -56,6 +63,7 @@ claude plugin install tessera@tessera --scope user
 | 用我的語言回覆 | 開 | 你自己打的字是中文、日文或韓文時，Claude 用同一種語言回覆；貼上的程式碼、log、引用不算 |
 | 工作區守門 | 開 | 擋下穿過連結的遞迴刪除、連到 `node_modules` 的連結；agent 執行時擋下改寫主樹和 `git add -A` |
 | 中日韓跳脫守門 | 開 | 擋下把中日韓文字寫成 `\uXXXX` |
+| 繁簡守門 | 自動 | 你用繁體中文時，擋下寫進檔案的簡體字並列出台灣用字（`这→這`）；zh-CN 檔案、本來就是簡體的檔案、日文行不檢查 |
 | agent 必須挑模型 | 關 | Agent 和 Workflow 必須依任務指定模型 |
 | Workflow 引用原話 | 關 | Workflow 腳本必須逐字引用你說過的話，agent 才不會因為你後來的一句提問就停工 |
 | 客戶回饋收件匣 | 關 | 貼上的聊天紀錄（`22:55 名字 訊息`）變成編號項目；和已修項目相似的抱怨會標成可能回歸 |
@@ -91,7 +99,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 ## 在你電腦上做了什麼
 
-不連網。會讀 Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查，以及你按「原圖」時對應平台的檢視器。細節見 [SECURITY.md](SECURITY.md)。
+不連網。會讀 Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案，以及 Claude 要寫入簡體字的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查，以及你按「原圖」時對應平台的檢視器。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 

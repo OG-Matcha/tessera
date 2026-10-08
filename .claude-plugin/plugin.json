@@ -382,6 +382,17 @@
       "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text (anthropics/claude-code#83033).",
       "default": true
     },
+    "guardSimplified": {
+      "type": "string",
+      "title": "Guard Simplified Chinese",
+      "description": "auto: while your own words are Traditional Chinese, refuse writes that put Simplified-only characters (发, 这, 说) into a file that holds none, and name the Taiwan forms. A file already in Simplified, or named for zh-CN, zh-SG or zh-Hans, is left alone, and sending the same call again lets an intended quote through. on: always. off: never.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "on",
+        "off"
+      ]
+    },
     "resumeAfterLimit": {
       "type": "boolean",
       "title": "Resume after limits",

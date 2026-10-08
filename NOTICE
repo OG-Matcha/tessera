@@ -3,6 +3,7 @@ tessera includes code adapted from:
 - prismantis (https://github.com/NahumLitvin/prismantis, commit 439fe09): hooks/help.ts, markdown.ts, mermaid.tsx, presets.ts, render.tsx, rtl.ts, theme.ts, vendor/mermaid-text.js, vendor/prism.js and the rendering half of register.tsx, plus its tests. MIT, see below.
 - cc-mod-image-view (https://github.com/GGGODLIN/cc-mod-image-view): the paste-cache lookup in register.tsx. MIT, Copyright (c) 2026 Jarrod Watts.
 - fflate (https://github.com/101arrowz/fflate): hooks/vendor/inflate.js. MIT.
+- OpenCC dictionaries (https://github.com/BYVoid/OpenCC, through opencc-js 1.4.2 and opencc-data): hooks/vendor/hans.js. Apache-2.0, see docs/THIRD_PARTY_NOTICES.md.
 
 Bundled libraries and palettes inherited from prismantis are listed in docs/THIRD_PARTY_NOTICES.md.
 

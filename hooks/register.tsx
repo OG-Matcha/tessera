@@ -77,21 +77,23 @@ let isChecking = false
 const pixels = new Map<string, Rgba | null>()
 
 // Claude Code caches each paste as <tmp>/<project>/<session>/images/<n>.png; on Windows <tmp> is %TEMP%\claude.
-// Every variable the platform decisions read, each named literally so the engine can list them.
+// Every variable the platform decisions read, each named literally so the engine can list them, read
+// at once: each is a round trip to the engine.
 async function readEnv($: EngineInterface): Promise<Env> {
-  return {
-    OS: await $.env.get('OS'),
-    TEMP: await $.env.get('TEMP'),
-    HOME: await $.env.get('HOME'),
-    CLAUDE_CODE_TMPDIR: await $.env.get('CLAUDE_CODE_TMPDIR'),
-    CLAUDE_CODE_FORCE_TERMINAL_IMAGES: await $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES'),
-    TERM: await $.env.get('TERM'),
-    TERM_PROGRAM: await $.env.get('TERM_PROGRAM'),
-    KITTY_WINDOW_ID: await $.env.get('KITTY_WINDOW_ID'),
-    TMUX: await $.env.get('TMUX'),
-    STY: await $.env.get('STY'),
-    WSL_DISTRO_NAME: await $.env.get('WSL_DISTRO_NAME'),
-  }
+  const [OS, TEMP, HOME, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME] = await Promise.all([
+    $.env.get('OS'),
+    $.env.get('TEMP'),
+    $.env.get('HOME'),
+    $.env.get('CLAUDE_CODE_TMPDIR'),
+    $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES'),
+    $.env.get('TERM'),
+    $.env.get('TERM_PROGRAM'),
+    $.env.get('KITTY_WINDOW_ID'),
+    $.env.get('TMUX'),
+    $.env.get('STY'),
+    $.env.get('WSL_DISTRO_NAME'),
+  ])
+  return { OS, TEMP, HOME, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME }
 }
 
 async function root($: EngineInterface): Promise<string> {
@@ -572,6 +574,15 @@ async function inboxKey($: EngineInterface): Promise<string> {
   return `inbox:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
 }
 
+const registerInboxTool = ($: EngineInterface) =>
+  $.tool
+    .register({
+      name: 'inbox_fixed',
+      description: "Mark client-feedback inbox items as fixed once a commit fixes them, so a later complaint like them is flagged as a regression. Pass the item numbers from tessera's inbox note and the commit hash.",
+      inputSchema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'number' } }, commit: { type: 'string' } }, required: ['ids', 'commit'] },
+    })
+    .catch(() => undefined)
+
 async function readInbox($: EngineInterface, key: string): Promise<InboxItem[]> {
   const stored = await $.store.get(key).catch(() => undefined)
   return Array.isArray(stored) ? (stored as InboxItem[]) : []
@@ -728,52 +739,59 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
     // value the person set, on or off, stands.
-    if (carryOn && (await $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS')) === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
-    env = await readEnv($)
+    // Everything read before the session starts is read at once: each read is a round trip to the engine.
+    const [todoTools, readsEnv, settings, wroteLang, lcAll, langVar, setupSeen] = await Promise.all([
+      $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS'),
+      readEnv($),
+      $.settings.read({}).catch(() => ({}) as Record<string, unknown>),
+      $.store.get('wroteLang').catch(() => undefined),
+      $.env.get('LC_ALL'),
+      $.env.get('LANG'),
+      $.store.get('setupSeen').catch(() => true),
+    ])
+    if (carryOn && todoTools === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
+    env = readsEnv
     usePixels = drawsPixels(imageMode, env)
-    const settings = await $.settings.read({}).catch(() => ({}) as Record<string, unknown>)
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
       // The language the person wrote in last time, ahead of a system locale that may not be theirs.
-      await $.store.get('wroteLang').then(v => (typeof v === 'string' ? v : undefined), () => undefined),
-      await $.env.get('LC_ALL'),
-      await $.env.get('LANG'),
+      typeof wroteLang === 'string' ? wroteLang : undefined,
+      lcAll,
+      langVar,
       Intl.DateTimeFormat().resolvedOptions().locale,
     ]
     lang = pickLang(options.language, hints)
     langSettled = options.language === 'en' || options.language === 'zh-TW' || lang === 'zh-TW'
     if (imagesOn) $.clock.every(POLL_MS, () => void check($))
-    const returning = (await $.store.get('setupSeen').catch(() => true)) === true
+    const returning = setupSeen === true
     if (!returning) {
       await $.store.set('setupSeen', true).catch(() => undefined)
       $.ui.toast(t().setupHint)
     }
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
-    if (carryOn) {
+    const carry = async () => {
+      const [store, sessionId] = await Promise.all([carryKey($).then(key => readCarry($, key)), $.session.id()])
       // A reload starts the module over within the same session: pick its task list back up.
-      const store = await readCarry($, await carryKey($))
-      if (taskLog.tasks.size === 0) taskLog.tasks = restoredTasks(store, await $.session.id())
-    }
-    if (carryOn && e.isInteractive) {
-      const offer = carriedFrom(await readCarry($, await carryKey($)), await $.session.id())
+      if (taskLog.tasks.size === 0) taskLog.tasks = restoredTasks(store, sessionId)
+      const offer = e.isInteractive ? carriedFrom(store, sessionId) : undefined
       if (offer !== undefined) await update($, carryOver, () => offer)
     }
     // Asked once, from the second session on, so the first one only shows the setup hint.
     const market = marketplaceWithoutUpdates(settings)
-    if (e.isInteractive && returning && market !== undefined && (await $.store.get('updateOffered').catch(() => true)) !== true)
-      await update($, updateOffer, () => market)
-    await $.command
-      .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[inbox [fixed <n…>] | theme <name> | copy [code] | demo]' })
-      .catch(() => undefined)
-    if (inboxOn)
-      await $.tool
-        .register({
-          name: 'inbox_fixed',
-          description: "Mark client-feedback inbox items as fixed once a commit fixes them, so a later complaint like them is flagged as a regression. Pass the item numbers from tessera's inbox note and the commit hash.",
-          inputSchema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'number' } }, commit: { type: 'string' } }, required: ['ids', 'commit'] },
-        })
-        .catch(() => undefined)
+    const offerUpdate = async () => {
+      if (e.isInteractive && returning && market !== undefined && (await $.store.get('updateOffered').catch(() => true)) !== true)
+        await update($, updateOffer, () => market)
+    }
+    // What follows the start is independent, so it runs at once too.
+    await Promise.all([
+      carryOn ? carry() : undefined,
+      offerUpdate(),
+      $.command
+        .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[inbox [fixed <n…>] | theme <name> | copy [code] | demo]' })
+        .catch(() => undefined),
+      inboxOn ? registerInboxTool($) : undefined,
+    ])
     return started
   })
 

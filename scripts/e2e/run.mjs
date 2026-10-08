@@ -50,7 +50,7 @@ for (const scenario of picked) {
     results.push([scenario.name, 'skip', 'clipboard is only scripted on Windows'])
   } else {
     const first = await attempt(scenario)
-    const second = first !== undefined && scenario.prompts ? await attempt(scenario) : first
+    const second = first !== undefined && scenario.prompts && !scenario.manual ? await attempt(scenario) : first
     results.push([scenario.name, second !== undefined ? 'FAIL' : first !== undefined ? 'pass (2nd try)' : 'pass', second ?? ''])
   }
   const [name, status] = results.at(-1)

@@ -209,6 +209,25 @@ export const scenarios = [
     },
   })),
   {
+    name: 'perf',
+    manual: true,
+    prompts: true,
+    // Render timings: node e2e/run.mjs perf, then read the "tessera@tessera ... settled" lines. Measured
+    // 2026-10-09: after startup the band above the prompt draws in 8-64 ms; the 0.6-1.4 s at session start
+    // and the 3 s on submit are the engine starting up and the settings hooks, not tessera.
+    sessions: () => [
+      {
+        args: [...HAIKU, '--debug-file', join(homedir(), '.claude', 'tessera-perf.log')],
+        steps: [
+          ...'幫我寫一個表格比較三種快取策略'.split('').map(ch => ({ key: ch, wait: 150 })),
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY },
+          { wait: 2_000 },
+        ],
+      },
+    ],
+    check: () => 'measured',
+  },
+  {
     name: 'update-offer',
     // A GitHub install of tessera, under another marketplace name, with auto-update off.
     sessions: () => [

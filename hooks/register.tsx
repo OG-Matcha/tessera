@@ -18,7 +18,7 @@ import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
 import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
-import { simplifiedWrite } from './hans'
+import { taiwanFixes } from './hans'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
@@ -292,9 +292,9 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
 async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {
   if (guardHans === 'off' || (guardHans === 'auto' && voice !== 'zh-Hant')) return undefined
   const file = writtenFile(tool, input)
-  if (file === undefined || simplifiedWrite(file.path, file.texts, '').length === 0) return undefined
+  if (file === undefined || taiwanFixes(file.path, file.texts, '').length === 0) return undefined
   const existing = await $.fs.read(file.path).catch(() => '')
-  const found = simplifiedWrite(file.path, file.texts, typeof existing === 'string' ? existing : '')
+  const found = taiwanFixes(file.path, file.texts, typeof existing === 'string' ? existing : '')
   if (found.length === 0) return undefined
   const key = `${file.path}\n${file.texts.join('\n')}`
   if (key === refusedHans) {
@@ -302,7 +302,7 @@ async function judgeHans($: EngineInterface, tool: string, input: Record<string,
     return undefined
   }
   refusedHans = key
-  return refuse($, 'Simplified Chinese', `it writes Simplified characters into Traditional Chinese text (${found.slice(0, 8).join(', ')}). Write them as Taiwan Traditional Chinese. If Simplified is intended here, such as a quotation or a zh-CN string, send the same call again unchanged and it goes through`)
+  return refuse($, 'Taiwan Chinese', `it writes Simplified characters or mainland terms into Taiwan Chinese text (${found.slice(0, 8).join(', ')}). Use the Taiwan forms. If the original is intended here, such as a quotation or a zh-CN string, send the same call again unchanged and it goes through`)
 }
 
 async function judgeWorkflow($: EngineInterface, script: string | undefined, scriptPath: string | undefined) {

@@ -384,8 +384,8 @@
     },
     "guardSimplified": {
       "type": "string",
-      "title": "Guard Simplified Chinese",
-      "description": "auto: while your own words are Traditional Chinese, refuse writes that put Simplified-only characters (发, 这, 说) into a file that holds none, and name the Taiwan forms. A file already in Simplified, or named for zh-CN, zh-SG or zh-Hans, is left alone, and sending the same call again lets an intended quote through. on: always. off: never.",
+      "title": "Guard Taiwan Chinese",
+      "description": "auto: while your own words are Traditional Chinese, refuse writes that put Simplified-only characters (发, 这, 说) or mainland software terms (服務器, 默認, 視頻) into a file, and name the Taiwan forms. Terms the file already uses are allowed. A file already in Simplified, or named for zh-CN, zh-SG or zh-Hans, is left alone, and sending the same call again lets an intended quote through. on: always. off: never.",
       "default": "auto",
       "options": [
         "auto",

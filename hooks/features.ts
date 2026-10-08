@@ -36,8 +36,8 @@ export const FEATURES: Feature[] = [
     isOn: v => v !== 'off',
     on: 'auto',
     off: 'off',
-    name: { en: 'Simplified guard', 'zh-TW': '繁簡守門' },
-    about: { en: 'While you write Traditional Chinese, blocks Simplified characters in files', 'zh-TW': '你用繁體中文時，擋下寫進檔案的簡體字' },
+    name: { en: 'Taiwan Chinese guard', 'zh-TW': '繁簡守門' },
+    about: { en: 'While you write Traditional Chinese, blocks Simplified characters and mainland terms in files', 'zh-TW': '你用繁體中文時，擋下寫進檔案的簡體字和大陸用語' },
   },
   {
     key: 'agentModel',

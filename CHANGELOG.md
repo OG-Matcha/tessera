@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-08
+
 ### Added
 
 - Traditional Chinese guard (`guardSimplified`, auto by default): while the person writes Traditional Chinese, a write that puts Simplified-only characters or zh-CN software terms (服務器, 默認, 視頻) into a file is refused with the zh-TW forms. Files named for zh-CN, zh-SG or zh-Hans, files already in Simplified, terms the file already uses and lines with kana are left alone; the same call sent again goes through, for intended quotes.
@@ -33,6 +35,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/OG-Matcha/tessera/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/OG-Matcha/tessera/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/OG-Matcha/tessera/releases/tag/v0.1.0

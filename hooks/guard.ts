@@ -24,6 +24,24 @@ export function shellRisks(command: string): Risk[] {
   return [...risks]
 }
 
+// A heredoc with an unquoted delimiter is expanded before it is written: ${x}, $(cmd) and backticks are
+// replaced and \\ becomes \, so code written through one loses its template literals and escapes.
+const HEREDOC = /<<(-?)\s*(["']?)([A-Za-z_][\w-]*)\2/g
+const EXPANDED = /\$\{|\$\(|`|\\[\\$`]/
+
+export function expandedHeredoc(command: string): string | undefined {
+  for (const m of command.matchAll(HEREDOC)) {
+    if (m[2] !== '') continue
+    const start = command.indexOf('\n', m.index)
+    if (start === -1) continue
+    const lines = command.slice(start + 1).split('\n')
+    const end = lines.findIndex(l => (m[1] === '-' ? l.replace(/^\t+/, '') : l) === m[3])
+    const hit = EXPANDED.exec((end === -1 ? lines : lines.slice(0, end)).join('\n'))
+    if (hit) return hit[0]
+  }
+  return undefined
+}
+
 export function commandDir(command: string): string | undefined {
   const unquote = (s: string) => s.replace(/^["']|["']$/g, '')
   const cd = /^\s*(?:cd|Set-Location|sl|pushd)\s+(?:\/d\s+)?("[^"]+"|'[^']+'|[^\s;&|]+)/i.exec(command)

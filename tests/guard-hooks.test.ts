@@ -88,3 +88,16 @@ test('a todo written with CJK escapes is refused before it reaches the tool', as
   const result = await $.tool.call({ tool: 'TodoWrite', todos: [{ content: '\\uD55C\\uAD6D', status: 'pending', activeForm: 'x' }] } as never)
   expect(result.deny).toContain('#83033')
 })
+
+test('an unquoted heredoc that would expand code is refused once, and goes through when sent again', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const call = { tool: 'Bash', command: 'cat > a.ts <<EOF\nconst s = `${name}`\nEOF' } as const
+  expect((await $.tool.call(call)).deny).toContain("<<'EOF'")
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('guardHeredoc off adds nothing', { options: { guardHeredoc: false } }, async ($, on) => {
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  expect((await $.tool.call({ tool: 'Bash', command: 'cat > a.ts <<EOF\nconst s = `${name}`\nEOF' })).deny).toBe(undefined)
+})

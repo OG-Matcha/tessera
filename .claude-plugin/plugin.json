@@ -393,6 +393,12 @@
         "off"
       ]
     },
+    "guardHeredoc": {
+      "type": "boolean",
+      "title": "Guard unquoted heredocs",
+      "description": "Refuse a Bash command whose heredoc delimiter is unquoted (<<EOF) while its body holds ${...}, $(...), backticks or backslash escapes, which the shell expands before the text is written. Sending the same command again lets an intended expansion through.",
+      "default": true
+    },
     "resumeAfterLimit": {
       "type": "boolean",
       "title": "Resume after limits",

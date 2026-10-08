@@ -17,7 +17,7 @@ import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToo
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
-import { commandDir, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, expandedHeredoc, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { taiwanFixes } from './hans'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
@@ -224,8 +224,9 @@ const PICK = 'haiku for quick mechanical work (search, renames, formatting), son
 let requireUserQuote = false
 let guardCjk = true
 let guardHans = 'auto'
-// The last write refused for Simplified text; the same call sent again goes through, for quotes and zh-CN strings.
-let refusedHans = ''
+let guardHeredoc = true
+// The last call refused by a rule that can misjudge intent; the same call sent again goes through.
+let refusedOnce = ''
 const mainTrees = new Map<string, boolean>()
 
 const RISK_REASONS: Record<Risk, string> = {
@@ -296,13 +297,22 @@ async function judgeHans($: EngineInterface, tool: string, input: Record<string,
   const existing = await $.fs.read(file.path).catch(() => '')
   const found = taiwanFixes(file.path, file.texts, typeof existing === 'string' ? existing : '')
   if (found.length === 0) return undefined
-  const key = `${file.path}\n${file.texts.join('\n')}`
-  if (key === refusedHans) {
-    refusedHans = ''
+  return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'Taiwan Chinese', `it writes Simplified characters or mainland terms into Taiwan Chinese text (${found.slice(0, 8).join(', ')}). Use the Taiwan forms. If the original is intended here, such as a quotation or a zh-CN string`)
+}
+
+function judgeHeredoc($: EngineInterface, command: string) {
+  const token = guardHeredoc ? expandedHeredoc(command) : undefined
+  if (token === undefined) return undefined
+  return refuseOnce($, command, 'unquoted heredoc', `its heredoc delimiter is unquoted, so the shell expands ${token} in the body before anything is written: \${x}, $(cmd) and backticks are replaced and \\\\ becomes \\. Quote the delimiter (<<'EOF') to keep the text as written. If the expansion is intended`)
+}
+
+function refuseOnce($: EngineInterface, key: string, rule: string, reason: string) {
+  if (key === refusedOnce) {
+    refusedOnce = ''
     return undefined
   }
-  refusedHans = key
-  return refuse($, 'Taiwan Chinese', `it writes Simplified characters or mainland terms into Taiwan Chinese text (${found.slice(0, 8).join(', ')}). Use the Taiwan forms. If the original is intended here, such as a quotation or a zh-CN string, send the same call again unchanged and it goes through`)
+  refusedOnce = key
+  return refuse($, rule, `${reason}, send the same call again unchanged and it goes through`)
 }
 
 async function judgeWorkflow($: EngineInterface, script: string | undefined, scriptPath: string | undefined) {
@@ -325,6 +335,7 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   requireUserQuote = options.requireUserQuote === true
   guardCjk = options.guardCjkEscapes !== false
   guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
+  guardHeredoc = options.guardHeredoc !== false
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
@@ -335,8 +346,9 @@ function registerGuards(on: On, options: Record<string, unknown>) {
     const tool = String(e.tool)
     const hans = await judgeHans($, tool, e as unknown as Record<string, unknown>)
     if (hans !== undefined) return hans
-    if (tool === 'Bash' || tool === 'PowerShell') return (await judgeShell($, String((e as { command?: unknown }).command ?? ''), e.agentId)) ?? next(e)
-    return next(e)
+    if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
+    const command = String((e as { command?: unknown }).command ?? '')
+    return (tool === 'Bash' ? judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
   }).catch((_, e, next) => next(e))
   on('tool.call', { tool: 'Agent' }, ($, e, next) => {
     if (agentModel === undefined || e.model !== undefined) return next(e)
@@ -541,7 +553,7 @@ export const register: Register = (on, options) => {
 
   const imagesOn = options.pastePreview !== false
   if (imagesOn) registerPastes(on)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
   if (options.resumeAfterLimit === true) registerResume(on)

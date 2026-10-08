@@ -64,6 +64,7 @@ claude plugin update tessera@tessera
 | Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
 | CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
 | Taiwan Chinese guard | auto | While you write Traditional Chinese, refuses Simplified characters and mainland terms written into a file and names the Taiwan forms (`这→這`, `服務器→伺服器`); zh-CN files, files already in Simplified, terms the file already uses and Japanese lines are left alone |
+| Heredoc guard | on | Refuses a Bash heredoc with an unquoted delimiter (`<<EOF`) whose body the shell would change: `${x}`, `$(cmd)` and backticks expanded, `\\` turned into `\`; send it again if the expansion is intended |
 | Agents pick a model | off | Agent and Workflow calls must name a model chosen for their task |
 | Workflows quote you | off | A Workflow script must carry your own words, so its agents keep your standing instruction |
 | Client feedback inbox | off | Pasted chat logs (`22:55 Name message`) become numbered items; a complaint like a fixed item is flagged as a likely regression |

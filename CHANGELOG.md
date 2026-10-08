@@ -17,6 +17,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- The feedback inbox's `inbox_fixed` tool failed every call: it answered with a whole MCP result object where Claude Code takes the text.
 - Carry over tasks kept offering tasks already done when tessera was reloaded mid-session (`/reload-plugins`, an update): the reloaded module lost the task ids, so later completions went unrecorded. The task list is now kept with its ids and picked back up on reload.
 - tessera's own text (the carry-over band, toasts) was English at the start of a session for people who write Chinese on an English system locale, until their first prompt. The language they last wrote in is remembered and used from the start.
 

@@ -29,7 +29,8 @@ test('with the inbox on, a pasted log is filed, a repeat of a fixed item is flag
   expect(seen[0]?.join('\n')).toContain('filed #1, #2')
 
   const marked = await $.tool.call({ tool: 'mcp__tessera__inbox_fixed', ids: [1], commit: 'abc123' } as never)
-  expect(JSON.stringify(marked)).toContain('abc123')
+  expect(typeof (marked as { result?: unknown }).result).toBe('string')
+  expect(String((marked as { result?: unknown }).result)).toContain('abc123')
 
   await $.prompt.submit({ text: '10:02 Amy 預約按鈕按了還是沒有反應\n10:03 Amy 價格顯示錯誤', origin: composer } as never)
   expect(seen[1]?.join('\n')).toContain('#3')

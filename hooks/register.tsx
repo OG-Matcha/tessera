@@ -756,7 +756,8 @@ export const register: Register = (on, options) => {
     const input = e as unknown as { ids?: unknown; commit?: unknown }
     const ids = Array.isArray(input.ids) ? input.ids.filter((n): n is number => typeof n === 'number') : []
     const text = await markInbox($, ids, typeof input.commit === 'string' ? input.commit : '')
-    return { result: { content: [{ type: 'text', text }], isError: false } } as never
+    // An MCP tool's result is its text (or a content list), not a whole CallToolResult.
+    return { result: text } as never
   })
 
   on('session.compact', async (_, e, next) => {

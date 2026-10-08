@@ -6,7 +6,7 @@ import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
 import type { Env } from './platform'
-import { drawsPixels, openers, pasteRoot, platformOf } from './platform'
+import { clipboardReaders, drawsPixels, openers, pasteRoot, platformOf } from './platform'
 import type { InboxItem } from './inbox'
 import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 
@@ -25,7 +25,7 @@ import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
 import { FEATURES } from './features'
-import { newPastes, pastedNumbers } from './paste'
+import { clipboardHolds, clipboardText, placeholders } from './paste'
 import { peek } from './peek'
 import { resumeAt } from './limits'
 import type { Voice } from './voice'
@@ -41,7 +41,7 @@ const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] 
 const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
 const POLL_MS = 250
 const PASTE_HEAD = 4
-const pastes = new Map<number, string>()
+const pastes = new Map<number, string | null>()
 let shownPastes = ''
 const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: [40, 12], large: [64, 20] }
 
@@ -129,7 +129,9 @@ async function check($: EngineInterface) {
   isChecking = true
   try {
     const draft = (await $.prompt.read()).text
-    const pasted = pastedNumbers(draft).filter(n => pastes.has(n))
+    const found = placeholders(draft)
+    for (const p of found) if (!pastes.has(p.n)) pastes.set(p.n, await readPaste($, p.extraLines))
+    const pasted = found.map(p => p.n).filter(n => typeof pastes.get(n) === 'string')
     if (pasted.join(',') !== shownPastes) {
       shownPastes = pasted.join(',')
       await update($, draftPastes, () =>
@@ -165,13 +167,17 @@ async function openOriginal($: EngineInterface, path: string) {
   }
 }
 
+// The text of a just-collapsed paste, read once from the clipboard; null when the clipboard no longer
+// matches it (copied over since, or the paste came from another machine over SSH).
+async function readPaste($: EngineInterface, extraLines: number | undefined): Promise<string | null> {
+  for (const argv of clipboardReaders(env)) {
+    const run = await $.process.run(argv, { timeoutMs: 3_000 }).catch(() => undefined)
+    if (run?.exitCode === 0) return clipboardHolds(run.stdout, extraLines) ? clipboardText(run.stdout) : null
+  }
+  return null
+}
+
 function registerPastes(on: On) {
-  on('prompt.edit', async (_, e, next) => {
-    const box = await next(e)
-    if (e.key !== undefined || !e.inputText.includes('\n')) return box
-    for (const n of newPastes(e.text, box.text)) pastes.set(n, e.inputText)
-    return box
-  })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.surface !== 'terminal' || e.props.hasSurvey) return next(e)

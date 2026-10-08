@@ -34,6 +34,22 @@ export function openers(env: Env, path: string): string[][] {
   return [...host, opener(env, path)]
 }
 
+// Commands that print the clipboard as UTF-8, tried in order. PowerShell is told to, since it otherwise
+// prints in the console code page and turns CJK text into question marks.
+export function clipboardReaders(env: Env): string[][] {
+  const powershell = '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-Clipboard -Raw'
+  switch (platformOf(env)) {
+    case 'windows':
+      return [['powershell', '-NoProfile', '-NonInteractive', '-Command', powershell]]
+    case 'wsl':
+      return [['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', powershell]]
+    case 'mac':
+      return [['pbpaste']]
+    case 'linux':
+      return [['wl-paste', '--no-newline'], ['xclip', '-selection', 'clipboard', '-o'], ['xsel', '--clipboard', '--output']]
+  }
+}
+
 function opener(env: Env, path: string): string[] {
   switch (platformOf(env)) {
     case 'windows':

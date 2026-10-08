@@ -1,11 +1,29 @@
 import { expect, test } from 'claude-code/testing'
 
-import { newPastes, pastedNumbers } from '../hooks/paste'
+import { clipboardHolds, placeholders } from '../hooks/paste'
+import { clipboardReaders } from '../hooks/platform'
 
-test('the placeholders a paste added are the ones not in the box before it', () => {
-  expect(pastedNumbers('a [Pasted text #1 +40 lines] b [Pasted text #3 +2 lines] [Pasted text #1 +40 lines]')).toEqual([1, 3])
-  expect(newPastes('fix [Pasted text #1 +40 lines]', 'fix [Pasted text #1 +40 lines] and [Pasted text #2 +8 lines]')).toEqual([2])
-  expect(newPastes('', 'no paste here')).toEqual([])
+test('placeholders give each paste once, with the extra line count Claude Code states', () => {
+  expect(placeholders('a [Pasted text #1 +40 lines] b [Pasted text #3] [Pasted text #1 +40 lines]')).toEqual([
+    { n: 1, extraLines: 40 },
+    { n: 3, extraLines: undefined },
+  ])
+})
+
+test('the clipboard counts as the paste only with the stated line count', () => {
+  const thirty = Array.from({ length: 30 }, (_, i) => `line ${i}`)
+  expect(clipboardHolds(thirty.join('\r\n') + '\r\n', 29)).toBe(true)
+  expect(clipboardHolds(thirty.join('\n') + '\n\r\n', 29)).toBe(true)
+  expect(clipboardHolds(thirty.join('\n'), 30)).toBe(true)
+  expect(clipboardHolds(thirty.join('\n'), 27)).toBe(false)
+  expect(clipboardHolds('x'.repeat(1200), undefined)).toBe(true)
+  expect(clipboardHolds('a\nb', undefined)).toBe(false)
+  expect(clipboardHolds('', 0)).toBe(false)
+})
+
+test('the clipboard is read as UTF-8 on Windows and through the usual tools elsewhere', () => {
+  expect(clipboardReaders({ OS: 'Windows_NT' })[0]?.join(' ')).toContain('[Console]::OutputEncoding = [Text.Encoding]::UTF8')
+  expect(clipboardReaders({ HOME: '/home/a', TERM: 'xterm' }).map(a => a[0])).toEqual(['wl-paste', 'xclip', 'xsel'])
 })
 
 test('collapsed pasted text shows its first lines and its length above the prompt', { options: { language: 'en' } }, async ($, on) => {

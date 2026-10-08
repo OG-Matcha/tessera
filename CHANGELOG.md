@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Collapsed pasted text (`[Pasted text #n +N lines]`) now shows its first lines above the prompt. Claude Code sends no edit event for a collapsed paste, so the preview never appeared outside tests; the text now comes from the clipboard, read once per paste, and is shown only when its line count matches the placeholder.
+
 ### Added
 
 - Glossary guard (`guardGlossary`, on by default): a table in the repository's `CLAUDE.md` with a column of terms to use and a column of wordings to avoid (`| Use | Avoid |` or `| 用語 | 避免 |`) becomes the project glossary; a file write that brings in an avoided wording is refused once with the term to use. Wordings the file already uses pass, Latin words match only as whole words, and a project without such a table is untouched.

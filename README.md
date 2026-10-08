@@ -59,7 +59,7 @@ claude plugin update tessera@tessera
 | Feature | Default | What it does |
 | --- | --- | --- |
 | Themed replies | on | Tables, headings, highlighted code, mermaid diagrams and charts, tool rows, copy buttons; 16 themes |
-| Paste previews | on | Image thumbnails and collapsed pasted text above the prompt; "original" opens the full image in an Orca tab, a VS Code tab or your system viewer |
+| Paste previews | on | Image thumbnails and collapsed pasted text above the prompt (the text is read from the clipboard and shown only when it matches the paste's line count); "original" opens the full image in an Orca tab, a VS Code tab or your system viewer |
 | Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
 | Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; while agents run, refuses tree rewrites and `git add -A` in the main tree |
 | CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
@@ -101,7 +101,7 @@ If detection is wrong, set `imageMode` to `pixels` or `cells` in `/config`. Orca
 
 ## What it does on your machine
 
-No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, the repository's `CLAUDE.md` for a glossary table, and a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
+No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, the repository's `CLAUDE.md` for a glossary table, and a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into; it runs `git rev-parse`, a link listing before a recursive delete, a clipboard read once per collapsed text paste, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
 
 ## FAQ
 

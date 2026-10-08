@@ -44,7 +44,7 @@ claude plugin install tessera@tessera --scope user
 
 Start a new session, then run `/tessera setup` to pick the features you want.
 
-To get new releases automatically, open `/plugin`, go to **Marketplaces**, choose **tessera** and select **Enable auto-update**. Claude Code leaves auto-update off for marketplaces other than Anthropic's own. Without it, update by hand:
+To get new releases automatically, open `/plugin`, go to **Marketplaces**, choose **tessera** and select **Enable auto-update**. Claude Code leaves auto-update off for marketplaces other than Anthropic's own; tessera reminds you of it once, above the prompt, with a button that opens `/plugin`. Without it, update by hand:
 
 ```sh
 claude plugin marketplace update tessera

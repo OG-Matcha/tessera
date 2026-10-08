@@ -29,6 +29,7 @@ import { completions } from './complete'
 import { FEATURES } from './features'
 import { clipboardHolds, clipboardText, placeholders } from './paste'
 import { foldPatch, patchOf } from './fold'
+import { marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
 import { resumeAt } from './limits'
 import type { Voice } from './voice'
@@ -44,6 +45,8 @@ const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] 
 const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
 
 const carryOver = atom({ plugin: 'tessera', key: 'carryOver' } as const, null as CarryOver | null)
+// The marketplace named in the one-time offer to turn on auto-update, while it shows.
+const updateOffer = atom({ plugin: 'tessera', key: 'updateOffer' } as const, null as string | null)
 // Edit results the person unfolded.
 const unfoldedDiffs = atom({ plugin: 'tessera', key: 'unfoldedDiffs' } as const, [] as string[])
 const CARRY_SHOWN = 5
@@ -463,6 +466,34 @@ async function settleCarry($: EngineInterface, from: string, fill: string | unde
   await update($, carryOver, () => null)
 }
 
+async function settleUpdate($: EngineInterface, fill: string | undefined) {
+  if (fill !== undefined) await $.prompt.fill({ text: fill })
+  await $.store.set('updateOffered', true).catch(() => undefined)
+  await update($, updateOffer, () => null)
+}
+
+function registerUpdateOffer(on: On) {
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const market = await read($, updateOffer)
+    if (e.surface !== 'terminal' || e.props.hasSurvey || market === null) return next(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const below = await next(e)
+    return (
+      <Box flexDirection="column">
+        <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+          <Box flexDirection="row" gap={2}>
+            <Text bold>{t().updateTitle}</Text>
+            <Button key="update-open" label={t().updateOpen} onPress={() => settleUpdate($, '/plugin')} />
+            <Button key="update-later" label={t().updateLater} onPress={() => settleUpdate($, undefined)} />
+          </Box>
+          <Text dimColor>{t().updateSteps(market)}</Text>
+        </Box>
+        {below}
+      </Box>
+    )
+  })
+}
+
 function registerCarryOver(on: On) {
   on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
     const out = await next(e)
@@ -712,7 +743,8 @@ export const register: Register = (on, options) => {
     lang = pickLang(options.language, hints)
     langSettled = options.language === 'en' || options.language === 'zh-TW' || lang === 'zh-TW'
     if (imagesOn) $.clock.every(POLL_MS, () => void check($))
-    if ((await $.store.get('setupSeen').catch(() => true)) !== true) {
+    const returning = (await $.store.get('setupSeen').catch(() => true)) === true
+    if (!returning) {
       await $.store.set('setupSeen', true).catch(() => undefined)
       $.ui.toast(t().setupHint)
     }
@@ -727,6 +759,10 @@ export const register: Register = (on, options) => {
       const offer = carriedFrom(await readCarry($, await carryKey($)), await $.session.id())
       if (offer !== undefined) await update($, carryOver, () => offer)
     }
+    // Asked once, from the second session on, so the first one only shows the setup hint.
+    const market = marketplaceWithoutUpdates(settings)
+    if (e.isInteractive && returning && market !== undefined && (await $.store.get('updateOffered').catch(() => true)) !== true)
+      await update($, updateOffer, () => market)
     await $.command
       .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[inbox [fixed <n…>] | theme <name> | copy [code] | demo]' })
       .catch(() => undefined)
@@ -749,6 +785,7 @@ export const register: Register = (on, options) => {
   if (options.resumeAfterLimit === true) registerResume(on)
   carryOn = options.carryOver !== false
   if (carryOn) registerCarryOver(on)
+  registerUpdateOffer(on)
   inboxOn = options.feedbackInbox === true
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)

@@ -44,7 +44,7 @@ claude plugin install tessera@tessera --scope user
 
 開一個新 session，輸入 `/tessera setup` 選擇要開的功能。
 
-想自動收到新版本：開啟 `/plugin`，到 **Marketplaces** 選 **tessera**，再選 **Enable auto-update**。Anthropic 官方以外的 marketplace，Claude Code 預設不自動更新。沒開的話，可以手動更新：
+想自動收到新版本：開啟 `/plugin`，到 **Marketplaces** 選 **tessera**，再選 **Enable auto-update**。Anthropic 官方以外的 marketplace，Claude Code 預設不自動更新；tessera 會在輸入框上方提醒你一次，按鈕會幫你打開 `/plugin`。沒開的話，可以手動更新：
 
 ```sh
 claude plugin marketplace update tessera

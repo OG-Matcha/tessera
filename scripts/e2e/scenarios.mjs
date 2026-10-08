@@ -209,6 +209,17 @@ export const scenarios = [
     },
   })),
   {
+    name: 'update-offer',
+    // A GitHub install of tessera, under another marketplace name, with auto-update off.
+    sessions: () => [
+      {
+        args: ['--settings', JSON.stringify({ extraKnownMarketplaces: { 'tessera-e2e': { source: { source: 'github', repo: 'OG-Matcha/tessera' } } } })],
+        steps: [{ until: /auto-update is off|沒開自動更新/, timeoutMs: 20_000, shot: 'band' }],
+      },
+    ],
+    check: s => seen(s.band, /(auto-update is off|沒開自動更新)[\s\S]*(open \/plugin|打開 \/plugin)[\s\S]*Marketplaces → tessera-e2e/),
+  },
+  {
     name: 'fold-diff',
     prompts: true,
     setup: dir => writeFileSync(join(dir, 'list.txt'), Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n') + '\n'),

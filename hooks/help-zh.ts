@@ -39,6 +39,7 @@ export const showcaseTextZh = (themes: readonly string[]): string => `
 | 貼上預覽 | ✅ 開 | 貼上圖片或長文字 |
 | 繁簡守門 | ✅ 開 | 寫入簡體字或簡中用語 |
 | 接續未完成 | ✅ 開 | 新 session 開始 |
+| 摺疊長差異 | ✅ 開 | 改檔差異超過 12 行 |
 
 > [!NOTE]
 > 共 ${themes.length} 套主題。深色：${dark(themes)}；淺色：${light(themes)}；mono 不用顏色。

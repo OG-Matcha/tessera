@@ -29,9 +29,8 @@
 | 貼上的文字送出前就被摺疊成 `[Pasted text #1 +40 lines]` | [#23134](https://github.com/anthropics/claude-code/issues/23134) | 在輸入框上方顯示前幾行 |
 | 韓文、中文、日文被寫成 `\uXXXX`，結果變成錯字 | [#83033](https://github.com/anthropics/claude-code/issues/83033) | 寫入前就擋下 |
 | 用中文問問題，因為貼的 log 是英文，Claude 就用英文回答 | | 依你自己打的字的語言回覆 |
-| 遞迴刪除沿著 junction 刪進主 repo | | 目標底下有連結就擋下 |
-| agent 的 `git checkout`、`git stash` 改掉其他 agent 正在用的工作區 | | agent 執行時擋下 |
-| 額度用完，工作停好幾個小時 | [#13354](https://github.com/anthropics/claude-code/issues/13354) | 選用：重置後自動繼續 |
+| 寫繁中專案時，Claude 寫進簡體字或簡中用語 | | 擋下一次，並列出 zh-TW 寫法 |
+| 開新 session 或 `/clear` 之後，忘了上次還有什麼沒做 | | 輸入框上方提示沒做完的待辦 |
 | Read 工具沒顯示讀了哪個檔 | [#21151](https://github.com/anthropics/claude-code/issues/21151) | 工具列會顯示檔名 |
 | 從終端機複製會多出縮排和行尾空白 | [#18170](https://github.com/anthropics/claude-code/issues/18170) | 複製按鈕和 `/tessera copy` 複製出乾淨的文字 |
 
@@ -62,17 +61,31 @@ claude plugin update tessera@tessera
 | 貼上預覽 | 開 | 輸入框上方顯示圖片縮圖和被摺疊的文字（文字從剪貼簿讀取，行數和貼上的一致才顯示）；「原圖」會在 Orca 分頁、VS Code 分頁或系統檢視器開啟 |
 | 用我的語言回覆 | 開 | 你自己打的字是中文、日文或韓文時，Claude 用同一種語言回覆；貼上的程式碼、log、引用不算 |
 | 接續未完成 | 開 | 新 session 或 `/clear` 之後，會提示這個 repo 上次沒做完的待辦：**接續** 把它們填進輸入框，**略過** 就不再提。它會在 session 裡替 Claude 打開待辦工具（`CLAUDE_CODE_ENABLE_TODO_TOOLS`，Claude Code 對 Claude 5.x 預設不開），你自己設過這個變數就照你的設定；打開後 Claude 可能在畫面上列出待辦清單（`Ctrl+T` 收起） |
-| 工作區守門 | 開 | 擋下穿過連結的遞迴刪除、連到 `node_modules` 的連結；agent 執行時擋下改寫主樹和 `git add -A` |
 | 中日韓跳脫守門 | 開 | 擋下把中日韓文字寫成 `\uXXXX` |
 | 繁簡守門 | 自動 | 你用繁體中文時，擋下寫進檔案的簡體字和簡中用語，並列出繁中慣用寫法（`这→這`、`服務器→伺服器`）；zh-CN 檔案、本來就是簡體的檔案、檔案裡原本就用的詞、日文行不檢查 |
+
+Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計和複製按鈕的卡片。
+
+### 防呆
+
+預設開啟，平常不會出聲，出事時才擋。
+
+| 功能 | 預設 | 說明 |
+| --- | --- | --- |
+| 工作區守門 | 開 | 擋下穿過連結的遞迴刪除、連到 `node_modules` 的連結；agent 執行時擋下改寫主樹和 `git add -A` |
 | heredoc 守門 | 開 | Bash 的 heredoc 分隔符號沒加引號（`<<EOF`），內文又會被 shell 改掉時擋下：`${x}`、`$(cmd)`、反引號被展開，`\\` 變成 `\`；確定要展開就再送一次 |
-| 用語表守門 | 開 | repo 的 `CLAUDE.md` 有含 **用語** 和 **避免** 兩欄的表格時，寫入檔案帶到「避免」的寫法就擋下並列出該用的詞；沒有這種表格就什麼都不做 |
 | agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定 |
+
+### 選用
+
+預設關閉，適合特定工作流程，在 `/tessera setup` 打開。
+
+| 功能 | 預設 | 說明 |
+| --- | --- | --- |
+| 用語表守門 | 關 | repo 的 `CLAUDE.md` 有含 **用語** 和 **避免** 兩欄的表格時，寫入檔案帶到「避免」的寫法就擋下並列出該用的詞；沒有這種表格就什麼都不做 |
 | Workflow 引用原話 | 關 | Workflow 腳本必須逐字引用你說過的話，agent 才不會因為你後來的一句提問就停工 |
 | 客戶回饋收件匣 | 關 | 貼上的聊天紀錄（`22:55 名字 訊息`）變成編號項目；和已修項目相似的抱怨會標成可能回歸 |
 | 額度重置後續跑 | 關 | 額度用完中斷後，在重置後一分鐘自動繼續 |
-
-Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計和複製按鈕的卡片。
 
 ## 指令
 

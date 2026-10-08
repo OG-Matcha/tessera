@@ -112,7 +112,7 @@ export const scenarios = [
     setup: dir => writeFileSync(join(dir, 'CLAUDE.md'), '# Demo\n\n| 用語 | 避免 |\n|---|---|\n| 全文完 | 通關 |\n'),
     sessions: () => [
       {
-        args: HAIKU,
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options: { guardGlossary: true } } } })],
         steps: [{ type: 'Use the Write tool to create end.ts containing exactly: export const TITLE = "通關" — nothing else.' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }],
       },
     ],

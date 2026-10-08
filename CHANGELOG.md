@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- The glossary guard (`guardGlossary`) is off by default: it needs a table in the project's `CLAUDE.md` and fits few setups. Turn it on in `/tessera setup`.
+- The READMEs sort features into three tiers: the main features, safety nets on by default, and optional ones off by default. The problem table at the top lists only what most people hit.
+
 ### Fixed
 
 - Carry over tasks kept offering tasks already done when tessera was reloaded mid-session (`/reload-plugins`, an update): the reloaded module lost the task ids, so later completions went unrecorded. The task list is now kept with its ids and picked back up on reload.

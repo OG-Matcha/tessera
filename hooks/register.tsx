@@ -238,7 +238,7 @@ let requireUserQuote = false
 let guardCjk = true
 let guardHans = 'auto'
 let guardHeredoc = true
-let guardGlossary = true
+let guardGlossary = false
 let glossary: { root: string; terms: Term[] } | undefined
 // The last call refused by a rule that can misjudge intent; the same call sent again goes through.
 let refusedOnce = ''
@@ -392,7 +392,7 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   guardCjk = options.guardCjkEscapes !== false
   guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
   guardHeredoc = options.guardHeredoc !== false
-  guardGlossary = options.guardGlossary !== false
+  guardGlossary = options.guardGlossary === true
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
@@ -739,7 +739,7 @@ export const register: Register = (on, options) => {
 
   const imagesOn = options.pastePreview !== false
   if (imagesOn) registerPastes(on)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary !== false || options.agentModel !== 'off' || options.requireUserQuote === true)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
   if (options.resumeAfterLimit === true) registerResume(on)

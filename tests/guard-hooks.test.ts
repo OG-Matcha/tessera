@@ -102,7 +102,7 @@ test('guardHeredoc off adds nothing', { options: { guardHeredoc: false } }, asyn
   expect((await $.tool.call({ tool: 'Bash', command: 'cat > a.ts <<EOF\nconst s = `${name}`\nEOF' })).deny).toBe(undefined)
 })
 
-test('a write with a wording the CLAUDE.md glossary avoids is refused once', async ($, on) => {
+test('a write with a wording the CLAUDE.md glossary avoids is refused once', { options: { guardGlossary: true } }, async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
   on('session.repo', () => ({ value: { root: 'C:/p' } }) as never)
   on('fs.read', (_, e) => ({ value: String((e as { path?: unknown }).path).endsWith('CLAUDE.md') ? '| 用語 | 避免 |\n|---|---|\n| 全文完 | 通關 |\n' : '' }) as never)
@@ -110,6 +110,13 @@ test('a write with a wording the CLAUDE.md glossary avoids is refused once', asy
   const call = { tool: 'Write', file_path: 'C:/p/src/end.ts', content: "export const TITLE = '通關'" } as never
   expect((await $.tool.call(call)).deny).toContain('通關→全文完')
   expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('the glossary guard is off unless turned on', async ($, on) => {
+  on('session.repo', () => ({ value: { root: 'C:/p' } }) as never)
+  on('fs.read', (_, e) => ({ value: String((e as { path?: unknown }).path).endsWith('CLAUDE.md') ? '| 用語 | 避免 |\n|---|---|\n| 全文完 | 通關 |\n' : '' }) as never)
+  on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
+  expect((await $.tool.call({ tool: 'Write', file_path: 'C:/p/src/end.ts', content: "export const TITLE = '通關'" } as never)).deny).toBe(undefined)
 })
 
 test('auto fills the model Haiku picks for the task and names it in a toast', { options: { agentModel: 'auto', language: 'en' } }, async ($, on) => {

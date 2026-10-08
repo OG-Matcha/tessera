@@ -484,6 +484,26 @@ function registerCarryOver(on: On) {
     await saveTasks($)
     return out
   })
+  // A /clear ends the conversation with no session.start after it: the fresh one starts with an empty
+  // task list, and what the cleared one left open is offered like a new session's.
+  on('session.end', async ($, e, next) => {
+    if (e.reason !== 'clear') return next(e)
+    taskLog.tasks.clear()
+    taskLog.todos = []
+    const open = (await readCarry($, await carryKey($)))[e.sessionId]?.open ?? []
+    // The session's state is reset once session.end is done, so the offer is written when the fresh
+    // conversation's id is in place.
+    if (open.length > 0) {
+      let tries = 0
+      const wait: Timer = $.clock.every(100, async () => {
+        if (++tries > 50) return wait.cancel()
+        if ((await $.session.id()) === e.sessionId) return
+        wait.cancel()
+        await update($, carryOver, () => ({ from: e.sessionId, items: open }))
+      })
+    }
+    return next(e)
+  })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const offer = await read($, carryOver)

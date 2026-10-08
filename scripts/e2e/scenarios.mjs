@@ -185,5 +185,22 @@ export const scenarios = [
     ],
     check: s => seen(s.next, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
   },
+  {
+    name: 'carry-over-clear',
+    prompts: true,
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use TaskCreate to add two tasks: "write the login page", "add input validation". Do nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'first' },
+          { wait: 2_000 },
+          { type: '/clear' },
+          { key: '\r', until: /unfinished from your last session|項沒完成/, timeoutMs: 15_000, shot: 'cleared' },
+        ],
+      },
+    ],
+    check: s => seen(s.cleared, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
+  },
 ]
 

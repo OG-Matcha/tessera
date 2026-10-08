@@ -1,5 +1,5 @@
 import type { TestBody } from 'claude-code/testing'
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 test('task tool calls record what stays open for this repository', async ($, on) => {
   const saved: unknown[] = []
@@ -58,3 +58,31 @@ const startWith = (preset: string | undefined, expected: [string, unknown][]) =>
 test('carry-over turns on the task tools for the session when nobody chose', startWith(undefined, [['CLAUDE_CODE_ENABLE_TODO_TOOLS', '1']]))
 
 test('a task-tools setting the person made stands', startWith('0', []))
+
+test('after /clear the cleared conversation is offered and its tasks are not kept again', { options: { language: 'en' } }, async ($, on) => {
+  let session = 'old'
+  let store: unknown
+  on('session.repo', () => ({ value: { root: 'C:/p' } }) as never)
+  on('session.id', () => ({ value: session }) as never)
+  const clock = mock.clock(on)
+  on('store.get', () => ({ value: store }) as never)
+  on('store.set', (_, e) => {
+    store = (e as { value?: unknown }).value
+    return { value: undefined } as never
+  })
+  on('tool.call', { tool: 'TaskCreate' }, (_, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }) as never)
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'add tests', description: 'x' })
+  await $.session.end({ reason: 'clear', sessionId: 'old', resume: { id: 'old' } } as never)
+  await clock.advance(100)
+  session = 'new'
+  await clock.advance(100)
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 80, rows: 20 } } as never)
+  expect(await ui.find({ type: 'Text', text: '1 unfinished from your last session here' })).toBeDefined()
+  await $.tool.call({ tool: 'TaskCreate', subject: 'fresh', description: 'y' })
+  expect((store as Record<string, { open: string[] }>).new?.open).toEqual(['fresh'])
+})

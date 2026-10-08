@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Carry over tasks also works after `/clear`: the fresh conversation offers what the cleared one left open, and no longer records the cleared conversation's tasks as its own.
 - `agentModel: auto`: an Agent call with no model, for a general-purpose agent, gets haiku, sonnet, opus or fable picked from its task by one Haiku classification, and a toast names the pick. Agent types with their own model are left alone, and a failed classification lets the call through unchanged. `/tessera setup` now turns the feature on as `auto`.
 
 ### Fixed

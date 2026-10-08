@@ -409,7 +409,7 @@
     "carryOver": {
       "type": "boolean",
       "title": "Carry over unfinished tasks",
-      "description": "Keep what the session's task list (TaskCreate, TaskUpdate, TodoWrite) leaves open, per repository, and offer it above the prompt in the next session there: continue puts the items in the prompt box, dismiss forgets them. Only items made with Claude's task tools count; Claude Code leaves those off for Claude 5.x, so while this is on tessera sets CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session unless you set that variable yourself.",
+      "description": "Keep what the session's task list (TaskCreate, TaskUpdate, TodoWrite) leaves open, per repository, and offer it above the prompt in the next session there, or in the conversation a /clear starts: continue puts the items in the prompt box, dismiss forgets them. Only items made with Claude's task tools count; Claude Code leaves those off for Claude 5.x, so while this is on tessera sets CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session unless you set that variable yourself.",
       "default": true
     },
     "resumeAfterLimit": {

@@ -1,9 +1,9 @@
 // Each scenario sets up a throwaway repository, drives one or more real sessions, and names what it saw
 // when the feature did not show. Prompting scenarios use Haiku to keep the run cheap.
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { platform } from 'node:os'
+import { homedir, platform } from 'node:os'
 
 import { ALT_V, PASTE, clipboardImage, clipboardText } from './drive.mjs'
 
@@ -11,6 +11,14 @@ const HAIKU = ['--model', 'haiku']
 const REPLY = 90_000
 const tail = text => (text ?? '').split('\n').filter(l => l.trim()).slice(-8).join('\n')
 const seen = (shot, pattern) => (pattern.test(shot?.text ?? '') ? undefined : `not on screen: ${pattern}\n${tail(shot?.text)}`)
+
+// Claude Code keeps each subagent's transcript under ~/.claude/projects/<cwd with non-alphanumerics as ->.
+function subagentModels(dir) {
+  const project = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects', dir.replace(/[^A-Za-z0-9]/g, '-'))
+  if (!existsSync(project)) return []
+  const files = readdirSync(project, { recursive: true }).filter(f => /subagents[\\/].*\.jsonl$/.test(String(f)))
+  return [...new Set(files.flatMap(f => [...readFileSync(join(project, String(f)), 'utf8').matchAll(/"model":"(claude-[^"]+)"/g)].map(m => m[1])))]
+}
 
 const thirtyLines = ['錯誤：無法連線到資料庫', '  at connect (db.ts:12:3)', ...Array.from({ length: 28 }, (_, i) => `第 ${i + 3} 行 log`)].join('\n')
 
@@ -111,6 +119,27 @@ export const scenarios = [
       },
     ],
     check: s => (s.clipboard?.includes('hello from tessera e2e') ? undefined : `clipboard holds: ${JSON.stringify((s.clipboard ?? '').slice(0, 80))}`),
+  },
+  {
+    name: 'agent-model-auto',
+    prompts: true,
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options: { agentModel: 'auto' } } } })],
+        steps: [
+          {
+            type: 'Use the Agent tool once, general-purpose type, no model parameter, run in the foreground, with this exact prompt: "Hard design review: find the race conditions in a distributed lock built on Redis SETNX with expiry, and the failure modes under clock drift. For this test, reply with only OK." Then stop.',
+          },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+          { wait: 5_000 },
+        ],
+      },
+    ],
+    // The session runs on Haiku, so a subagent that ran on another model got it from tessera.
+    check: (_, dir) => {
+      const models = subagentModels(dir)
+      return models.some(m => !/haiku/i.test(m)) ? undefined : `subagent models: ${models.join(', ') || 'none found'}`
+    },
   },
   {
     name: 'carry-over',

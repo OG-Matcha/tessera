@@ -2,7 +2,7 @@
 // Needs a signed-in `claude` with tessera installed from this working tree; it spends a few Haiku turns.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -31,6 +31,8 @@ async function attempt(scenario) {
   } catch (err) {
     return String(err)
   } finally {
+    // The sessions' transcripts are test litter in the person's own Claude Code data.
+    rmSync(join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects', dir.replace(/[^A-Za-z0-9]/g, '-')), { recursive: true, force: true })
     try {
       rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
     } catch {

@@ -353,10 +353,11 @@
     "agentModel": {
       "type": "string",
       "title": "Model for agents",
-      "description": "Agents that name no model run on the session's model. choose: refuse those calls and ask for a model picked for the task. opus, sonnet, haiku or fable: fill that model in. off: leave models alone.",
+      "description": "Agents that name no model run on the session's model. auto: Haiku reads the task and fills in haiku, sonnet, opus or fable for a general-purpose agent (agent types with their own model are left alone), with a toast naming the pick. choose: refuse those calls and ask Claude for a model. opus, sonnet, haiku or fable: fill that model in. off: leave models alone. Workflow scripts cannot be filled in, so auto and choose ask Claude to name a model for each agent().",
       "default": "off",
       "options": [
         "off",
+        "auto",
         "choose",
         "opus",
         "sonnet",

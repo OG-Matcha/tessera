@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `agentModel: auto`: an Agent call with no model, for a general-purpose agent, gets haiku, sonnet, opus or fable picked from its task by one Haiku classification, and a toast names the pick. Agent types with their own model are left alone, and a failed classification lets the call through unchanged. `/tessera setup` now turns the feature on as `auto`.
+
 ## [0.3.1] - 2026-10-08
 
 ### Changed

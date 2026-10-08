@@ -45,10 +45,10 @@ export const FEATURES: Feature[] = [
   {
     key: 'agentModel',
     isOn: v => v !== undefined && v !== 'off',
-    on: 'choose',
+    on: 'auto',
     off: 'off',
-    name: { en: 'Agents pick a model', 'zh-TW': 'agent 必須挑模型' },
-    about: { en: 'Agent and Workflow calls must name a model for their task', 'zh-TW': 'Agent 與 Workflow 必須依任務指定模型' },
+    name: { en: 'Model per agent', 'zh-TW': 'agent 自動選模型' },
+    about: { en: 'Picks haiku, sonnet, opus or fable for each agent by its task', 'zh-TW': '依任務替每個 agent 挑 haiku、sonnet、opus 或 fable' },
   },
   flag('requireUserQuote', false, { en: 'Workflows quote you', 'zh-TW': 'Workflow 引用原話' }, { en: 'A Workflow script must carry your own words', 'zh-TW': 'Workflow 腳本必須逐字引用你說過的話' }),
   flag('resumeAfterLimit', false, { en: 'Resume after limits', 'zh-TW': '額度重置後續跑' }, { en: 'When a usage limit stops work, continue at the reset', 'zh-TW': '額度用完中斷時，在重置後自動繼續' }),

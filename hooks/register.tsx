@@ -231,7 +231,7 @@ type AgentModel = (typeof AGENT_MODELS)[number]
 
 let lastAgentCall = -Infinity
 let guardGit = true
-let agentModel: AgentModel | 'choose' | undefined
+let agentModel: AgentModel | 'choose' | 'auto' | undefined
 
 const PICK = 'haiku for quick mechanical work (search, renames, formatting), sonnet for routine edits, opus for hard reasoning, design or review, fable for the hardest and longest work where quality outweighs speed and cost'
 let requireUserQuote = false
@@ -355,12 +355,25 @@ function refuseOnce($: EngineInterface, key: string, rule: string, reason: strin
   return refuse($, rule, `${reason}, send the same call again unchanged and it goes through`)
 }
 
+// The model an agent's task calls for, picked by Haiku from the same guidance `choose` gives Claude.
+const MODEL_LABELS: Record<string, AgentModel> = {
+  'haiku: quick mechanical work such as search, lookups, listing files, renames or formatting': 'haiku',
+  'sonnet: routine coding, edits, tests and documentation': 'sonnet',
+  'opus: hard reasoning, design, debugging or code review': 'opus',
+  'fable: the hardest and longest work, where quality matters more than speed and cost': 'fable',
+}
+
+async function pickModel($: EngineInterface, task: string): Promise<AgentModel | undefined> {
+  const label = await $.model.classify(task, Object.keys(MODEL_LABELS), { model: 'haiku' }).catch(() => undefined)
+  return label === undefined ? undefined : MODEL_LABELS[label]
+}
+
 async function judgeWorkflow($: EngineInterface, script: string | undefined, scriptPath: string | undefined) {
   if (agentModel === undefined && !requireUserQuote) return undefined
   const text = script ?? (scriptPath === undefined ? undefined : await $.fs.read(scriptPath).catch(() => undefined))
   if (typeof text !== 'string') return undefined
   if (agentModel !== undefined && !scriptNamesModel(text))
-    return refuse($, 'Workflow model', agentModel === 'choose'
+    return refuse($, 'Workflow model', agentModel === 'choose' || agentModel === 'auto'
       ? `its agent() calls name no model, so every agent runs on the session's model. Give each agent() the model its task needs: ${PICK}`
       : `its agent() calls name no model, so every agent runs on the session's model. Add model: '${agentModel}' to each agent()'s options`)
   if (!requireUserQuote) return undefined
@@ -371,7 +384,7 @@ async function judgeWorkflow($: EngineInterface, script: string | undefined, scr
 
 function registerGuards(on: On, options: Record<string, unknown>) {
   guardGit = options.guardGit !== false
-  agentModel = options.agentModel === 'choose' ? 'choose' : AGENT_MODELS.find(m => m === options.agentModel)
+  agentModel = options.agentModel === 'choose' || options.agentModel === 'auto' ? options.agentModel : AGENT_MODELS.find(m => m === options.agentModel)
   requireUserQuote = options.requireUserQuote === true
   guardCjk = options.guardCjkEscapes !== false
   guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
@@ -393,10 +406,16 @@ function registerGuards(on: On, options: Record<string, unknown>) {
     const command = String((e as { command?: unknown }).command ?? '')
     return (tool === 'Bash' ? judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
   }).catch((_, e, next) => next(e))
-  on('tool.call', { tool: 'Agent' }, ($, e, next) => {
+  on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
     if (agentModel === undefined || e.model !== undefined) return next(e)
     if (agentModel === 'choose') return refuse($, 'Agent model', `the call names no model, so the agent runs on the session's model. Pass the model this task needs: ${PICK}`)
-    return next({ ...e, model: agentModel })
+    if (agentModel !== 'auto') return next({ ...e, model: agentModel })
+    // Other agent types carry their own model in their definition, which an override would replace.
+    if (e.subagent_type !== undefined && e.subagent_type !== 'general-purpose') return next(e)
+    const model = await pickModel($, `Agent type: ${e.subagent_type ?? 'general-purpose'}\nTask: ${e.description}\n\n${e.prompt.slice(0, 4000)}`)
+    if (model === undefined) return next(e)
+    $.ui.toast(t().agentPicked(e.description, model))
+    return next({ ...e, model })
   })
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch((_, e, next) => next(e))
 }

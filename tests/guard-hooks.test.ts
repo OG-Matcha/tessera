@@ -111,3 +111,34 @@ test('a write with a wording the CLAUDE.md glossary avoids is refused once', asy
   expect((await $.tool.call(call)).deny).toContain('通關→全文完')
   expect((await $.tool.call(call)).deny).toBe(undefined)
 })
+
+test('auto fills the model Haiku picks for the task and names it in a toast', { options: { agentModel: 'auto', language: 'en' } }, async ($, on) => {
+  const toasts: string[] = []
+  const sent: unknown[] = []
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  on('model.classify', (_, e) => ({ value: e.labels.find(l => l.startsWith('haiku')) }) as never)
+  on('tool.call', { tool: 'Agent' }, (_, e) => {
+    sent.push(e.model)
+    return { result: 'done' } as never
+  })
+  await $.tool.call({ tool: 'Agent', description: 'find the config file', prompt: 'List where settings are read.' })
+  expect(sent).toEqual(['haiku'])
+  expect(toasts.join(' ')).toContain('find the config file → haiku')
+})
+
+test('auto leaves agent types with their own model, and lets the call through when classifying fails', { options: { agentModel: 'auto' } }, async ($, on) => {
+  const sent: unknown[] = []
+  on('model.classify', () => {
+    throw new Error('offline')
+  })
+  on('tool.call', { tool: 'Agent' }, (_, e) => {
+    sent.push(e.model)
+    return { result: 'done' } as never
+  })
+  await $.tool.call({ tool: 'Agent', description: 'a', prompt: 'b', subagent_type: 'Explore' })
+  await $.tool.call({ tool: 'Agent', description: 'a', prompt: 'b' })
+  expect(sent).toEqual([undefined, undefined])
+})

@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude-code'
 
-import type { DraftImage, DraftPaste, ImageView } from '../types'
+import type { CarryOver, DraftImage, DraftPaste, ImageView } from '../types'
 import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
@@ -19,6 +19,8 @@ import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
 import { commandDir, expandedHeredoc, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
+import type { CarryStore, TaskLog } from './carry'
+import { carriedFrom, openItems, recordSession } from './carry'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
 import type { Lang } from './i18n'
@@ -39,6 +41,9 @@ import { TERMINALS, hasRtl } from './rtl'
 const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] as DraftImage[])
 
 const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
+
+const carryOver = atom({ plugin: 'tessera', key: 'carryOver' } as const, null as CarryOver | null)
+const CARRY_SHOWN = 5
 const POLL_MS = 250
 const PASTE_HEAD = 4
 const pastes = new Map<number, string | null>()
@@ -396,6 +401,84 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch((_, e, next) => next(e))
 }
 
+// Carry-over: what this session's task lists leave open is kept per repository, and the next session
+// there offers it back above the prompt.
+let carryOn = true
+const taskLog: TaskLog = { tasks: new Map(), todos: [] }
+
+async function carryKey($: EngineInterface): Promise<string> {
+  return `carry:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
+}
+
+async function readCarry($: EngineInterface, key: string): Promise<CarryStore> {
+  const stored = await $.store.get(key).catch(() => undefined)
+  return stored !== null && typeof stored === 'object' ? (stored as CarryStore) : {}
+}
+
+async function saveTasks($: EngineInterface) {
+  const key = await carryKey($)
+  await $.store.set(key, recordSession(await readCarry($, key), await $.session.id(), await $.clock.now(), openItems(taskLog))).catch(() => undefined)
+}
+
+async function settleCarry($: EngineInterface, from: string, fill: string | undefined) {
+  if (fill !== undefined) await $.prompt.fill({ text: fill })
+  const key = await carryKey($)
+  const { [from]: _, ...rest } = await readCarry($, key)
+  await $.store.set(key, rest).catch(() => undefined)
+  await update($, carryOver, () => null)
+}
+
+function registerCarryOver(on: On) {
+  on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
+    const out = await next(e)
+    const task = (out.result as { task?: { id: string; subject: string } } | undefined)?.task
+    if (e.agentId !== undefined || task === undefined) return out
+    taskLog.tasks.set(task.id, { subject: task.subject, status: 'pending' })
+    await saveTasks($)
+    return out
+  })
+  on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
+    const out = await next(e)
+    const task = taskLog.tasks.get(e.taskId)
+    if (e.agentId !== undefined || task === undefined || out.deny !== undefined) return out
+    if (e.status === 'deleted') taskLog.tasks.delete(e.taskId)
+    else taskLog.tasks.set(e.taskId, { subject: e.subject ?? task.subject, status: e.status ?? task.status })
+    await saveTasks($)
+    return out
+  })
+  on('tool.call', { tool: 'TodoWrite' }, async ($, e, next) => {
+    const out = await next(e)
+    if (e.agentId !== undefined || out.deny !== undefined) return out
+    taskLog.todos = e.todos.map(t => ({ content: t.content, status: t.status }))
+    await saveTasks($)
+    return out
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const offer = await read($, carryOver)
+    if (e.surface !== 'terminal' || e.props.hasSurvey || offer === null) return next(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const width = Math.max(20, (e.viewport?.columns ?? 80) - 6)
+    const below = await next(e)
+    return (
+      <Box flexDirection="column">
+        <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+          <Box flexDirection="row" gap={2}>
+            <Text bold>{t().carryTitle(offer.items.length)}</Text>
+            <Button key="carry-continue" label={t().carryContinue} onPress={() => settleCarry($, offer.from, t().carryPrompt(offer.items))} />
+            <Button key="carry-dismiss" label={t().carryDismiss} onPress={() => settleCarry($, offer.from, undefined)} />
+          </Box>
+          {offer.items.slice(0, CARRY_SHOWN).map((item, i) => (
+            <Text key={`carry-${i}`} wrap="truncate-end">{`· ${[...item].slice(0, width).join('')}`}</Text>
+          ))}
+          {offer.items.length > CARRY_SHOWN && <Text dimColor>…</Text>}
+        </Box>
+        {below}
+      </Box>
+    )
+  })
+}
+
 // The optional client-feedback inbox: pasted chat logs become numbered items per repository, kept across sessions.
 let inboxOn = false
 
@@ -575,6 +658,10 @@ export const register: Register = (on, options) => {
     }
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
+    if (carryOn && e.isInteractive) {
+      const offer = carriedFrom(await readCarry($, await carryKey($)), await $.session.id())
+      if (offer !== undefined) await update($, carryOver, () => offer)
+    }
     await $.command
       .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[inbox [fixed <n…>] | theme <name> | copy [code] | demo]' })
       .catch(() => undefined)
@@ -595,6 +682,8 @@ export const register: Register = (on, options) => {
     registerGuards(on, options)
   registerSetup(on, options)
   if (options.resumeAfterLimit === true) registerResume(on)
+  carryOn = options.carryOver !== false
+  if (carryOn) registerCarryOver(on)
   inboxOn = options.feedbackInbox === true
   const parsed = new Map<string, ReturnType<typeof parse>>()
   const parseCached = (text: string, cache = parsed, limit?: number) => remember(cache, text, () => parse(text, { numbers: style.highlightNumbers, paths: style.highlightPaths }), limit)
@@ -623,6 +712,7 @@ export const register: Register = (on, options) => {
     const own = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
     const context = [...(e.context ?? [])]
     if (own) {
+      if (carryOn && (await read($, carryOver)) !== null) await update($, carryOver, () => null)
       pendingResume?.cancel()
       pendingResume = undefined
       voice = voiceOf(e.text) ?? voice

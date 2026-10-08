@@ -13,7 +13,7 @@ New features ship behind an option in `.claude-plugin/plugin.json`, listed in `h
 | Path | What |
 | --- | --- |
 | `hooks/register.tsx` | Every hook and every function that touches `$` (the engine requires them in the hooks module itself) |
-| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `platform`, `voice`, `inbox`, `peek`, `paste`, `limits`, `complete`, `features`, `i18n`, `png`, `raster` |
+| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `carry`, `platform`, `voice`, `inbox`, `peek`, `paste`, `limits`, `complete`, `features`, `i18n`, `png`, `raster` |
 | `hooks/markdown.ts`, `render.tsx`, `theme.ts`, `presets.ts`, `mermaid.tsx`, `rtl.ts`, `help.ts`, `help-zh.ts` | Reply rendering, adapted from [prismantis](https://github.com/NahumLitvin/prismantis) |
 | `hooks/vendor/` | Generated; rebuild with the command in `.github/workflows/ci.yml`, never edit by hand |
 | `types/index.d.ts` | The `$.state` contract |

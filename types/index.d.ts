@@ -6,8 +6,10 @@ export type DraftPaste = { n: number; total: number; head: string[] }
 
 export type DraftImage = { n: number; path: string; view: ImageView | null }
 
+export type CarryOver = { from: string; items: string[] }
+
 declare module 'claude-code' {
   interface PluginState {
-    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[] }
+    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null }
   }
 }

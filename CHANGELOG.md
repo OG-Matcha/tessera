@@ -10,6 +10,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Carry over tasks (`carryOver`, on by default): what a session's task list (TaskCreate, TaskUpdate, TodoWrite) leaves open is kept per repository, and the next session there offers it above the prompt, to continue in the prompt box or dismiss. Claude Code gives Claude these tools by default only on older models; on Claude 5.x they need `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`, and without them the feature records nothing.
 - Glossary guard (`guardGlossary`, on by default): a table in the repository's `CLAUDE.md` with a column of terms to use and a column of wordings to avoid (`| Use | Avoid |` or `| 用語 | 避免 |`) becomes the project glossary; a file write that brings in an avoided wording is refused once with the term to use. Wordings the file already uses pass, Latin words match only as whole words, and a project without such a table is untouched.
 
 ## [0.2.0] - 2026-10-08

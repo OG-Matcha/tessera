@@ -405,6 +405,12 @@
       "description": "When the repository's CLAUDE.md has a table with a column of terms to use and a column of wordings to avoid (| Use | Avoid | or | 用語 | 避免 |), refuse a file write that brings in an avoided wording and name the term to use. Wordings the file already uses are allowed, and sending the same call again lets an intended one through. Does nothing in a project without such a table.",
       "default": true
     },
+    "carryOver": {
+      "type": "boolean",
+      "title": "Carry over unfinished tasks",
+      "description": "Keep what the session's task list (TaskCreate, TaskUpdate, TodoWrite) leaves open, per repository, and offer it above the prompt in the next session there: continue puts the items in the prompt box, dismiss forgets them. Only items made with Claude's task tools count; Claude Code turns those on by default only for older models, and on Claude 5.x they need CLAUDE_CODE_ENABLE_TODO_TOOLS=1.",
+      "default": true
+    },
     "resumeAfterLimit": {
       "type": "boolean",
       "title": "Resume after limits",

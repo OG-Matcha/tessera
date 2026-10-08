@@ -102,7 +102,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 ## 在你電腦上做了什麼
 
-不連網。會讀 Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`（你自己設過就不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
+自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀 Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`（你自己設過就不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 

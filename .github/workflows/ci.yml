@@ -78,6 +78,13 @@ jobs:
           c=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')
           echo "plugin=$v marketplace=$m changelog=$c"
           test "$v" = "$m" && test "$v" = "$c"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Docs, manifests and the GitHub description match the code
+        run: node scripts/check-sync.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   install:
     runs-on: windows-latest

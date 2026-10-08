@@ -13,8 +13,8 @@ New features ship behind an option in `.claude-plugin/plugin.json`, listed in `h
 | Path | What |
 | --- | --- |
 | `hooks/register.tsx` | Every hook and every function that touches `$` (the engine requires them in the hooks module itself) |
-| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `platform`, `voice`, `inbox`, `peek`, `png`, `raster`, ... |
-| `hooks/markdown.ts`, `render.tsx`, `theme.ts`, `presets.ts`, `mermaid.tsx`, `rtl.ts`, `help.ts` | Reply rendering, adapted from [prismantis](https://github.com/NahumLitvin/prismantis) |
+| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `platform`, `voice`, `inbox`, `peek`, `paste`, `limits`, `complete`, `features`, `i18n`, `png`, `raster` |
+| `hooks/markdown.ts`, `render.tsx`, `theme.ts`, `presets.ts`, `mermaid.tsx`, `rtl.ts`, `help.ts`, `help-zh.ts` | Reply rendering, adapted from [prismantis](https://github.com/NahumLitvin/prismantis) |
 | `hooks/vendor/` | Generated; rebuild with the command in `.github/workflows/ci.yml`, never edit by hand |
 | `types/index.d.ts` | The `$.state` contract |
 | `tests/` | `claude plugin test` suites |
@@ -41,6 +41,12 @@ To try a change live, disable the installed copy first (`claude plugin disable t
 
 ## Releases
 
-Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a release with new features or changed options bumps the minor version (0.2.0) and a release with fixes only bumps the patch (0.1.2). Changes collect under `## [Unreleased]` and ship together: a release is cut when a set of features is done, or sooner for a fix that blocks people. Installs follow the `version` in `plugin.json`, so commits between releases reach no one.
+Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a release with new features or changed options bumps the minor version (0.2.0) and a release with fixes only bumps the patch (0.1.2). Changes collect under `## [Unreleased]` and ship together: a release is cut when a set of features is done, or sooner for a fix that blocks people. Existing installs update only when the `version` in `plugin.json` changes, but a new install takes whatever is on `master`, so `master` must always be releasable.
+
+`node scripts/check-sync.mjs` runs in CI and fails when a feature lacks its option or README rows, a hooks module is missing from the layout above, or the marketplace entry or GitHub description differs from `plugin.json`. Before a release, also check by hand what it cannot:
+
+- Both READMEs describe current behavior, commands and footprint; `SECURITY.md` lists every file read and process run.
+- `docs/demo.gif`, `docs/banner.svg` and the social preview show nothing removed.
+- The GitHub topics still fit.
 
 Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, turn `[Unreleased]` into the new version in `CHANGELOG.md`, then push a `vX.Y.Z` tag. The release workflow checks the versions agree and publishes the notes.

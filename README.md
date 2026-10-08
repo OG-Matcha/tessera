@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Pasting a chart into Claude Code with tessera: a thumbnail above the prompt, then a reply with a CJK-aligned table and a bar chart" width="760">
-  <br><sub>Recorded from a real session in a plain terminal: the pasted image shows as a thumbnail, the reply draws its table and chart.</sub>
+  <img src="docs/demo.gif" alt="tessera in Claude Code: a pasted 30-line log previewed above the prompt, a reply with a CJK-aligned table, then the Traditional Chinese guard refusing a Simplified write" width="760">
+  <br><sub>Recorded from real sessions in a plain terminal: a pasted log previewed before sending, a reply drawn with a CJK-aligned table, and the Traditional Chinese guard stopping a Simplified write once before Claude, told it is a quote, sends it again.</sub>
 </p>
 
 <p align="center">

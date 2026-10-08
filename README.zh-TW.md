@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="在 Claude Code 貼上圖表：輸入框上方出現縮圖，回覆畫出中文對齊的表格和長條圖" width="760">
-  <br><sub>錄自一般終端機裡的真實 session：貼上的圖片顯示成縮圖，回覆畫出表格和長條圖。</sub>
+  <img src="docs/demo.gif" alt="tessera 在 Claude Code 裡：貼上 30 行 log 先在輸入框上方預覽，回覆畫出中文對齊的表格，接著繁簡守門擋下簡體字寫入" width="760">
+  <br><sub>錄自一般終端機裡的真實 session：貼上的 log 送出前就能預覽，回覆畫出中文對齊的表格；寫入簡體字時繁簡守門先擋一次，Claude 確認是引用原文後才再送。</sub>
 </p>
 
 <p align="center">

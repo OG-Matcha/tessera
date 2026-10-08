@@ -46,7 +46,7 @@ Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a releas
 `node scripts/check-sync.mjs` runs in CI and fails when a feature lacks its option or README rows, a hooks module is missing from the layout above, or the marketplace entry or GitHub description differs from `plugin.json`. Before a release, also check by hand what it cannot:
 
 - Both READMEs describe current behavior, commands and footprint; `SECURITY.md` lists every file read and process run.
-- `docs/demo.gif`, `docs/banner.svg` and the social preview show nothing removed.
+- `docs/demo.gif`, `docs/banner.svg`, the social preview and `/tessera demo` in both languages (`hooks/help.ts`, `hooks/help-zh.ts`) show nothing removed.
 - The GitHub topics still fit.
 
 Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, turn `[Unreleased]` into the new version in `CHANGELOG.md`, then push a `vX.Y.Z` tag. The release workflow checks the versions agree and publishes the notes.

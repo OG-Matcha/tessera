@@ -67,7 +67,7 @@ claude plugin update tessera@tessera
 | 繁簡守門 | 自動 | 你用繁體中文時，擋下寫進檔案的簡體字和簡中用語，並列出繁中慣用寫法（`这→這`、`服務器→伺服器`）；zh-CN 檔案、本來就是簡體的檔案、檔案裡原本就用的詞、日文行不檢查 |
 | heredoc 守門 | 開 | Bash 的 heredoc 分隔符號沒加引號（`<<EOF`），內文又會被 shell 改掉時擋下：`${x}`、`$(cmd)`、反引號被展開，`\\` 變成 `\`；確定要展開就再送一次 |
 | 用語表守門 | 開 | repo 的 `CLAUDE.md` 有含 **用語** 和 **避免** 兩欄的表格時，寫入檔案帶到「避免」的寫法就擋下並列出該用的詞；沒有這種表格就什麼都不做 |
-| agent 自動選模型 | 關 | `auto`：沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。Workflow 腳本會被要求替每個 `agent()` 指定模型 |
+| agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定 |
 | Workflow 引用原話 | 關 | Workflow 腳本必須逐字引用你說過的話，agent 才不會因為你後來的一句提問就停工 |
 | 客戶回饋收件匣 | 關 | 貼上的聊天紀錄（`22:55 名字 訊息`）變成編號項目；和已修項目相似的抱怨會標成可能回歸 |
 | 額度重置後續跑 | 關 | 額度用完中斷後，在重置後一分鐘自動繼續 |

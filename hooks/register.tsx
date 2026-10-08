@@ -372,8 +372,11 @@ async function judgeWorkflow($: EngineInterface, script: string | undefined, scr
   if (agentModel === undefined && !requireUserQuote) return undefined
   const text = script ?? (scriptPath === undefined ? undefined : await $.fs.read(scriptPath).catch(() => undefined))
   if (typeof text !== 'string') return undefined
+  // auto cannot fill a script in, so it only reminds: the same script sent again runs as written.
+  if (agentModel === 'auto' && !scriptNamesModel(text))
+    return refuseOnce($, text, 'Workflow model', `its agent() calls name no model, so every agent runs on the session's model. Give each agent() the model its task needs: ${PICK}. If the session's model is meant for all of them`)
   if (agentModel !== undefined && !scriptNamesModel(text))
-    return refuse($, 'Workflow model', agentModel === 'choose' || agentModel === 'auto'
+    return refuse($, 'Workflow model', agentModel === 'choose'
       ? `its agent() calls name no model, so every agent runs on the session's model. Give each agent() the model its task needs: ${PICK}`
       : `its agent() calls name no model, so every agent runs on the session's model. Add model: '${agentModel}' to each agent()'s options`)
   if (!requireUserQuote) return undefined
@@ -384,7 +387,7 @@ async function judgeWorkflow($: EngineInterface, script: string | undefined, scr
 
 function registerGuards(on: On, options: Record<string, unknown>) {
   guardGit = options.guardGit !== false
-  agentModel = options.agentModel === 'choose' || options.agentModel === 'auto' ? options.agentModel : AGENT_MODELS.find(m => m === options.agentModel)
+  agentModel = options.agentModel === undefined || options.agentModel === 'auto' ? 'auto' : options.agentModel === 'choose' ? 'choose' : AGENT_MODELS.find(m => m === options.agentModel)
   requireUserQuote = options.requireUserQuote === true
   guardCjk = options.guardCjkEscapes !== false
   guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
@@ -709,7 +712,7 @@ export const register: Register = (on, options) => {
 
   const imagesOn = options.pastePreview !== false
   if (imagesOn) registerPastes(on)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary !== false || options.agentModel !== 'off' || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
   if (options.resumeAfterLimit === true) registerResume(on)

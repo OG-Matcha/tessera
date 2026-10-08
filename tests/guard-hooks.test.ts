@@ -142,3 +142,23 @@ test('auto leaves agent types with their own model, and lets the call through wh
   await $.tool.call({ tool: 'Agent', description: 'a', prompt: 'b' })
   expect(sent).toEqual([undefined, undefined])
 })
+
+test('with no setting, an Agent call with no model gets one picked', async ($, on) => {
+  const sent: unknown[] = []
+  on('ui.toast', () => ({ value: undefined }))
+  on('model.classify', (_, e) => ({ value: e.labels.find(l => l.startsWith('sonnet')) }) as never)
+  on('tool.call', { tool: 'Agent' }, (_, e) => {
+    sent.push(e.model)
+    return { result: 'done' } as never
+  })
+  await $.tool.call({ tool: 'Agent', description: 'add a test', prompt: 'Add a unit test for parse().' })
+  expect(sent).toEqual(['sonnet'])
+})
+
+test('auto reminds a Workflow without models once, and runs the same script when sent again', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'Workflow' }, () => ({ result: 'started' }) as never)
+  const call = { tool: 'Workflow', script: "await agent('x', { label: 'a' })" } as const
+  expect((await $.tool.call(call)).deny).toContain('the model its task needs')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})

@@ -44,7 +44,7 @@ export const FEATURES: Feature[] = [
   flag('guardGlossary', true, { en: 'Glossary guard', 'zh-TW': '用語表守門' }, { en: 'Blocks wordings the glossary in CLAUDE.md says to avoid', 'zh-TW': '擋下 CLAUDE.md 用語表裡標為避免的寫法' }),
   {
     key: 'agentModel',
-    isOn: v => v !== undefined && v !== 'off',
+    isOn: v => v !== 'off',
     on: 'auto',
     off: 'off',
     name: { en: 'Model per agent', 'zh-TW': 'agent 自動選模型' },

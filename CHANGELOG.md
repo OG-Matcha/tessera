@@ -12,6 +12,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - The reply-language note, sent once per context, stopped holding in long sessions and Claude drifted back to English. It is now sent again whenever Claude's last reply was in another language than the person's own words.
 
+### Changed
+
+- `agentModel` defaults to `auto`. A Workflow script whose `agent()` calls name no model is reminded once under `auto` and runs as written when sent again; `choose` still refuses until each names one.
+
 ## [0.3.1] - 2026-10-08
 
 ### Changed

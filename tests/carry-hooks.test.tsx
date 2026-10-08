@@ -86,3 +86,35 @@ test('after /clear the cleared conversation is offered and its tasks are not kep
   await $.tool.call({ tool: 'TaskCreate', subject: 'fresh', description: 'y' })
   expect((store as Record<string, { open: string[] }>).new?.open).toEqual(['fresh'])
 })
+
+test('after a reload, completing a task made before it updates what is kept', async ($, on) => {
+  let store: unknown = { now: { at: 1, open: ['ship it'], tasks: { '4': { subject: 'ship it', status: 'pending' } } } }
+  on('session.repo', () => ({ value: { root: 'C:/p' } }) as never)
+  on('session.id', () => ({ value: 'now' }) as never)
+  on('clock.now', () => ({ value: 2 }) as never)
+  on('env.get', () => ({ value: '1' }) as never)
+  on('store.get', (_, e) => ({ value: String((e as { key?: string }).key).startsWith('carry:') ? store : undefined }) as never)
+  on('store.set', (_, e) => {
+    if (String((e as { key?: string }).key).startsWith('carry:')) store = (e as { value?: unknown }).value
+    return { value: undefined } as never
+  })
+  on('session.start', () => ({ cwd: '/tmp' }))
+  on('tool.call', { tool: 'TaskUpdate' }, () => ({ result: { success: true, taskId: '4', updatedFields: ['status'] } }) as never)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: false })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '4', status: 'completed' })
+  expect((store as Record<string, { open: string[] }>).now?.open).toEqual([])
+})
+
+test('a new session speaks the language the person wrote in last time', async ($, on) => {
+  on('env.get', (_, e) => ({ value: (e as { name?: string }).name === 'LANG' ? 'en_US.UTF-8' : '1' }) as never)
+  on('store.get', (_, e) => ({ value: (e as { key?: string }).key === 'wroteLang' ? 'zh-TW' : undefined }) as never)
+  on('state.get', (_, e) => ({ value: { value: (e as { key?: string }).key === 'carryOver' ? { from: 'b', items: ['add tests'] } : [], version: 1 } }) as never)
+  on('session.start', () => ({ cwd: '/tmp' }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: false })
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 80, rows: 20 } } as never)
+  expect((await ui.find({ type: 'Button' }))?.props.label).toBe('接續')
+})

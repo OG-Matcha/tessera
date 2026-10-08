@@ -1,7 +1,8 @@
 export type ItemStatus = 'pending' | 'in_progress' | 'completed'
 
-// What one session left to do, kept per repository: the newest sessions only.
-export type CarryStore = Record<string, { at: number; open: string[] }>
+// What one session left to do, kept per repository: the newest sessions only. `tasks` keeps the task
+// ids, so a reloaded module can follow later updates.
+export type CarryStore = Record<string, { at: number; open: string[]; tasks?: Record<string, { subject: string; status: ItemStatus }> }>
 
 export type TaskLog = {
   tasks: Map<string, { subject: string; status: ItemStatus }>
@@ -16,10 +17,13 @@ export const openItems = (log: TaskLog): string[] => [
   ...log.todos.filter(t => isOpen(t.status)).map(t => t.content),
 ]
 
-export function recordSession(store: CarryStore, sessionId: string, at: number, open: string[]): CarryStore {
-  const next = { ...store, [sessionId]: { at, open } }
+export function recordSession(store: CarryStore, sessionId: string, at: number, log: TaskLog): CarryStore {
+  const next = { ...store, [sessionId]: { at, open: openItems(log), tasks: Object.fromEntries(log.tasks) } }
   return Object.fromEntries(Object.entries(next).sort(([, a], [, b]) => b.at - a.at).slice(0, KEEP))
 }
+
+// The task list this session kept before the module was reloaded.
+export const restoredTasks = (store: CarryStore, sessionId: string): TaskLog['tasks'] => new Map(Object.entries(store[sessionId]?.tasks ?? {}))
 
 // The latest other session in this repository, when it stopped with items still open.
 export function carriedFrom(store: CarryStore, sessionId: string): { from: string; items: string[] } | undefined {

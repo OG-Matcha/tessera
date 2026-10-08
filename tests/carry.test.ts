@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { carriedFrom, openItems, recordSession } from '../hooks/carry'
+import { carriedFrom, openItems, recordSession, restoredTasks } from '../hooks/carry'
 
 test('open items are the tasks and todos not completed', () => {
   const log = {
@@ -18,7 +18,7 @@ test('open items are the tasks and todos not completed', () => {
 
 test('the store keeps the newest five sessions', () => {
   let store = {}
-  for (let i = 0; i < 7; i++) store = recordSession(store, `s${i}`, i, [`item ${i}`])
+  for (let i = 0; i < 7; i++) store = recordSession(store, `s${i}`, i, { tasks: new Map([[String(i), { subject: `item ${i}`, status: 'pending' }]]), todos: [] })
   expect(Object.keys(store).sort()).toEqual(['s2', 's3', 's4', 's5', 's6'])
 })
 
@@ -27,4 +27,10 @@ test('the offer is the latest other session, and nothing when it finished its li
   expect(carriedFrom(store, 'now')).toEqual({ from: 'b', items: ['left over'] })
   expect(carriedFrom({ ...store, c: { at: 2.5, open: [] } }, 'now')).toBe(undefined)
   expect(carriedFrom({}, 'now')).toBe(undefined)
+})
+
+test('a reloaded module gets the session task list back with its ids', () => {
+  const store = recordSession({}, 'now', 1, { tasks: new Map([['4', { subject: 'ship it', status: 'in_progress' as const }]]), todos: [] })
+  expect(restoredTasks(store, 'now').get('4')).toEqual({ subject: 'ship it', status: 'in_progress' })
+  expect(restoredTasks(store, 'other').size).toBe(0)
 })

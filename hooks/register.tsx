@@ -20,7 +20,7 @@ import type { Risk } from './guard'
 import { commandDir, expandedHeredoc, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
 import type { CarryStore, TaskLog } from './carry'
-import { carriedFrom, openItems, recordSession } from './carry'
+import { carriedFrom, recordSession, restoredTasks } from './carry'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
 import type { Lang } from './i18n'
@@ -448,7 +448,7 @@ async function readCarry($: EngineInterface, key: string): Promise<CarryStore> {
 
 async function saveTasks($: EngineInterface) {
   const key = await carryKey($)
-  await $.store.set(key, recordSession(await readCarry($, key), await $.session.id(), await $.clock.now(), openItems(taskLog))).catch(() => undefined)
+  await $.store.set(key, recordSession(await readCarry($, key), await $.session.id(), await $.clock.now(), taskLog)).catch(() => undefined)
 }
 
 async function settleCarry($: EngineInterface, from: string, fill: string | undefined) {
@@ -699,6 +699,8 @@ export const register: Register = (on, options) => {
     const settings = await $.settings.read({}).catch(() => ({}) as Record<string, unknown>)
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
+      // The language the person wrote in last time, ahead of a system locale that may not be theirs.
+      await $.store.get('wroteLang').then(v => (typeof v === 'string' ? v : undefined), () => undefined),
       await $.env.get('LC_ALL'),
       await $.env.get('LANG'),
       Intl.DateTimeFormat().resolvedOptions().locale,
@@ -712,6 +714,11 @@ export const register: Register = (on, options) => {
     }
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
+    if (carryOn) {
+      // A reload starts the module over within the same session: pick its task list back up.
+      const store = await readCarry($, await carryKey($))
+      if (taskLog.tasks.size === 0) taskLog.tasks = restoredTasks(store, await $.session.id())
+    }
     if (carryOn && e.isInteractive) {
       const offer = carriedFrom(await readCarry($, await carryKey($)), await $.session.id())
       if (offer !== undefined) await update($, carryOver, () => offer)
@@ -773,6 +780,7 @@ export const register: Register = (on, options) => {
       if (!langSettled && (voice === 'zh-Hant' || voice === 'zh-Hans')) {
         lang = 'zh-TW'
         langSettled = true
+        await $.store.set('wroteLang', 'zh-TW').catch(() => undefined)
       }
       if (matchReplyLanguage && voice !== undefined && voice !== 'en' && (voice !== notedVoice || (await replyDrifted($, voice)))) context.push(replyNote(voice))
       if (voice !== undefined) notedVoice = voice

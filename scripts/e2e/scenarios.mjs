@@ -186,6 +186,27 @@ export const scenarios = [
     check: s => seen(s.next, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
   },
   {
+    name: 'carry-over-reload',
+    prompts: true,
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use TaskCreate to add two tasks: "write the login page", "add input validation". Do nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY },
+          { type: '/reload-plugins' },
+          { key: '\r', until: /Reloaded:/, timeoutMs: 30_000 },
+          { type: 'Use TaskUpdate to mark the task "write the login page" completed. Do nothing else.' },
+          { key: '\r', wait: 2_000, until: /✻ \w+ for[\s\S]*✻ \w+ for/, timeoutMs: REPLY, shot: 'updated' },
+          { type: '/exit' },
+          { key: '\r', wait: 3_000 },
+        ],
+      },
+      { steps: [{ until: /unfinished from your last session|項沒完成/, timeoutMs: 15_000, shot: 'next' }] },
+    ],
+    check: s => seen(s.next, /(1 unfinished from your last session here|上次在這個專案還有 1 項沒完成)[\s\S]*add input validation/),
+  },
+  {
     name: 'carry-over-clear',
     prompts: true,
     sessions: () => [

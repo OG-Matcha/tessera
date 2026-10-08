@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-08
+
 ### Fixed
 
 - Collapsed pasted text (`[Pasted text #n +N lines]`) now shows its first lines above the prompt. Claude Code sends no edit event for a collapsed paste, so the preview never appeared outside tests; the text now comes from the clipboard, read once per paste, and is shown only when its line count matches the placeholder.
@@ -48,7 +50,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/OG-Matcha/tessera/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/OG-Matcha/tessera/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/OG-Matcha/tessera/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/OG-Matcha/tessera/releases/tag/v0.1.0

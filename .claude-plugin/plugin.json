@@ -399,6 +399,12 @@
       "description": "Refuse a Bash command whose heredoc delimiter is unquoted (<<EOF) while its body holds ${...}, $(...), backticks or backslash escapes, which the shell expands before the text is written. Sending the same command again lets an intended expansion through.",
       "default": true
     },
+    "guardGlossary": {
+      "type": "boolean",
+      "title": "Guard the project glossary",
+      "description": "When the repository's CLAUDE.md has a table with a column of terms to use and a column of wordings to avoid (| Use | Avoid | or | 用語 | 避免 |), refuse a file write that brings in an avoided wording and name the term to use. Wordings the file already uses are allowed, and sending the same call again lets an intended one through. Does nothing in a project without such a table.",
+      "default": true
+    },
     "resumeAfterLimit": {
       "type": "boolean",
       "title": "Resume after limits",

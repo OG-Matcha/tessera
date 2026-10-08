@@ -19,6 +19,8 @@ import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
 import { commandDir, expandedHeredoc, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
+import type { Term } from './glossary'
+import { glossaryHits, parseGlossary } from './glossary'
 import type { Lang } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
@@ -225,6 +227,8 @@ let requireUserQuote = false
 let guardCjk = true
 let guardHans = 'auto'
 let guardHeredoc = true
+let guardGlossary = true
+let glossary: { root: string; terms: Term[] } | undefined
 // The last call refused by a rule that can misjudge intent; the same call sent again goes through.
 let refusedOnce = ''
 const mainTrees = new Map<string, boolean>()
@@ -300,6 +304,31 @@ async function judgeHans($: EngineInterface, tool: string, input: Record<string,
   return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'zh-TW wording', `it writes Simplified characters or zh-CN terms into zh-TW text (${found.slice(0, 8).join(', ')}). Use the zh-TW forms. If the original is intended here, such as a quotation or a zh-CN string`)
 }
 
+async function projectGlossary($: EngineInterface): Promise<Term[]> {
+  const root = (await $.session.repo())?.root ?? (await $.session.cwd())
+  if (glossary?.root !== root) {
+    const text = await $.fs.read(`${root}/CLAUDE.md`).catch(() => '')
+    glossary = { root, terms: typeof text === 'string' ? parseGlossary(text) : [] }
+  }
+  return glossary.terms
+}
+
+async function judgeGlossary($: EngineInterface, tool: string, input: Record<string, unknown>) {
+  if (!guardGlossary) return undefined
+  const file = writtenFile(tool, input)
+  if (file === undefined) return undefined
+  if (/(^|[\\/])CLAUDE\.md$/i.test(file.path)) {
+    glossary = undefined
+    return undefined
+  }
+  const terms = await projectGlossary($)
+  if (terms.length === 0 || glossaryHits(terms, file.texts, '').length === 0) return undefined
+  const existing = await $.fs.read(file.path).catch(() => '')
+  const hits = glossaryHits(terms, file.texts, typeof existing === 'string' ? existing : '')
+  if (hits.length === 0) return undefined
+  return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'project glossary', `it writes wordings the glossary in CLAUDE.md replaces (${hits.slice(0, 8).join(', ')}). Use the glossary's terms. If the other wording is intended here, such as a quotation or a note about the glossary itself`)
+}
+
 function judgeHeredoc($: EngineInterface, command: string) {
   const token = guardHeredoc ? expandedHeredoc(command) : undefined
   if (token === undefined) return undefined
@@ -336,6 +365,7 @@ function registerGuards(on: On, options: Record<string, unknown>) {
   guardCjk = options.guardCjkEscapes !== false
   guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
   guardHeredoc = options.guardHeredoc !== false
+  guardGlossary = options.guardGlossary !== false
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
@@ -346,6 +376,8 @@ function registerGuards(on: On, options: Record<string, unknown>) {
     const tool = String(e.tool)
     const hans = await judgeHans($, tool, e as unknown as Record<string, unknown>)
     if (hans !== undefined) return hans
+    const terms = await judgeGlossary($, tool, e as unknown as Record<string, unknown>)
+    if (terms !== undefined) return terms
     if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
     const command = String((e as { command?: unknown }).command ?? '')
     return (tool === 'Bash' ? judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
@@ -553,7 +585,7 @@ export const register: Register = (on, options) => {
 
   const imagesOn = options.pastePreview !== false
   if (imagesOn) registerPastes(on)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary !== false || (options.agentModel !== undefined && options.agentModel !== 'off') || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
   if (options.resumeAfterLimit === true) registerResume(on)

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Glossary guard (`guardGlossary`, on by default): a table in the repository's `CLAUDE.md` with a column of terms to use and a column of wordings to avoid (`| Use | Avoid |` or `| 用語 | 避免 |`) becomes the project glossary; a file write that brings in an avoided wording is refused once with the term to use. Wordings the file already uses pass, Latin words match only as whole words, and a project without such a table is untouched.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added

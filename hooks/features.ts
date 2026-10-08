@@ -40,6 +40,7 @@ export const FEATURES: Feature[] = [
     about: { en: 'While you write Traditional Chinese, blocks Simplified characters and zh-CN terms in files', 'zh-TW': '你用繁體中文時，擋下寫進檔案的簡體字和簡中用語' },
   },
   flag('guardHeredoc', true, { en: 'Heredoc guard', 'zh-TW': 'heredoc 守門' }, { en: 'Blocks unquoted heredocs that would expand ${...} or eat backslashes', 'zh-TW': '擋下沒加引號、會展開 ${...} 或吃掉反斜線的 heredoc' }),
+  flag('guardGlossary', true, { en: 'Glossary guard', 'zh-TW': '用語表守門' }, { en: 'Blocks wordings the glossary in CLAUDE.md says to avoid', 'zh-TW': '擋下 CLAUDE.md 用語表裡標為避免的寫法' }),
   {
     key: 'agentModel',
     isOn: v => v !== undefined && v !== 'off',

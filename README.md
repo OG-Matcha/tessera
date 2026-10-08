@@ -65,6 +65,7 @@ claude plugin update tessera@tessera
 | CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
 | Traditional Chinese guard | auto | While you write Traditional Chinese, refuses Simplified characters and zh-CN terms written into a file and names the zh-TW forms (`这→這`, `服務器→伺服器`); zh-CN files, files already in Simplified, terms the file already uses and Japanese lines are left alone |
 | Heredoc guard | on | Refuses a Bash heredoc with an unquoted delimiter (`<<EOF`) whose body the shell would change: `${x}`, `$(cmd)` and backticks expanded, `\\` turned into `\`; send it again if the expansion is intended |
+| Glossary guard | on | When the repository's `CLAUDE.md` has a table with **Use** and **Avoid** columns, refuses a write that brings in an avoided wording and names the term to use; does nothing without such a table |
 | Agents pick a model | off | Agent and Workflow calls must name a model chosen for their task |
 | Workflows quote you | off | A Workflow script must carry your own words, so its agents keep your standing instruction |
 | Client feedback inbox | off | Pasted chat logs (`22:55 Name message`) become numbered items; a complaint like a fixed item is flagged as a likely regression |
@@ -100,7 +101,7 @@ If detection is wrong, set `imageMode` to `pixels` or `cells` in `/config`. Orca
 
 ## What it does on your machine
 
-No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, and a file Claude is about to write Simplified characters or zh-CN terms into; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
+No network requests. It reads Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, the repository's `CLAUDE.md` for a glossary table, and a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into; it runs `git rev-parse`, a link listing before a recursive delete, and your platform's viewer when you ask for an original. Details in [SECURITY.md](SECURITY.md).
 
 ## FAQ
 

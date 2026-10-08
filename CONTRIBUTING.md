@@ -31,6 +31,19 @@ npx -p typescript@5 tsc -p .
 
 To try a change live, disable the installed copy first (`claude plugin disable tessera@tessera`), then load the working tree with `claude --plugin-dir .`. Two copies at once draw the same components twice.
 
+### Live check
+
+`claude plugin test` feeds hooks simulated events, and a simulated event can differ from what Claude Code sends: the collapsed-paste preview passed its tests for two releases while it never fired. `scripts/e2e` drives real sessions in a pseudo-terminal, each in a throwaway repository, and reads the screen:
+
+```sh
+cd scripts
+npm ci
+node e2e/run.mjs                 # every scenario
+node e2e/run.mjs paste-text      # one by name
+```
+
+It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends.
+
 ## Rules
 
 - No runtime dependencies. Anything bundled into `hooks/vendor/` must be MIT and listed in `NOTICE`.
@@ -45,6 +58,7 @@ Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a releas
 
 `node scripts/check-sync.mjs` runs in CI and fails when a feature lacks its option or README rows, a hooks module is missing from the layout above, or the marketplace entry or GitHub description differs from `plugin.json`. Before a release, also check by hand what it cannot:
 
+- `node e2e/run.mjs` passes in `scripts/`.
 - Both READMEs describe current behavior, commands and footprint; `SECURITY.md` lists every file read and process run.
 - `docs/demo.gif`, `docs/banner.svg`, the social preview and `/tessera demo` in both languages (`hooks/help.ts`, `hooks/help-zh.ts`) show nothing removed.
 - The GitHub topics still fit.

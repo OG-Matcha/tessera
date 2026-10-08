@@ -1,1 +1,1 @@
-{"private":true,"devDependencies":{"esbuild":"0.28.2","fflate":"0.8.3","opencc-js":"1.4.2"}}
+{"private":true,"devDependencies":{"@homebridge/node-pty-prebuilt-multiarch":"0.14.1","@xterm/headless":"6.0.0","esbuild":"0.28.2","fflate":"0.8.3","opencc-js":"1.4.2"}}

@@ -31,6 +31,7 @@
 | Claude answers a Chinese question in English because the pasted log was English | | Replies follow the language of your own words |
 | Claude writes Simplified characters or zh-CN terms into a Traditional Chinese project | | The write is refused once, with the zh-TW forms |
 | A new session or `/clear` loses track of what was left to do | | The unfinished tasks are offered back above the prompt |
+| A long edit fills the screen with its diff | | The first lines of what was removed and added, the counts, and an expand button |
 | The Read tool does not say which file it read | [#21151](https://github.com/anthropics/claude-code/issues/21151) | Tool rows name the file |
 | Copying from the terminal brings indentation and trailing spaces | [#18170](https://github.com/anthropics/claude-code/issues/18170) | Copy buttons and `/tessera copy` copy clean text |
 
@@ -58,6 +59,7 @@ claude plugin update tessera@tessera
 | Feature | Default | What it does |
 | --- | --- | --- |
 | Themed replies | on | Tables, headings, highlighted code, mermaid diagrams and charts, tool rows, copy buttons; 16 themes |
+| Fold long diffs | on | An Edit or Write diff over 12 lines shows up to 8 lines (the first of what was removed and of what was added), the counts, and **expand**; ctrl+o and `--verbose` show it whole. Display only: what Claude reads is unchanged |
 | Paste previews | on | Image thumbnails and collapsed pasted text above the prompt (the text is read from the clipboard and shown only when it matches the paste's line count); "original" opens the full image in an Orca tab, a VS Code tab or your system viewer |
 | Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
 | Carry over tasks | on | A new session, or the conversation after `/clear`, offers the tasks the last one in this repository left open: **continue** puts them in the prompt box, **dismiss** forgets them. It turns on Claude's task tools for the session (`CLAUDE_CODE_ENABLE_TODO_TOOLS`), which Claude Code leaves off for Claude 5.x, unless you set that variable yourself; Claude may then keep a task list on screen (`Ctrl+T` hides it) |

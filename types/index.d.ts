@@ -10,6 +10,6 @@ export type CarryOver = { from: string; items: string[] }
 
 declare module 'claude-code' {
   interface PluginState {
-    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null }
+    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[] }
   }
 }

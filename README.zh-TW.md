@@ -31,6 +31,7 @@
 | 用中文問問題，因為貼的 log 是英文，Claude 就用英文回答 | | 依你自己打的字的語言回覆 |
 | 寫繁中專案時，Claude 寫進簡體字或簡中用語 | | 擋下一次，並列出 zh-TW 寫法 |
 | 開新 session 或 `/clear` 之後，忘了上次還有什麼沒做 | | 輸入框上方提示沒做完的待辦 |
+| 改一次檔，差異就塞滿整個畫面 | | 只顯示刪掉和新增的前幾行、增刪行數和「展開」按鈕 |
 | Read 工具沒顯示讀了哪個檔 | [#21151](https://github.com/anthropics/claude-code/issues/21151) | 工具列會顯示檔名 |
 | 從終端機複製會多出縮排和行尾空白 | [#18170](https://github.com/anthropics/claude-code/issues/18170) | 複製按鈕和 `/tessera copy` 複製出乾淨的文字 |
 
@@ -58,6 +59,7 @@ claude plugin update tessera@tessera
 | 功能 | 預設 | 說明 |
 | --- | --- | --- |
 | 回覆美化 | 開 | 表格、標題、程式碼上色、mermaid 圖表、工具列、複製按鈕；16 套主題 |
+| 摺疊長差異 | 開 | Edit、Write 的差異超過 12 行時，最多顯示 8 行（刪掉的前幾行和新增的前幾行）、增刪行數和 **展開**；ctrl+o 和 `--verbose` 顯示全部。只改顯示，Claude 讀到的內容不變 |
 | 貼上預覽 | 開 | 輸入框上方顯示圖片縮圖和被摺疊的文字（文字從剪貼簿讀取，行數和貼上的一致才顯示）；「原圖」會在 Orca 分頁、VS Code 分頁或系統檢視器開啟 |
 | 用我的語言回覆 | 開 | 你自己打的字是中文、日文或韓文時，Claude 用同一種語言回覆；貼上的程式碼、log、引用不算 |
 | 接續未完成 | 開 | 新 session 或 `/clear` 之後，會提示這個 repo 上次沒做完的待辦：**接續** 把它們填進輸入框，**略過** 就不再提。它會在 session 裡替 Claude 打開待辦工具（`CLAUDE_CODE_ENABLE_TODO_TOOLS`，Claude Code 對 Claude 5.x 預設不開），你自己設過這個變數就照你的設定；打開後 Claude 可能在畫面上列出待辦清單（`Ctrl+T` 收起） |

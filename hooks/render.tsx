@@ -1,5 +1,6 @@
 import type { ElementTable, RenderElement } from 'claude-code'
 
+import type { Folded } from './fold'
 import type { Block, Inline } from './markdown'
 import { inlineText } from './markdown'
 import { commentTail, commentVisual, flow, hasRtl } from './rtl'
@@ -709,6 +710,34 @@ export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly 
         {lastTarget ? <Text dimColor>{` · last: ${lastTarget}`}</Text> : null}
       </Text>
   ))
+}
+
+export type FoldLabels = { summary: string; hidden: string; expand: string }
+
+// A long edit diff as a few of its lines under Claude Code's own header, with what is left and a button to
+// show it all.
+export const renderFoldedDiff = (el: ElementTable, style: Style, folded: Folded, labels: FoldLabels, onExpand: () => void): RenderElement => {
+  const { Box, Text, Button } = el
+  const t = style.theme
+  const color = (mark: string) => (mark === '+' ? t.codeString : mark === '-' ? t.codeFlag : undefined)
+  return (
+    <Box flexDirection="column">
+      <Text>
+        <Text dimColor>{'  ⎿  '}</Text>
+        {labels.summary}
+      </Text>
+      {folded.shown.map((line, i) => (
+        <Text key={`d${i}`} wrap="truncate-end">
+          <Text color={t.codeComment}>{String(line.number).padStart(8)}</Text>
+          <Text color={color(line.mark)}>{` ${line.mark}${line.text}`}</Text>
+        </Text>
+      ))}
+      <Box flexDirection="row" gap={2} paddingLeft={8}>
+        <Text dimColor>{`… ${labels.hidden}`}</Text>
+        <Button key="diff-expand" label={labels.expand} onPress={onExpand} />
+      </Box>
+    </Box>
+  )
 }
 
 export const formatDuration = (ms: number): string => {

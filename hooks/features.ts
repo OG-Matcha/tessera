@@ -20,6 +20,7 @@ const flag = (key: string, onByDefault: boolean, name: Record<Lang, string>, abo
 
 export const FEATURES: Feature[] = [
   flag('enabled', true, { en: 'Themed replies', 'zh-TW': '回覆美化' }, { en: 'Tables, code, diagrams and tool rows drawn by tessera', 'zh-TW': '表格、程式碼、圖表和工具列由 tessera 繪製' }),
+  flag('foldDiffs', true, { en: 'Fold long diffs', 'zh-TW': '摺疊長差異' }, { en: 'Long edit diffs show a few removed and added lines and an expand button', 'zh-TW': '過長的改檔差異只顯示刪掉和新增的前幾行，按「展開」看全部' }),
   flag('pastePreview', true, { en: 'Paste previews', 'zh-TW': '貼上預覽' }, { en: 'Pasted images and collapsed text shown above the prompt', 'zh-TW': '輸入框上方顯示貼上的圖片縮圖和被摺疊的文字' }),
   {
     key: 'replyLanguage',

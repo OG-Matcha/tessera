@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Fold long diffs (`foldDiffs`, on by default): an Edit or Write result over 12 diff lines shows up to 8 lines, the first of what was removed and of what was added, with the counts and an **expand** button, so one large edit no longer fills the screen. ctrl+o and `--verbose` show diffs whole, and what Claude reads is unchanged.
+
 ## [0.5.0] - 2026-10-08
 
 ### Changed

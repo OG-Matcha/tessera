@@ -28,6 +28,12 @@
       "description": "Draw replies with this mod. Off falls back to Claude Code's own renderer.",
       "default": true
     },
+    "foldDiffs": {
+      "type": "boolean",
+      "title": "Fold long diffs",
+      "description": "An Edit or Write result over 12 diff lines shows up to 8 of them (the first removed and the first added), the added and removed counts, and an expand button. Display only: what Claude reads is unchanged. ctrl+o and --verbose show it whole.",
+      "default": true
+    },
     "pastePreview": {
       "type": "boolean",
       "title": "Paste previews",

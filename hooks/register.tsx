@@ -13,7 +13,7 @@ import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
 import type { Drawn } from './render'
-import { remember, renderBlocks, renderExpandedShell, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
+import { remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { Risk } from './guard'
@@ -28,6 +28,7 @@ import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
 import { FEATURES } from './features'
 import { clipboardHolds, clipboardText, placeholders } from './paste'
+import { foldPatch, patchOf } from './fold'
 import { peek } from './peek'
 import { resumeAt } from './limits'
 import type { Voice } from './voice'
@@ -43,6 +44,8 @@ const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] 
 const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
 
 const carryOver = atom({ plugin: 'tessera', key: 'carryOver' } as const, null as CarryOver | null)
+// Edit results the person unfolded.
+const unfoldedDiffs = atom({ plugin: 'tessera', key: 'unfoldedDiffs' } as const, [] as string[])
 const CARRY_SHOWN = 5
 const POLL_MS = 250
 const PASTE_HEAD = 4
@@ -847,6 +850,17 @@ export const register: Register = (on, options) => {
     const result = await $.config.set({ key: `${$.plugin.name}.theme`, value: name })
     return { text: result.deny ? `${t().themeFailed}: ${result.deny}` : t().themeSet(name) }
   })
+
+  if (options.foldDiffs !== false) {
+    on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+      const { tool, tool_use_id: id, output, isErrored } = e.props
+      if (isErrored || !/^(Edit|MultiEdit|Write)$/.test(tool) || expandedCalls.has(id)) return next(e)
+      const folded = foldPatch(patchOf(output))
+      if (folded === undefined || (await read($, unfoldedDiffs)).includes(id)) return next(e)
+      const labels = { summary: t().diffSummary(folded.added, folded.removed), hidden: t().diffHidden(folded.hidden), expand: t().diffExpand }
+      return renderFoldedDiff($.ui.resolve(e), style, folded, labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
+    })
+  }
 
   if (!isDrawing) return
 

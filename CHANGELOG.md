@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-09
+
 ### Fixed
 
 - A folded diff shows the unchanged lines that touch a change, so the line before an edit is the one right above it; it showed the first line of the context, which made lines look skipped.
@@ -108,7 +110,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/OG-Matcha/tessera/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/OG-Matcha/tessera/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/OG-Matcha/tessera/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/OG-Matcha/tessera/compare/v0.3.1...v0.4.0

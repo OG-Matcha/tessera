@@ -9,7 +9,7 @@
       "name": "tessera",
       "source": "./",
       "description": "One mod for Claude Code, Windows and CJK first: pasted-image and text previews in any terminal, themed replies with CJK-correct tables and charts, long edit diffs folded, unfinished tasks carried into the next session, and guards for multi-agent runs and Traditional Chinese writing",
-      "version": "0.6.3",
+      "version": "0.7.0",
       "category": "appearance",
       "tags": [
         "mod",

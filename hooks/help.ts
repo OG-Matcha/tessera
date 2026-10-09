@@ -8,8 +8,10 @@ Colored markdown for Claude Code replies: **bold**, *italic*, ~~struck~~, \`inli
 | Command | Does |
 |---------|------|
 | \`/tessera\` | This screen |
+| \`/tessera setup\` | Pick the features you want on |
+| \`/tessera peek <file>\` | Preview a document: .md .csv .json .docx .xlsx .pptx |
 | \`/tessera theme <name>\` | Switch theme on the spot |
-| \`/tessera copy\` | Copy the last reply, or \`copy code\` for its last code block |
+| \`/tessera copy\` | Copy the last reply; \`copy code\` its last code block, \`copy prompt\` its prompt card |
 | \`/config\` | Edit any option |
 
 > [!NOTE]
@@ -104,8 +106,10 @@ export const helpText = (themes: readonly string[]): string => `
 
 | Command | Does |
 |---------|------|
+| \`/tessera setup\` | Pick the features you want on |
+| \`/tessera peek <file>\` | Preview a document: .md .csv .json .docx .xlsx .pptx |
 | \`/tessera theme <name>\` | Switch theme on the spot |
-| \`/tessera copy\` | Copy the last reply, or \`copy code\` for its last code block |
+| \`/tessera copy\` | Copy the last reply; \`copy code\` its last code block, \`copy prompt\` its prompt card |
 | \`/tessera demo\` | Full showcase, every element and diagram |
 | \`/tessera demo-rtl\` | Hebrew right-to-left showcase |
 | \`/tessera inbox\` | Client feedback inbox (turn on feedbackInbox in /config); \`inbox fixed 3 5\` marks items fixed |

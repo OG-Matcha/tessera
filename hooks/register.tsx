@@ -421,7 +421,7 @@ export const register: Register = (on, options) => {
       carryOn ? carry() : undefined,
       offerUpdate(),
       $.command
-        .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[inbox [fixed <n…>] | theme <name> | copy [code] | demo]' })
+        .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[setup | peek <file> | inbox [fixed <n…>] | theme <name> | copy [code|prompt] | demo]' })
         .catch(() => undefined),
       inboxOn ? registerInboxTool($) : undefined,
     ])

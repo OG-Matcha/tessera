@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- `/tessera` help, its argument hint in the command menu and the `/tessera demo` command table now list `setup`, `peek <file>` and `copy prompt`; they had been left out since those commands were added.
+
 ## [0.6.1] - 2026-10-09
 
 ### Fixed

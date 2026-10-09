@@ -6,8 +6,10 @@ export const helpTextZh = (themes: readonly string[]): string => `
 
 | 指令 | 用途 |
 |------|------|
+| \`/tessera setup\` | 選擇要開啟的功能 |
+| \`/tessera peek <檔案>\` | 預覽文件：.md .csv .json .docx .xlsx .pptx |
 | \`/tessera theme <名稱>\` | 立即切換主題 |
-| \`/tessera copy\` | 複製上一則回覆；\`copy code\` 只複製最後一個程式碼區塊 |
+| \`/tessera copy\` | 複製上一則回覆；\`copy code\` 只複製最後一個程式碼區塊，\`copy prompt\` 複製 prompt 卡片 |
 | \`/tessera demo\` | 完整示範：每種元素和圖表 |
 | \`/tessera inbox\` | 客戶回饋收件匣（需在 /config 開啟 feedbackInbox）；\`inbox fixed 3 5\` 標為已修 |
 

@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="tessera 在 Claude Code 裡：貼上 30 行 log 先在輸入框上方預覽，回覆畫出中文對齊的表格，接著繁簡守門擋下簡體字寫入" width="760">
+  <img src="docs/demo.gif" alt="tessera 在 Claude Code 裡：貼上 30 行 log 先在輸入框上方預覽，回覆畫出中文對齊的表格，繁簡守門擋下簡體字寫入，最後把 32 行的修改摺疊成開頭幾行" width="760">
   <br><sub>錄自一般終端機裡的真實 session：貼上的 log 送出前就能預覽，回覆畫出中文對齊的表格；寫入簡體字時繁簡守門先擋一次，Claude 確認是引用原文後才再送。</sub>
 </p>
 

@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="tessera in Claude Code: a pasted 30-line log previewed above the prompt, a reply with a CJK-aligned table, then the Traditional Chinese guard refusing a Simplified write" width="760">
+  <img src="docs/demo.gif" alt="tessera in Claude Code: a pasted 30-line log previewed above the prompt, a reply with a CJK-aligned table, the Traditional Chinese guard refusing a Simplified write, then a 32-line edit folded to its first changes" width="760">
   <br><sub>Recorded from real sessions in a plain terminal: a pasted log previewed before sending, a reply drawn with a CJK-aligned table, and the Traditional Chinese guard stopping a Simplified write once before Claude, told it is a quote, sends it again.</sub>
 </p>
 

@@ -235,8 +235,9 @@ export const scenarios = [
     manual: true,
     prompts: true,
     // Render timings: node e2e/run.mjs perf, then read the "tessera@tessera ... settled" lines. Measured
-    // 2026-10-09: after startup the band above the prompt draws in 8-64 ms; the 0.6-1.4 s at session start
-    // and the 3 s on submit are the engine starting up and the settings hooks, not tessera. The long reply
+    // 2026-10-09: after startup the band above the prompt draws in 8-64 ms. tessera's session.start takes
+    // 1-1.8 s, but the prompt takes input before session.start is even raised (2.0-2.3 s from trust with
+    // tessera, 2.1-2.9 s without), so nobody waits on it. The 3 s on submit is the settings hooks. The long reply
     // (six tables, two flowcharts, a bar chart, six code blocks) drew 4 times while streaming, 47 ms on
     // average and 80 ms at most, so parsed replies are not cached.
     sessions: () => [

@@ -18,11 +18,26 @@ const graphemes = (s: string): string[] => (segmenter ? [...segmenter.segment(s)
 export const width = (s: string): number =>
   graphemes(s).reduce((w, g) => (/^\p{M}+$/u.test(g) ? w : w + (WIDE.test(g) ? 2 : 1)), 0)
 
+// Where a line may break: between words, and between Chinese or Japanese characters, which take no spaces.
+// Closing punctuation stays with the character before it and opening punctuation with the one after, so no
+// line starts with 「，」 or ends with 「「」. Korean puts spaces between words, so it breaks there.
+const OPEN = '「『（《〈【〔“‘'
+const HAN = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}'
+const CLOSE = '」』）》〉】〕”’，。、：；！？…‥ー・％'
+const BREAKS = new RegExp(`[${OPEN}]*[${HAN}][${CLOSE}]*|[${OPEN}]*[^\\s${HAN}${OPEN}]+|[${OPEN}]+`, 'gu')
+const HAS_HAN = new RegExp(`[${HAN}]`, 'u')
+
+// The text cut where a line may break, each piece with the spaces after it.
+export const breakUnits = (text: string): string[] => {
+  const starts = [...text.matchAll(BREAKS)].map(m => m.index)
+  return starts.map((start, i) => text.slice(start, starts[i + 1] ?? text.length))
+}
+
 const wrapRanges = (text: string, w: number): [number, number][] => {
   if (width(text) <= w) return [[0, text.length]]
   const out: [number, number][] = []
   let line: [number, number] | undefined
-  for (const word of text.matchAll(/\S+/g)) {
+  for (const word of text.matchAll(BREAKS)) {
     let start = word.index
     const end = start + word[0].length
     while (width(text.slice(start, end)) > w) {
@@ -103,9 +118,19 @@ const renderInline = (el: ElementTable, style: Style, nodes: Inline[], keyBase: 
   })
 }
 
-const renderFlow = (el: ElementTable, style: Style, lines: Inline[][], key: string, props: { italic?: boolean; color?: string; bold?: boolean } = {}) => {
+type TextProps = { italic?: boolean; color?: string; bold?: boolean; dimColor?: boolean; strikethrough?: boolean }
+
+const renderFlow = (el: ElementTable, style: Style, lines: Inline[][], key: string, props: TextProps = {}) => {
   const { Text } = el
   return lines.map((line, i) => <Text key={`${key}.${i}`} {...props}>{renderInline(el, style, line, `${key}.${i}`)}</Text>)
+}
+
+// The terminal wraps only at spaces, so a Chinese or Japanese run too long for the rest of a line moves
+// whole to the next one and leaves the line before nearly empty. Such text is broken into lines here.
+const renderWrapped = (el: ElementTable, style: Style, nodes: Inline[], w: number, key: string, props: TextProps = {}) => {
+  const text = inlineText(nodes)
+  if (!HAS_HAN.test(text) || width(text) <= w) return <el.Text key={key} {...props}>{renderInline(el, style, nodes, key)}</el.Text>
+  return <el.Box key={key} flexDirection="column">{renderFlow(el, style, wrapInline(nodes, w), key, props)}</el.Box>
 }
 
 const PRISM_COLORS: Record<string, keyof Theme> = {
@@ -374,10 +399,10 @@ const drawHeading = (el: ElementTable, style: Style, block: Extract<Block, { kin
 const ALERT_COLOR = { note: 'blue', tip: 'green', important: 'magenta', warning: 'yellow', caution: 'red' } as const
 
 const renderParagraph = (el: ElementTable, style: Style, block: Extract<Block, { kind: 'paragraph' }>, columns: number, key: string) => {
-  const { Box, Text } = el
+  const { Box } = el
   const rtl = flowOf(style, block.inline, columns)
   if (rtl?.base === 'R') return <Box key={key} flexDirection="column" alignItems="flex-end">{renderFlow(el, style, rtl.lines, key)}</Box>
-  return <Text key={key} bold={style.narration}>{renderInline(el, style, rtl ? rtl.lines[0]! : block.inline, key)}</Text>
+  return renderWrapped(el, style, rtl ? rtl.lines[0]! : block.inline, columns, key, { bold: style.narration })
 }
 
 const renderQuote = (el: ElementTable, style: Style, block: Extract<Block, { kind: 'quote' }>, columns: number, key: string) => {
@@ -395,7 +420,7 @@ const renderQuote = (el: ElementTable, style: Style, block: Extract<Block, { kin
   return (
     <Box key={key} flexDirection="row">
       <Text color={t.accent}>│ </Text>
-      <Text italic color={t.quote}>{renderInline(el, style, rtl ? rtl.lines[0]! : block.inline, key)}</Text>
+      {renderWrapped(el, style, rtl ? rtl.lines[0]! : block.inline, columns - 2, key, { italic: true, color: t.quote })}
     </Box>
   )
 }
@@ -417,7 +442,7 @@ const renderAlert = (el: ElementTable, style: Style, block: Extract<Block, { kin
   return (
     <Box key={key} flexDirection="column" alignSelf="flex-start" borderStyle="round" borderColor={color} paddingX={1}>
       {title}
-      {inline.length ? <Text>{renderInline(el, style, inline, key)}</Text> : null}
+      {inline.length ? renderWrapped(el, style, inline, columns - 4, key) : null}
     </Box>
   )
 }
@@ -457,7 +482,7 @@ const renderList = (el: ElementTable, style: Style, block: Extract<Block, { kind
         return (
           <Box key={k} flexDirection="row" paddingLeft={item.depth * 2}>
             <Text color={glyphColor}>{`${glyph} `}</Text>
-            <Text dimColor={item.task === true} strikethrough={item.task === true && strike}>{renderInline(el, style, rtl ? rtl.lines[0]! : item.inline, k)}</Text>
+            {renderWrapped(el, style, rtl ? rtl.lines[0]! : item.inline, columns - item.depth * 2 - glyph.length - 1, k, { dimColor: item.task === true, strikethrough: item.task === true && strike })}
           </Box>
         )
       })}

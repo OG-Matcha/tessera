@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { shortPath } from '../hooks/render'
+import { breakUnits, shortPath } from '../hooks/render'
 import { parse } from '../hooks/markdown'
 import { PRESETS } from '../hooks/presets'
 import { resolveStyle } from '../hooks/theme'
@@ -310,5 +310,17 @@ test('tool rows name files from the session directory', async ($, on) => {
   await $.session.start({ cwd: '/w/app', surface: 'terminal', isInteractive: false })
   const ui = await $.ui.mount({ ...toolRow('Edit', { file_path: '/w/app/src/a.ts' }), surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^src\/a\.ts$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('breaks Chinese between characters, keeping punctuation off the line start', () => {
+  expect(breakUnits('新 session 或 /clear 後「接續」，好')).toEqual(['新 ', 'session ', '或 ', '/clear ', '後', '「接', '續」，', '好'])
+})
+
+test('a Chinese paragraph fills each line instead of leaving one word on the first', async $ => {
+  const text = 'HTTP 快取是瀏覽器或中間節點把先前取得的回應副本存起來，之後同樣請求可直接重用，省去網路往返。'
+  const ui = await $.ui.mount({ ...draw(text), viewport: { columns: 40, rows: 40 }, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^HTTP 快取是瀏覽器或中間節點把先前取$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^，/ })).toBeUndefined()
   await ui.unmount()
 })

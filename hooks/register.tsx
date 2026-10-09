@@ -9,7 +9,7 @@ import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
 import type { CopyKind, Drawn } from './render'
-import { remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
+import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { CarryStore, TaskLog } from './carry'
@@ -285,7 +285,10 @@ function registerSetup(on: On, options: Record<string, unknown>) {
                 label={`${isOn ? '☑' : '☐'} ${feature.name[session.lang]}`}
                 onPress={() => $.config.set({ key: `${$.plugin.name}.${feature.key}`, value: isOn ? feature.off : feature.on })}
               />
-              <Text dimColor>{`   ${feature.about[session.lang]}`}</Text>
+              {/* The pane's width is not known here, so the text wraps by its own pieces, between CJK characters too. */}
+              <Box flexDirection="row" flexWrap="wrap" paddingLeft={3}>
+                {breakUnits(feature.about[session.lang]).map((unit, i) => <Text key={`a${i}`} dimColor>{unit}</Text>)}
+              </Box>
             </Box>
           )
         })}

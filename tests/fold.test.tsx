@@ -28,8 +28,18 @@ test('a long diff keeps the start of each changed run and the unchanged lines to
   const folded = foldPatch([hunk])
   expect(folded?.added).toBe(20)
   expect(folded?.removed).toBe(20)
-  expect(folded?.shown.map(l => `${l.number}${l.mark}${l.text}`)).toEqual(['4 line 4', '5-line 5', '6-line 6', '7-line 7', '5+item 5', '6+item 6', '7+item 7', '25 line 25'])
+  expect(folded?.shown.map(l => `${l.gap ? '⋮' : ''}${l.number}${l.mark}${l.text}`)).toEqual(['4 line 4', '5-line 5', '6-line 6', '7-line 7', '⋮5+item 5', '6+item 6', '7+item 7', '⋮25 line 25'])
   expect(folded?.hidden).toBe(46 - 8)
+})
+
+test('a new hunk is marked as a gap even when no diff line between is hidden', () => {
+  const lines = (from: number) => [` a${from}`, ...Array.from({ length: 4 }, (_, i) => `+b${from + i}`), ` c${from}`]
+  const folded = foldPatch([
+    { oldStart: 1, oldLines: 2, newStart: 1, newLines: 6, lines: lines(1) },
+    { oldStart: 50, oldLines: 2, newStart: 54, newLines: 6, lines: lines(54) },
+    { oldStart: 90, oldLines: 2, newStart: 98, newLines: 6, lines: lines(98) },
+  ])
+  expect(folded?.shown.filter(l => l.gap).map(l => l.text)).toEqual(['c1', 'a54'])
 })
 
 test('a short diff and an output without a patch are left alone', () => {

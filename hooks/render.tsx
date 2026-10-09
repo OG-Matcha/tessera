@@ -735,12 +735,13 @@ export const renderFoldedDiff = (el: ElementTable, style: Style, folded: Folded,
         <Text dimColor>{'  ⎿  '}</Text>
         {labels.summary}
       </Text>
-      {folded.shown.map((line, i) => (
+      {folded.shown.flatMap((line, i) => [
+        ...(line.gap ? [<Text key={`g${i}`} color={t.codeComment}>{'⋮'.padStart(8)}</Text>] : []),
         <Text key={`d${i}`} wrap="truncate-end">
           <Text color={t.codeComment}>{String(line.number).padStart(8)}</Text>
           <Text color={color(line.mark)}>{` ${line.mark}${line.text}`}</Text>
-        </Text>
-      ))}
+        </Text>,
+      ])}
       <Box flexDirection="row" gap={2} paddingLeft={8}>
         <Text dimColor>{`… ${labels.hidden}`}</Text>
         <Button key="diff-expand" label={labels.expand} onPress={onExpand} />

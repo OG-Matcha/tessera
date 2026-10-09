@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- A folded diff marks with `⋮` where it leaves lines out between two it shows, and where a new hunk starts. A rewritten block showed its first three removed lines, then its first three added ones, then the context after it, as if they were adjacent.
+
 ## [0.6.2] - 2026-10-09
 
 ### Fixed

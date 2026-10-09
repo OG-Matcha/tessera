@@ -16,6 +16,12 @@ jobs:
         run: test "${GITHUB_REF_NAME#v}" = "$(jq -r .version .claude-plugin/plugin.json)"
       - name: Notes from the changelog
         run: awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
-      - run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+      # A release made by hand before this job ran gets the changelog notes instead of failing the job.
+      - run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- The tree guard reminds once before a git command throws away uncommitted work: `git reset --hard`, `git checkout -- <paths>`, `git checkout .` or `-f`, `git restore` of the working tree, and `git clean -f`. It names the files that would be lost, as git lists them, and suggests committing or stashing first; the same command sent again goes through, and a command with nothing to lose is never stopped.
+
 ### Fixed
 
 - A line break inside a Chinese or Japanese paragraph, quote or alert no longer shows as a space when the lines are joined; between Latin words it still does.

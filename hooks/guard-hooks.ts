@@ -1,7 +1,8 @@
 import type { EngineInterface, On } from 'claude-code'
 
 import type { Risk } from './guard'
-import { commandDir, expandedHeredoc, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import type { Discard } from './guard'
+import { commandDir, discards, expandedHeredoc, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
@@ -74,6 +75,22 @@ async function isMainTree($: EngineInterface, command: string): Promise<boolean>
   return mainTrees.get(dir) ?? false
 }
 
+// The files a discarding git call would lose, as git itself lists them; empty when nothing would be lost
+// or git cannot say.
+async function lostFiles($: EngineInterface, command: string, discard: Discard): Promise<string[]> {
+  const dir = await resolveIn($, command)
+  const argv =
+    discard.verb === 'reset'
+      ? ['status', '--porcelain', '--untracked-files=no']
+      : discard.verb === 'clean'
+        ? ['clean', '-n', ...discard.args.map(f => f.replace(/^--force$/, '').replace(/^(-\w*?)f/, '$1')).filter(f => f !== '' && f !== '-')]
+        : ['diff', '--name-only', '--', ...discard.args]
+  const run = await $.process.run(['git', '-C', dir, ...argv], { timeoutMs: 5_000 }).catch(() => undefined)
+  if (run?.exitCode !== 0) return []
+  const lines = run.stdout.split(/\r?\n/).filter(l => l.trim() !== '')
+  return discard.verb === 'reset' ? lines.map(l => l.slice(3)) : discard.verb === 'clean' ? lines.map(l => l.replace(/^Would remove /, '')) : lines
+}
+
 function refuse($: EngineInterface, rule: Rule, reason: string) {
   $.ui.toast(t().blocked(rule))
   return { deny: `tessera blocked this call: ${reason}.` }
@@ -94,11 +111,19 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
       return refuseOnce($, command, 'force push', `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended`)
   }
   const shared = risks.filter(r => r !== 'link-node-modules')
-  if (shared.length === 0) return undefined
-  const agentsRunning = agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS
-  if (!agentsRunning || !(await isMainTree($, command))) return undefined
-  const risk = shared[0] as Risk
-  return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
+  const agentsRunning = shared.length > 0 && (agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS)
+  if (agentsRunning && (await isMainTree($, command))) {
+    const risk = shared[0] as Risk
+    return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
+  }
+  // Discarding is often what the person asked for, so it is a reminder that names what goes.
+  for (const discard of discards(command)) {
+    const lost = await lostFiles($, command, discard)
+    if (lost.length === 0) continue
+    const named = `${lost.slice(0, 8).join(', ')}${lost.length > 8 ? ` and ${lost.length - 8} more` : ''}`
+    return refuseOnce($, command, 'discard changes', `it throws away uncommitted work that git cannot bring back: ${discard.verb === 'clean' ? 'untracked files' : 'changes to'} ${named}. Commit or \`git stash\` them first, or narrow the command to the files meant. If discarding them is intended`)
+  }
+  return undefined
 }
 
 async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {

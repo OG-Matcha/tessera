@@ -172,6 +172,19 @@ export const scenarios = [
     check: s => seen(s.reply, /force-pushes to main|force push|強制推送|tessera (refused|blocked)|(1 failed · last|1 個失敗 · 最後)[:：] ?git push --force/i),
   },
   {
+    name: 'discard-guard',
+    prompts: true,
+    // A committed file with an uncommitted edit, which the checkout would throw away.
+    setup: dir => {
+      writeFileSync(join(dir, 'notes.txt'), 'first\n')
+      execFileSync('git', ['add', 'notes.txt'], { cwd: dir })
+      execFileSync('git', ['-c', 'user.name=e2e', '-c', 'user.email=e2e@example.com', 'commit', '-qm', 'notes'], { cwd: dir })
+      writeFileSync(join(dir, 'notes.txt'), 'first\nunsaved edit\n')
+    },
+    sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command once and nothing else: git checkout -- notes.txt' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
+    check: s => seen(s.reply, /throws away uncommitted|uncommitted (work|changes)|未提交|(1 failed · last|1 個失敗 · 最後)[:：] ?git checkout/i),
+  },
+  {
     name: 'copy-reply',
     // The reply button shows on replies of more than one block, so the reply is asked for in two.
     prompts: true,

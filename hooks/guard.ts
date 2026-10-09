@@ -45,7 +45,31 @@ export function forcePushes(command: string): (string | undefined)[] {
   return found
 }
 
-export const isDefaultBranch = (branch: string) => /^(refs\/heads\/)?(main|master)$/.test(branch)
+// Git calls that throw away uncommitted work: reset --hard (every tracked change), checkout or restore of
+// paths, or checkout -f (unstaged changes to them), clean -f (untracked files). A plain checkout of a
+// branch is left out: git itself refuses it when it would overwrite changes.
+export type Discard = { verb: 'reset' | 'checkout' | 'restore' | 'clean'; args: string[] }
+
+export function discards(command: string): Discard[] {
+  const found: Discard[] = []
+  for (const piece of pieces(command)) {
+    const git = GIT.exec(piece)
+    const verb = git?.[1]?.toLowerCase()
+    const words = (git?.[2] ?? '').trim().split(/\s+/).filter(w => w !== '')
+    if (verb === 'reset' && words.includes('--hard')) found.push({ verb, args: [] })
+    if (verb === 'checkout') {
+      const dashes = words.indexOf('--')
+      const paths = dashes === -1 ? words.filter(w => w === '.') : words.slice(dashes + 1)
+      if (dashes !== -1 || paths.length > 0 || words.some(w => /^(-f|--force)$/.test(w))) found.push({ verb, args: paths })
+    }
+    if (verb === 'restore' && (!words.some(w => /^(-S|--staged)$/.test(w)) || words.some(w => /^(-W|--worktree)$/.test(w))))
+      found.push({ verb, args: words.filter(w => !w.startsWith('-')) })
+    if (verb === 'clean' && words.some(w => /^(-\w*f\w*|--force)$/.test(w))) found.push({ verb, args: words.filter(w => w.startsWith('-')) })
+  }
+  return found
+}
+
+export const isDefaultBranch =(branch: string) => /^(refs\/heads\/)?(main|master)$/.test(branch)
 
 // A heredoc with an unquoted delimiter is expanded before it is written: ${x}, $(cmd) and backticks are
 // replaced and \\ becomes \, so code written through one loses its template literals and escapes.

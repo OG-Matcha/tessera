@@ -189,6 +189,29 @@ export const scenarios = [
     check: s => (/hello from tessera e2e/i.test(s.clipboard ?? '') ? undefined : `clipboard holds: ${JSON.stringify((s.clipboard ?? '').slice(0, 80))}`),
   },
   {
+    name: 'render',
+    // The main feature: a table, a mermaid flowchart and a code block drawn by tessera. Claude Code alone
+    // shows the mermaid source as text and labels no code block. The prompt spells no arrow, so any --> on
+    // screen is the reply's.
+    prompts: true,
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          {
+            type: 'Reply with only this markdown, verbatim, no other text: a table with header | Tier | Hits | and rows | L1 | 90 | and | L2 | 7 |, then a mermaid code block: a flowchart LR with one arrow from node A[Cache] to node B[Store], then a ts code block holding "const hit = true".',
+          },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, wait: 2_000, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s =>
+      seen(s.reply, /┌[─┬]+┐[\s\S]*Tier[\s\S]*L2/) ??
+      seen(s.reply, /Cache ├─*►│ Store/) ??
+      seen(s.reply, /── ts[\s\S]*const hit = true/) ??
+      (/-->/.test(s.reply?.text ?? '') ? `mermaid source left as text\n${tail(s.reply?.text)}` : undefined),
+  },
+  {
     name: 'copy-list',
     // A list's copy button sits beside its first item, not on a line of its own above it.
     prompts: true,

@@ -132,6 +132,14 @@ test('slash command output renders as markdown, errors stay native', async ($, o
   await bad.unmount()
 })
 
+test("tessera's own command output drops the plugin-name prefix, so a table on its first line draws", async ($, on) => {
+  engine(on)
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'CommandOutput', props: { command: 'tessera', args: 'inbox', text: 'tessera: | # | Time |\n|---|---|\n| 1 | 22:55 |', isErrored: false } })
+  expect((await ui.find({ type: 'Text', text: /^#$/ }))?.props.color).toBe(t.tableHeader)
+  expect(await ui.find({ type: 'Text', text: /tessera:/ })).toBe(undefined)
+  await ui.unmount()
+})
+
 test('your prompts carry the render hint as model-only context', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})

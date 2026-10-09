@@ -69,8 +69,8 @@ export function intakeNote(result: Intake): string {
   return lines.join('\n')
 }
 
-export function listText(items: InboxItem[], empty: string): string {
+export function listText(items: InboxItem[], empty: string, headers: readonly string[]): string {
   if (items.length === 0) return empty
   const mark = (i: InboxItem) => (i.status === 'fixed' ? `✓ ${i.fixedBy ?? ''}`.trim() : i.reopenedFrom ? `↺ #${i.reopenedFrom}` : '…')
-  return ['| # | 時間 | 誰 | 內容 | 狀態 |', '|---|---|---|---|---|', ...items.slice(-40).map(i => `| ${i.id} | ${i.at} | ${i.who} | ${clip(i.text, 48).replace(/\|/g, '\\|')} | ${mark(i)} |`)].join('\n')
+  return [`| ${headers.join(' | ')} |`, '|---|---|---|---|---|', ...items.slice(-40).map(i => `| ${i.id} | ${i.at} | ${i.who} | ${clip(i.text, 48).replace(/\|/g, '\\|')} | ${mark(i)} |`)].join('\n')
 }

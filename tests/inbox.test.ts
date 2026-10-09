@@ -41,8 +41,9 @@ test('an exact repeat of an open item is not filed twice', () => {
 
 test('the list shows status marks', () => {
   const items = markFixed(intake([], parseChat(PASTE)).items, [2], 'def456')
-  const text = listText(items, 'empty')
+  const text = listText(items, 'empty', ['#', 'Time', 'From', 'Message', 'Status'])
+  expect(text).toContain('| # | Time | From | Message | Status |')
   expect(text).toContain('| 2 | 22:57 | Amy |')
   expect(text).toContain('✓ def456')
-  expect(listText([], 'empty')).toBe('empty')
+  expect(listText([], 'empty', [])).toBe('empty')
 })

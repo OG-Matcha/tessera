@@ -32,6 +32,39 @@ export const scenarios = [
     check: s => seen(s.menu, /setup/),
   },
   {
+    name: 'setup',
+    // The first command the README tells people to run.
+    sessions: () => [{ steps: [{ type: '/tessera setup' }, { key: '\r', until: /tessera features|tessera 功能/, timeoutMs: 15_000, shot: 'pane' }] }],
+    check: s => seen(s.pane, /(tessera features|tessera 功能)[\s\S]*[☑☐]/),
+  },
+  {
+    name: 'peek',
+    setup: dir => writeFileSync(join(dir, 'notes.md'), '# Release notes\n\n| Version | Change |\n|---|---|\n| 0.6 | folded diffs |\n'),
+    sessions: () => [{ steps: [{ type: '/tessera peek notes.md' }, { key: '\r', until: /Release notes/, timeoutMs: 15_000, shot: 'peek' }] }],
+    // The heading draws as a heading: Claude Code prefixes a plugin's answer with "tessera: ".
+    check: s => (/###/.test(s.peek?.text ?? '') ? 'the "### notes.md" heading drew as text' : seen(s.peek, /Release notes[\s\S]*│[^\n]*folded diffs/)),
+  },
+  {
+    name: 'feedback-inbox',
+    prompts: true,
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options: { feedbackInbox: true } } } })],
+        steps: [
+          { key: PASTE('22:55 Amy 登入按鈕按了沒反應\n22:56 Ben 匯出的 CSV 中文變亂碼') },
+          { type: ' Reply with one word: ok' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY },
+          { wait: 1_000 },
+          { type: '/tessera inbox' },
+          // The pasted log is on screen too, so the wait is for a row of the inbox table.
+          { key: '\r', until: /│\s*2\s*│[^\n]*Ben/, timeoutMs: 15_000, shot: 'inbox' },
+        ],
+      },
+    ],
+    // Columns line up: the number, then the time, then who.
+    check: s => seen(s.inbox, /│\s*1\s*│\s*22:55\s*│\s*Amy\s*│[^\n]*登入按鈕[\s\S]*│\s*2\s*│\s*22:56\s*│\s*Ben\s*│/),
+  },
+  {
     name: 'paste-image',
     clipboard: true,
     sessions: (_, repo) => [{ steps: [{ run: () => clipboardImage(join(repo, 'docs', 'social-preview.png')) }, { key: ALT_V, until: /\[ (original|原圖) \]/, timeoutMs: 15_000, shot: 'band' }] }],

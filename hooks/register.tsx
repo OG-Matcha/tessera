@@ -515,7 +515,7 @@ export const register: Register = (on, options) => {
         const head = await $.process.run(['git', '-C', await $.session.cwd(), 'rev-parse', '--short', 'HEAD'], { timeoutMs: 5_000 }).catch(() => undefined)
         return { text: await markInbox($, ids, head?.exitCode === 0 ? head.stdout.trim() : 'manual') }
       }
-      return { text: listText(await readInbox($, await inboxKey($)), t().inboxEmpty) }
+      return { text: listText(await readInbox($, await inboxKey($)), t().inboxEmpty, t().inboxHeaders) }
     }
     if (!isDrawing) return { text: t().drawingOff }
 
@@ -573,7 +573,9 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'CommandOutput' }, ($, e, next) => {
     if (e.props.isErrored) return next(e)
-    const blocks = parseCached(e.props.text)
+    // An answer to a plugin's own command arrives as "<plugin>: <text>", which breaks a table or heading on
+    // its first line; the echoed command above already says whose it is.
+    const blocks = parseCached(e.props.command === 'tessera' ? e.props.text.replace(/^tessera: /, '') : e.props.text)
     if (blocks.length === 0) return next(e)
     const el = $.ui.resolve(e)
     const { Box } = el

@@ -156,6 +156,21 @@ export const scenarios = [
     check: s => (/hello from tessera e2e/i.test(s.clipboard ?? '') ? undefined : `clipboard holds: ${JSON.stringify((s.clipboard ?? '').slice(0, 80))}`),
   },
   {
+    name: 'copy-list',
+    // A list's copy button sits beside its first item, not on a line of its own above it.
+    prompts: true,
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Reply with one sentence "Here is the plan:" and then a markdown numbered list of three items: build, test, ship. Nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /1\. build\s+\[ ⧉ copy \]/i),
+  },
+  {
     name: 'agent-model-auto',
     prompts: true,
     sessions: () => [

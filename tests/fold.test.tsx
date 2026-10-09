@@ -24,11 +24,11 @@ const hunk = {
 }
 const edit = (id: string, isErrored = false) => ({ tool_use_id: id, tool: 'Edit', output: { filePath: '/p/list.txt', structuredPatch: [hunk] }, isErrored })
 
-test('a long diff keeps the start of each run, so both the old and the new lines show', () => {
+test('a long diff keeps the start of each changed run and the unchanged lines touching it', () => {
   const folded = foldPatch([hunk])
   expect(folded?.added).toBe(20)
   expect(folded?.removed).toBe(20)
-  expect(folded?.shown.map(l => `${l.number}${l.mark}${l.text}`)).toEqual(['2 line 2', '5-line 5', '6-line 6', '7-line 7', '5+item 5', '6+item 6', '7+item 7', '25 line 25'])
+  expect(folded?.shown.map(l => `${l.number}${l.mark}${l.text}`)).toEqual(['4 line 4', '5-line 5', '6-line 6', '7-line 7', '5+item 5', '6+item 6', '7+item 7', '25 line 25'])
   expect(folded?.hidden).toBe(46 - 8)
 })
 

@@ -29,16 +29,20 @@ const numbered = (hunk: Hunk): DiffLine[] => {
   })
 }
 
-// Each run of lines keeps only its first few, so a replaced block shows both what went and what came:
-// one line of context, three removed, three added.
-const RUN = { ' ': 1, '-': 3, '+': 3 }
+// Each run of changed lines keeps only its first three, so a replaced block shows both what went and
+// what came, and an unchanged line shows only where it touches a change, so no line number skips past a
+// line the view does not account for.
+const RUN = 3
 
 function gist(lines: readonly DiffLine[]): DiffLine[] {
   const shown: DiffLine[] = []
   let run = 0
   lines.forEach((line, i) => {
-    run = i > 0 && lines[i - 1]?.mark === line.mark ? run + 1 : 0
-    if (shown.length < SHOWN && run < RUN[line.mark]) shown.push(line)
+    const before = lines[i - 1]
+    const after = lines[i + 1]
+    run = before?.mark === line.mark ? run + 1 : 0
+    const keep = line.mark === ' ' ? (before !== undefined && before.mark !== ' ') || (after !== undefined && after.mark !== ' ') : run < RUN
+    if (shown.length < SHOWN && keep) shown.push(line)
   })
   return shown
 }

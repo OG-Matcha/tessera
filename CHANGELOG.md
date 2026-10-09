@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- A folded diff shows the unchanged lines that touch a change, so the line before an edit is the one right above it; it showed the first line of the context, which made lines look skipped.
+- A list's copy button sits beside its first item, as a quote's does, instead of floating on a line of its own above the list.
+
 ## [0.6.0] - 2026-10-09
 
 ### Added

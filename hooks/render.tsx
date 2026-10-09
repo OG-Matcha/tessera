@@ -799,7 +799,9 @@ export const renderUserPrompt = (el: ElementTable, style: Style, text: string, c
     <Box flexDirection="column" {...(rtl ? { alignItems: 'flex-end' as const } : {})}>
       {text.split('\n').map((line, i) => {
         const flow = lines[i]
-        return flow ? renderFlow(el, style, flow.lines, `p${i}`, { color, bold: style.promptStyle === 'chevron' }) : <Text key={`p${i}`} color={color} bold={style.promptStyle === 'chevron'}>{line}</Text>
+        return flow
+          ? renderFlow(el, style, flow.lines, `p${i}`, { color, bold: style.promptStyle === 'chevron' })
+          : renderWrapped(el, style, [{ kind: 'text', text: line }], columns - 4, `p${i}`, { color, bold: style.promptStyle === 'chevron' })
       })}
     </Box>
   )

@@ -324,3 +324,10 @@ test('a Chinese paragraph fills each line instead of leaving one word on the fir
   expect(await ui.find({ type: 'Text', text: /^，/ })).toBeUndefined()
   await ui.unmount()
 })
+
+test('a prompt mixing English and Chinese fills its lines in the bubble', async $ => {
+  const text = 'Use the Write 工具建立筆記檔案並且把內容照抄進去不要做別的事情謝謝你'
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'UserMessage', props: { text, origin: { kind: 'composer' }, isExpanded: false }, viewport: { columns: 40, rows: 40 } } as never)
+  expect(await ui.find({ type: 'Text', text: /^Use the Write 工具建立筆記檔案並$/ })).toBeDefined()
+  await ui.unmount()
+})

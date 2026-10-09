@@ -236,7 +236,9 @@ export const scenarios = [
     prompts: true,
     // Render timings: node e2e/run.mjs perf, then read the "tessera@tessera ... settled" lines. Measured
     // 2026-10-09: after startup the band above the prompt draws in 8-64 ms; the 0.6-1.4 s at session start
-    // and the 3 s on submit are the engine starting up and the settings hooks, not tessera.
+    // and the 3 s on submit are the engine starting up and the settings hooks, not tessera. The long reply
+    // (six tables, two flowcharts, a bar chart, six code blocks) drew 4 times while streaming, 47 ms on
+    // average and 80 ms at most, so parsed replies are not cached.
     sessions: () => [
       {
         args: [...HAIKU, '--debug-file', join(homedir(), '.claude', 'tessera-perf.log')],
@@ -244,6 +246,10 @@ export const scenarios = [
           ...'幫我寫一個表格比較三種快取策略'.split('').map(ch => ({ key: ch, wait: 150 })),
           { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY },
           { wait: 2_000 },
+          // A long reply: the most a render has to draw at once.
+          { type: 'Write a long reference reply: six markdown tables of eight rows each, two mermaid flowcharts of eight nodes, one xychart-beta bar chart, and six fenced code blocks of twenty lines in different languages. No tools.' },
+          // The first reply's "✻ … for" line is still on screen, so the long one is waited out instead.
+          { key: '\r', wait: 90_000, shot: 'long' },
         ],
       },
     ],

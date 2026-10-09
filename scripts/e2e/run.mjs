@@ -69,4 +69,7 @@ for (const dir of leftover) {
 
 const failed = results.filter(([, status]) => status === 'FAIL')
 for (const [name, , detail] of failed) console.log(`\n--- ${name}\n${detail}`)
+// node-pty's Windows console agent prints "AttachConsole failed" stacks as sessions close, burying the
+// per-scenario lines; this one comes after them.
+console.log(`\n${results.length - failed.length} of ${results.length} passed${failed.length > 0 ? `; failed: ${failed.map(([name]) => name).join(', ')}` : ''}`)
 process.exit(failed.length > 0 ? 1 : 0)

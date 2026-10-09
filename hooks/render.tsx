@@ -1,6 +1,8 @@
 import type { ElementTable, RenderElement } from 'claude-code'
 
 import type { Folded } from './fold'
+import type { ToolKind, ToolWords } from './i18n'
+import { STRINGS } from './i18n'
 import type { Block, Inline } from './markdown'
 import { inlineText } from './markdown'
 import { commentTail, commentVisual, flow, hasRtl } from './rtl'
@@ -575,10 +577,6 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
 
 export type ToolRow = { tool: string; input: unknown; isRunning: boolean; isErrored: boolean; isInterrupted: boolean }
 
-const VERBS: Record<string, string> = {
-  Bash: 'Ran', PowerShell: 'Ran', Read: 'Read', Write: 'Wrote', Edit: 'Edited', MultiEdit: 'Edited', NotebookEdit: 'Edited',
-  Grep: 'Searched', Glob: 'Listed', WebFetch: 'Fetched', WebSearch: 'Searched the web for', Agent: 'Delegated', Task: 'Delegated',
-}
 
 const field = (input: unknown, ...keys: string[]): string | undefined => {
   if (input === null || typeof input !== 'object') return undefined
@@ -617,11 +615,11 @@ const toolLayout = (el: ElementTable, style: Style, columns: number, label: stri
   )
 }
 
-export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100, cwd?: string): RenderElement => {
+export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100, cwd?: string, words: ToolWords = STRINGS.en.toolWords): RenderElement => {
   const { Text } = el
   const t = style.theme
   const isShell = row.tool === 'Bash' || row.tool === 'PowerShell'
-  const verb = VERBS[row.tool] ?? row.tool.replace(/^mcp__([^_]+)__/, '$1 ')
+  const verb = words.verbs[row.tool] ?? row.tool.replace(/^mcp__([^_]+)__/, '$1 ')
   const file = isShell ? undefined : field(row.input, 'file_path', 'notebook_path', 'path')
   const target = isShell
     ? field(row.input, 'command')?.split('\n')[0]
@@ -629,13 +627,13 @@ export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, colu
   const dot = row.isErrored ? t.codeFlag : row.isInterrupted ? t.codeComment : row.isRunning ? t.accent : t.number
   const isPath = target !== undefined && /^(~|\.{0,2}\/|[A-Za-z]:\\)/.test(target)
 
-  const label = `${verb}${target === undefined ? "" : ` ${target}`}${row.isInterrupted ? " interrupted" : row.isErrored ? " failed" : ""}`
+  const label = `${verb}${target === undefined ? "" : ` ${target}`}${row.isInterrupted ? words.interrupted : row.isErrored ? words.failedRow : ""}`
   return toolLayout(el, style, columns, label, dot, row.isRunning, (
       <Text wrap="truncate-end" dimColor={toolDim(style)}>
         <Text bold={!toolDim(style)} dimColor={toolDim(style)}>{verb}</Text>
         {target === undefined ? null : <Text> </Text>}
         {target === undefined ? null : isShell ? codeLine(el, style, target, 'bash', 'cmd') : <Text color={isPath ? t.path : t.inlineCode} dimColor={toolDim(style)}>{target}</Text>}
-        {row.isInterrupted ? <Text dimColor> interrupted</Text> : row.isErrored ? <Text color={t.codeFlag}> failed</Text> : null}
+        {row.isInterrupted ? <Text dimColor>{words.interrupted}</Text> : row.isErrored ? <Text color={t.codeFlag}>{words.failedRow}</Text> : null}
       </Text>
   ))
 }
@@ -682,32 +680,29 @@ export const renderExpandedShell = (el: ElementTable, style: Style, row: ToolRow
   )
 }
 
-const GROUPS: [RegExp, string, string][] = [
-  [/^(Bash|PowerShell)$/, 'ran', 'command'],
-  [/^Read$/, 'read', 'file'],
-  [/^(Write|Edit|MultiEdit|NotebookEdit)$/, 'edited', 'file'],
-  [/^(Grep|Glob)$/, 'searched', 'pattern'],
-  [/^(WebFetch|WebSearch)$/, 'fetched', 'page'],
-  [/^(Agent|Task)$/, 'delegated', 'task'],
+const GROUPS: [RegExp, ToolKind][] = [
+  [/^(Bash|PowerShell)$/, 'command'],
+  [/^Read$/, 'read'],
+  [/^(Write|Edit|MultiEdit|NotebookEdit)$/, 'edit'],
+  [/^(Grep|Glob)$/, 'pattern'],
+  [/^(WebFetch|WebSearch)$/, 'page'],
+  [/^(Agent|Task)$/, 'task'],
 ]
 
-export const groupSummary = (calls: readonly { tool: string }[]): string => {
-  const counts = new Map<string, number>()
+export const groupSummary = (calls: readonly { tool: string }[], words: ToolWords = STRINGS.en.toolWords): string => {
+  // A known kind is counted under its kind, any other tool under its own name.
+  const counts = new Map<string, { kind?: ToolKind; name: string; n: number }>()
   for (const call of calls) {
-    const [, verb, noun] = GROUPS.find(([re]) => re.test(call.tool)) ?? [, 'used', call.tool.replace(/^mcp__([^_]+)__/, '$1 ')]
-    const label = `${verb} ${noun}`
-    counts.set(label, (counts.get(label) ?? 0) + 1)
+    const kind = GROUPS.find(([re]) => re.test(call.tool))?.[1]
+    const name = kind ?? call.tool.replace(/^mcp__([^_]+)__/, '$1 ')
+    const entry = counts.get(name) ?? { kind, name, n: 0 }
+    counts.set(name, { ...entry, n: entry.n + 1 })
   }
-  const parts = [...counts].map(([label, n]) => {
-    const [verb, ...noun] = label.split(' ')
-    const name = noun.join(' ')
-    return `${verb} ${n} ${n === 1 ? name : name.endsWith('h') ? `${name}es` : `${name}s`}`
-  })
-  const text = parts.join(', ')
+  const text = [...counts.values()].map(c => (c.kind ? words.group(c.kind, c.n) : words.other(c.name, c.n))).join(words.join)
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly ToolRow[], isActive: boolean, columns = 100, cwd?: string): RenderElement => {
+export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly ToolRow[], isActive: boolean, columns = 100, cwd?: string, words: ToolWords = STRINGS.en.toolWords): RenderElement => {
   const { Text } = el
   const t = style.theme
   const failed = calls.filter(c => c.isErrored).length
@@ -716,12 +711,12 @@ export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly 
   const last = calls[calls.length - 1]
   const lastLine = last ? field(last.input, 'command', 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description')?.split('\n')[0] : undefined
   const lastTarget = lastLine === undefined ? undefined : shortPath(lastLine, cwd)
-  const label = `${groupSummary(calls)}${failed ? ` · ${failed} failed` : ""}${lastTarget ? ` · last: ${lastTarget}` : ""}`
+  const label = `${groupSummary(calls, words)}${failed ? words.failed(failed) : ""}${lastTarget ? `${words.last}${lastTarget}` : ""}`
   return toolLayout(el, style, columns, label, dot, running, (
       <Text wrap="truncate-end" dimColor={toolDim(style)}>
-        <Text bold={!toolDim(style)} dimColor={toolDim(style)}>{groupSummary(calls)}</Text>
-        {failed ? <Text color={t.codeFlag}>{` · ${failed} failed`}</Text> : null}
-        {lastTarget ? <Text dimColor>{` · last: ${lastTarget}`}</Text> : null}
+        <Text bold={!toolDim(style)} dimColor={toolDim(style)}>{groupSummary(calls, words)}</Text>
+        {failed ? <Text color={t.codeFlag}>{words.failed(failed)}</Text> : null}
+        {lastTarget ? <Text dimColor>{`${words.last}${lastTarget}`}</Text> : null}
       </Text>
   ))
 }

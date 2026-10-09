@@ -63,3 +63,18 @@ test('an errored edit is never folded', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
   await ui.unmount()
 })
+
+test('the ctrl+o transcript shows every diff whole, and the normal view folds again', async ($, on) => {
+  engine(on)
+  const message = (isExpanded: boolean) => ({ plugin: 'tessera', surface: 'terminal', component: 'UserMessage', props: { text: 'edit it', origin: { kind: 'composer' }, isExpanded } }) as never
+  const verbose = await $.ui.mount(message(true))
+  await verbose.unmount()
+  const whole = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: edit('e4') })
+  expect(await whole.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  await whole.unmount()
+  const normal = await $.ui.mount(message(false))
+  await normal.unmount()
+  const folded = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: edit('e5') })
+  expect(await folded.find({ type: 'Button' })).toBeDefined()
+  await folded.unmount()
+})

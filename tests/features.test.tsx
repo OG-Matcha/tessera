@@ -2,6 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
+import { STRINGS } from '../hooks/i18n'
 import { parse } from '../hooks/markdown'
 import { PRESETS } from '../hooks/presets'
 import { formatDuration, groupSummary } from '../hooks/render'
@@ -108,6 +109,16 @@ test('standalone tool rows keep the tessera look', async $ => {
 test('group summaries count by kind', async () => {
   expect(groupSummary([{ tool: 'Grep' }, { tool: 'Grep' }, { tool: 'Edit' }])).toBe('Searched 2 patterns, edited 1 file')
   expect(groupSummary([{ tool: 'WebSearch' }])).toBe('Fetched 1 page')
+  expect(groupSummary([{ tool: 'mcp__x__lookup' }, { tool: 'mcp__x__lookup' }])).toBe('Used 2 x lookups')
+})
+
+test('group summaries and tool rows speak the interface language', { options: { language: 'zh-TW' } }, async ($, on) => {
+  expect(groupSummary([{ tool: 'Grep' }, { tool: 'Grep' }, { tool: 'Edit' }], STRINGS['zh-TW'].toolWords)).toBe('搜尋 2 個模式，編輯 1 個檔案')
+  engine(on)
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolUse', props: { tool_use_id: 't1', tool: 'Edit', input: { file_path: 'a.ts' }, isRunning: false, isErrored: true, isInterrupted: false } } as never)
+  expect(await ui.find({ type: 'Text', text: /^編輯$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /失敗/ })).toBeDefined()
+  await ui.unmount()
 })
 
 test('turn footer formats durations', async () => {

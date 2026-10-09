@@ -1,5 +1,66 @@
 export type Lang = 'en' | 'zh-TW'
 
+export type ToolKind = 'command' | 'read' | 'edit' | 'pattern' | 'page' | 'task'
+
+// The words of tessera's tool rows: one verb per tool, a phrase per kind for a group of calls.
+export type ToolWords = {
+  verbs: Record<string, string>
+  group: (kind: ToolKind, n: number) => string
+  other: (name: string, n: number) => string
+  join: string
+  failed: (n: number) => string
+  failedRow: string
+  interrupted: string
+  last: string
+}
+
+const EN_GROUPS: Record<ToolKind, [string, string]> = {
+  command: ['ran', 'command'],
+  read: ['read', 'file'],
+  edit: ['edited', 'file'],
+  pattern: ['searched', 'pattern'],
+  page: ['fetched', 'page'],
+  task: ['delegated', 'task'],
+}
+const plural = (noun: string, n: number) => (n === 1 ? noun : noun.endsWith('h') ? `${noun}es` : `${noun}s`)
+
+const TOOL_WORDS_EN: ToolWords = {
+  verbs: {
+    Bash: 'Ran', PowerShell: 'Ran', Read: 'Read', Write: 'Wrote', Edit: 'Edited', MultiEdit: 'Edited', NotebookEdit: 'Edited',
+    Grep: 'Searched', Glob: 'Listed', WebFetch: 'Fetched', WebSearch: 'Searched the web for', Agent: 'Delegated', Task: 'Delegated',
+  },
+  group: (kind, n) => `${EN_GROUPS[kind][0]} ${n} ${plural(EN_GROUPS[kind][1], n)}`,
+  other: (name, n) => `used ${n} ${plural(name, n)}`,
+  join: ', ',
+  failed: n => ` · ${n} failed`,
+  failedRow: ' failed',
+  interrupted: ' interrupted',
+  last: ' · last: ',
+}
+
+const ZH_GROUPS: Record<ToolKind, [string, string]> = {
+  command: ['執行', '個指令'],
+  read: ['讀取', '個檔案'],
+  edit: ['編輯', '個檔案'],
+  pattern: ['搜尋', '個模式'],
+  page: ['抓取', '個網頁'],
+  task: ['委派', '個任務'],
+}
+
+const TOOL_WORDS_ZH: ToolWords = {
+  verbs: {
+    Bash: '執行', PowerShell: '執行', Read: '讀取', Write: '寫入', Edit: '編輯', MultiEdit: '編輯', NotebookEdit: '編輯',
+    Grep: '搜尋', Glob: '列出', WebFetch: '抓取', WebSearch: '網路搜尋', Agent: '委派', Task: '委派',
+  },
+  group: (kind, n) => `${ZH_GROUPS[kind][0]} ${n} ${ZH_GROUPS[kind][1]}`,
+  other: (name, n) => `使用 ${name} ${n} 次`,
+  join: '，',
+  failed: n => ` · ${n} 個失敗`,
+  failedRow: ' 失敗',
+  interrupted: ' 已中斷',
+  last: ' · 最後：',
+}
+
 // The names the guards give their rules in the toast; the reason the model reads stays English.
 const RULES_EN = {
   'node_modules link': 'node_modules link',
@@ -35,6 +96,7 @@ const RULES_ZH: Record<Rule, string> = {
 
 const EN = {
   copied: 'Copied',
+  toolWords: TOOL_WORDS_EN,
   copyLabels: { block: '⧉ copy', reply: '⧉ copy reply', prompt: '⧉ copy prompt', source: '⧉ source', art: '⧉ art' },
   copyFailed: 'Copy failed',
   nothingToCopy: 'Nothing to copy yet.',
@@ -82,6 +144,7 @@ const EN = {
 
 const ZH: typeof EN = {
   copied: '已複製',
+  toolWords: TOOL_WORDS_ZH,
   copyLabels: { block: '⧉ 複製', reply: '⧉ 複製回覆', prompt: '⧉ 複製 prompt', source: '⧉ 原始碼', art: '⧉ 文字圖' },
   copyFailed: '複製失敗',
   nothingToCopy: '還沒有可以複製的回覆。',

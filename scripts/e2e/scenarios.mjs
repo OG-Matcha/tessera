@@ -126,7 +126,7 @@ export const scenarios = [
       },
     ],
     // The refusal sits in a collapsed tool row; the row's failed count, or Claude retelling it, shows it.
-    check: s => seen(s.reply, /tessera blocked|unquoted heredoc|heredoc delimiter is unquoted|1 failed · last: cat > a\.ts <<EOF/i),
+    check: s => seen(s.reply, /tessera blocked|unquoted heredoc|heredoc delimiter is unquoted|(1 failed · last|1 個失敗 · 最後)[:：] ?cat > a\.ts <<EOF/i),
   },
   {
     name: 'zh-tw-guard',
@@ -162,14 +162,14 @@ export const scenarios = [
       else execFileSync('ln', ['-s', join(dir, 'shared'), join(dir, 'wt', 'node_modules')])
     },
     sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command and nothing else: rm -rf wt' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
-    check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink|tessera (refused|blocked)|1 failed · last: rm -rf wt/i) : 'the delete went through the link: shared/keep.txt is gone'),
+    check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink|tessera (refused|blocked)|(1 failed · last|1 個失敗 · 最後)[:：] ?rm -rf wt/i) : 'the delete went through the link: shared/keep.txt is gone'),
   },
   {
     name: 'force-push-guard',
     prompts: true,
     // The throwaway repository has no remote, so a push that gets through goes nowhere.
     sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command once and nothing else: git push --force origin main' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
-    check: s => seen(s.reply, /force-pushes to main|force push|強制推送|tessera (refused|blocked)|1 failed · last: git push --force/i),
+    check: s => seen(s.reply, /force-pushes to main|force push|強制推送|tessera (refused|blocked)|(1 failed · last|1 個失敗 · 最後)[:：] ?git push --force/i),
   },
   {
     name: 'copy-reply',
@@ -310,13 +310,16 @@ export const scenarios = [
         steps: [
           { type: 'Use the Edit tool once on list.txt: replace the lines "line 5" through "line 24" with "item 5" through "item 24". Do nothing else.' },
           { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
-          { press: ['[ 展開 ]', '[ expand ]'] },
-          { wait: 1_000, shot: 'expanded' },
+          // ctrl+o draws the transcript in full, the diff included. The expand button is not pressed here:
+          // since 2026-10-09 on 2.1.295 a click on a button in a tool result reaches no hook, while the reply's
+          // copy button still takes one.
+          { key: '\x0f', wait: 1_500, shot: 'expanded' },
+          { key: '\x0f', wait: 1_500, shot: 'folded' },
         ],
       },
     ],
     // Folded, the edit shows a few of its lines; expanded, Claude Code draws all of them again.
-    check: s => seen(s.reply, /more lines|行未顯示/) ?? seen(s.expanded, /\+item 24/),
+    check: s => seen(s.reply, /more lines|行未顯示/) ?? seen(s.expanded, /\+item 24/) ?? seen(s.folded, /more lines|行未顯示/),
   },
   {
     name: 'carry-over-reload',

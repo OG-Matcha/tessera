@@ -329,6 +329,9 @@ const applyRtl = async ($: EngineInterface, style: Style): Promise<void> => {
 }
 
 const expandedCalls = new Set<string>()
+// True while the transcript draws every row in full (ctrl+o, --verbose), which tool rows and folded diffs
+// leave to the engine. A user message says which view is drawing: every transcript has one, drawn first.
+let transcriptExpanded = false
 
 const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, style: Style, blocks: ReturnType<typeof parse>, columns: number, reply?: string): RenderElement[] => {
   const { Button } = el
@@ -544,13 +547,25 @@ export const register: Register = (on, options) => {
   if (options.foldDiffs !== false) {
     on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
       const { tool, tool_use_id: id, output, isErrored } = e.props
-      if (isErrored || !/^(Edit|MultiEdit|Write)$/.test(tool) || expandedCalls.has(id)) return next(e)
+      if (transcriptExpanded || isErrored || !/^(Edit|MultiEdit|Write)$/.test(tool) || expandedCalls.has(id)) return next(e)
       const folded = foldPatch(patchOf(output))
       if (folded === undefined || (await read($, unfoldedDiffs)).includes(id)) return next(e)
       const labels = { summary: t().diffSummary(folded.added, folded.removed), hidden: t().diffHidden(folded.hidden), expand: t().diffExpand }
       return renderFoldedDiff($.ui.resolve(e), style, folded, labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
     })
   }
+
+  on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
+    // A toggle changes no tool row's props, so the engine would keep their drawings: they are redrawn here.
+    if (e.props.isExpanded !== transcriptExpanded) {
+      transcriptExpanded = e.props.isExpanded
+      $.ui.invalidate('ui.render')
+    }
+    const kind = e.props.origin.kind
+    const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
+    if (!isDrawing || style.promptStyle === 'off' || !own) return next(e)
+    return renderUserPrompt($.ui.resolve(e), style, e.props.text, Math.max(20, (e.viewport?.columns ?? 100) - 4))
+  })
 
   if (!isDrawing) return
 
@@ -560,10 +575,10 @@ export const register: Register = (on, options) => {
         for (const call of e.props.calls) if (call.tool_use_id) expandedCalls.add(call.tool_use_id)
         return next(e)
       }
-      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns, workDir)
+      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns, workDir, t().toolWords)
     })
     on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns, workDir)
+      if (!transcriptExpanded && !expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns, workDir, t().toolWords)
       return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, e.props) : next(e)
     })
   }
@@ -581,13 +596,6 @@ export const register: Register = (on, options) => {
     const { Box } = el
     const columns = Math.max(20, (e.viewport?.columns ?? 100) - 4)
     return <Box flexDirection="column" rowGap={1} {...(style.reorder && hasRtl(e.props.text) ? { width: '100%' } : {})}>{drawMarkdown($, el, style, blocks, columns)}</Box>
-  })
-
-  on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
-    const kind = e.props.origin.kind
-    const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
-    if (style.promptStyle === 'off' || !own) return next(e)
-    return renderUserPrompt($.ui.resolve(e), style, e.props.text, Math.max(20, (e.viewport?.columns ?? 100) - 4))
   })
 
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {

@@ -44,7 +44,7 @@ node e2e/run.mjs                 # every scenario
 node e2e/run.mjs paste-text      # one by name
 ```
 
-It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends. Screens of failed scenarios land in `scripts/e2e/last/`; `E2E_KEEP=1` keeps every screen, which is how a UI change is compared before and after. Sessions share your Claude Code config, so tessera may draw them in the language you last wrote in: match both languages in checks.
+It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends. Screens of failed scenarios land in `scripts/e2e/last/`; `E2E_KEEP=1` keeps every screen, which is how a UI change is compared before and after. Sessions share your Claude Code config, so tessera may draw them in the language you last wrote in: match both languages in checks. A fullscreen launch killed before it reports healthy counts against fullscreen for the whole machine, and two turn it off in your own sessions too (`fullscreenAutoDisabled` in `~/.claude.json`; `/tui fullscreen` turns it back on): let every session you script run a few seconds past its first prompt. The driver sets `CLAUDE_CODE_NO_FLICKER=1` so its sessions stay in fullscreen, where buttons take clicks.
 
 ## Rules
 

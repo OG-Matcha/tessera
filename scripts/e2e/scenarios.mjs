@@ -310,16 +310,16 @@ export const scenarios = [
         steps: [
           { type: 'Use the Edit tool once on list.txt: replace the lines "line 5" through "line 24" with "item 5" through "item 24". Do nothing else.' },
           { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
-          // ctrl+o draws the transcript in full, the diff included. The expand button is not pressed here:
-          // since 2026-10-09 on 2.1.295 a click on a button in a tool result reaches no hook, while the reply's
-          // copy button still takes one.
+          // ctrl+o draws the transcript in full, the diff included, and closing it folds the diff again.
           { key: '\x0f', wait: 1_500, shot: 'expanded' },
           { key: '\x0f', wait: 1_500, shot: 'folded' },
+          { press: ['[ 展開 ]', '[ expand ]'] },
+          { wait: 1_000, shot: 'unfolded' },
         ],
       },
     ],
     // Folded, the edit shows a few of its lines; expanded, Claude Code draws all of them again.
-    check: s => seen(s.reply, /more lines|行未顯示/) ?? seen(s.expanded, /\+item 24/) ?? seen(s.folded, /more lines|行未顯示/),
+    check: s => seen(s.reply, /more lines|行未顯示/) ?? seen(s.expanded, /\+item 24/) ?? seen(s.folded, /more lines|行未顯示/) ?? seen(s.unfolded, /\+item 24/),
   },
   {
     name: 'carry-over-reload',

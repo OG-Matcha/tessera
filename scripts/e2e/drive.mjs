@@ -58,7 +58,9 @@ ${readClipboard()}`
 
 export async function session({ cwd, args = [], env = {}, steps }) {
   const term = new xterm.Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true })
-  const childEnv = { ...process.env, ...env, TERM: 'xterm-256color', COLORTERM: 'truecolor' }
+  // Buttons take clicks only in fullscreen, which Claude Code turns off for the whole machine after two
+  // fullscreen launches die before they are healthy; this keeps the sessions in fullscreen regardless.
+  const childEnv = { ...process.env, ...env, TERM: 'xterm-256color', COLORTERM: 'truecolor', CLAUDE_CODE_NO_FLICKER: '1' }
   for (const k of Object.keys(childEnv)) if (/^(CLAUDECODE|CLAUDE_CODE_ENTRYPOINT|CLAUDE_CODE_CHILD_SESSION|ORCA|TERM_PROGRAM|WT_SESSION)/.test(k)) delete childEnv[k]
   const [file, argv] = platform() === 'win32' ? ['cmd.exe', ['/c', 'claude', ...args]] : ['claude', args]
   const child = pty.spawn(file, argv, { name: 'xterm-256color', cols: COLS, rows: ROWS, cwd, env: childEnv })

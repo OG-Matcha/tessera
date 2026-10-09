@@ -25,6 +25,13 @@ type Draft = Block extends infer B ? (B extends unknown ? Omit<B, 'raw'> : never
 export type AlertLevel = 'note' | 'tip' | 'important' | 'warning' | 'caution'
 const ALERT = /^\[!(note|tip|important|warning|caution)\]\s*(.*)$/i
 
+// A line break inside a paragraph reads as a space, except between Chinese or Japanese characters, which
+// take none: a reply wrapped by hand would otherwise show a space at each of its line ends.
+const CJK_END = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]\s*$/u
+const CJK_START = /^\s*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]/u
+const joinLines = (lines: readonly string[]): string =>
+  lines.reduce((text, line, i) => (i === 0 ? line : CJK_END.test(text) && CJK_START.test(line) ? text.trimEnd() + line.trimStart() : `${text} ${line}`), '')
+
 export type Highlight = { numbers: boolean; paths: boolean }
 
 const MAX_INLINE = 4000
@@ -110,7 +117,7 @@ export const parse = (source: string, hl: Highlight): Block[] => {
   let para: string[] = []
 
   const flush = (end: number) => {
-    if (para.length) add({ kind: 'paragraph', inline: parseInline(para.join(' '), hl) }, paraStart, end)
+    if (para.length) add({ kind: 'paragraph', inline: parseInline(joinLines(para), hl) }, paraStart, end)
     para = []
   }
 
@@ -166,8 +173,8 @@ export const parse = (source: string, hl: Highlight): Block[] => {
       const body: string[] = []
       while (i < lines.length && /^\s*>/.test(at(i))) body.push(at(i++).replace(/^\s*>\s?/, ''))
       const alert = ALERT.exec(body[0] ?? '')
-      if (alert) add({ kind: 'alert', level: alert[1]!.toLowerCase() as AlertLevel, inline: parseInline([alert[2]!, ...body.slice(1)].join(' ').trim(), hl) }, start, i)
-      else add({ kind: 'quote', inline: parseInline(body.join(' '), hl) }, start, i)
+      if (alert) add({ kind: 'alert', level: alert[1]!.toLowerCase() as AlertLevel, inline: parseInline(joinLines([alert[2]!, ...body.slice(1)]).trim(), hl) }, start, i)
+      else add({ kind: 'quote', inline: parseInline(joinLines(body), hl) }, start, i)
       i--
       continue
     }

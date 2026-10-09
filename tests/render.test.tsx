@@ -331,3 +331,9 @@ test('a prompt mixing English and Chinese fills its lines in the bubble', async 
   expect(await ui.find({ type: 'Text', text: /^Use the Write 工具建立筆記檔案並$/ })).toBeDefined()
   await ui.unmount()
 })
+
+test('a line break between Chinese characters joins without a space; between words it is one', () => {
+  const [p, q] = parse('第一行寫到這裡\n接著第二行\nthen English\nwords\n\n> 引用的第一行\n> 第二行', { numbers: false, paths: false })
+  expect(p?.kind === 'paragraph' && p.inline.map(n => ('text' in n ? n.text : '')).join('')).toBe('第一行寫到這裡接著第二行 then English words')
+  expect(q?.kind === 'quote' && q.inline.map(n => ('text' in n ? n.text : '')).join('')).toBe('引用的第一行第二行')
+})

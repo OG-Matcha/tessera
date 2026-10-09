@@ -110,6 +110,8 @@ test('group summaries count by kind', async () => {
   expect(groupSummary([{ tool: 'Grep' }, { tool: 'Grep' }, { tool: 'Edit' }])).toBe('Searched 2 patterns, edited 1 file')
   expect(groupSummary([{ tool: 'WebSearch' }])).toBe('Fetched 1 page')
   expect(groupSummary([{ tool: 'mcp__x__lookup' }, { tool: 'mcp__x__lookup' }])).toBe('Used 2 x lookups')
+  expect(groupSummary([{ tool: 'ToolSearch' }, { tool: 'Grep' }])).toBe('Searched 1 pattern')
+  expect(groupSummary([{ tool: 'ToolSearch' }])).toBe('Used 1 ToolSearch')
 })
 
 test('group summaries and tool rows speak the interface language', { options: { language: 'zh-TW' } }, async ($, on) => {

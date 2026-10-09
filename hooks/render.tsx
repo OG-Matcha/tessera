@@ -715,9 +715,11 @@ const GROUPS: [RegExp, ToolKind][] = [
 ]
 
 export const groupSummary = (calls: readonly { tool: string }[], words: ToolWords = STRINGS.en.toolWords): string => {
-  // A known kind is counted under its kind, any other tool under its own name.
+  // A known kind is counted under its kind, any other tool under its own name. ToolSearch only loads other
+  // tools, so it is left out beside them.
   const counts = new Map<string, { kind?: ToolKind; name: string; n: number }>()
-  for (const call of calls) {
+  const counted = calls.some(c => c.tool !== 'ToolSearch') ? calls.filter(c => c.tool !== 'ToolSearch') : calls
+  for (const call of counted) {
     const kind = GROUPS.find(([re]) => re.test(call.tool))?.[1]
     const name = kind ?? call.tool.replace(/^mcp__([^_]+)__/, '$1 ')
     const entry = counts.get(name) ?? { kind, name, n: 0 }

@@ -118,3 +118,20 @@ test('a new session speaks the language the person wrote in last time', async ($
   const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 80, rows: 20 } } as never)
   expect((await ui.find({ type: 'Button' }))?.props.label).toBe('接續')
 })
+
+test('a task tool runs once and keeps its result when recording it fails', async ($, on) => {
+  let runs = 0
+  on('session.repo', () => {
+    throw new Error('repo lookup failed')
+  })
+  on('session.cwd', () => {
+    throw new Error('cwd lookup failed')
+  })
+  on('tool.call', { tool: 'TaskCreate' }, (_, e) => {
+    runs++
+    return { result: { task: { id: '1', subject: e.subject } } } as never
+  })
+  const out = await $.tool.call({ tool: 'TaskCreate', subject: 'a', description: 'x' })
+  expect(runs).toBe(1)
+  expect((out.result as { task?: { id: string } }).task?.id).toBe('1')
+})

@@ -1,12 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude-code'
 
-import type { CarryOver, DraftImage, DraftPaste, ImageView } from '../types'
-import type { Rgba } from './png'
-import { decodePng, pngSize } from './png'
-import { fitCells, thumbnail } from './raster'
+import type { CarryOver } from '../types'
 import type { Env } from './platform'
-import { clipboardReaders, drawsPixels, openers, pasteRoot } from './platform'
 import type { InboxItem } from './inbox'
 import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 
@@ -21,9 +17,9 @@ import { carriedFrom, recordSession, restoredTasks } from './carry'
 import { pickLang } from './i18n'
 import { session, t } from './session'
 import { isAbsolute, registerGuards } from './guard-hooks'
+import { registerPastes } from './paste-hooks'
 import { completions } from './complete'
 import { FEATURES } from './features'
-import { clipboardHolds, clipboardText, placeholders } from './paste'
 import { foldPatch, patchOf } from './fold'
 import { marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
@@ -36,25 +32,12 @@ import { resolveStyle } from './theme'
 import type { Terminal } from './rtl'
 import { TERMINALS, hasRtl } from './rtl'
 
-const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] as DraftImage[])
-
-const draftPastes = atom({ plugin: 'tessera', key: 'draftPastes' } as const, [] as DraftPaste[])
-
 const carryOver = atom({ plugin: 'tessera', key: 'carryOver' } as const, null as CarryOver | null)
 // The marketplace named in the one-time offer to turn on auto-update, while it shows.
 const updateOffer = atom({ plugin: 'tessera', key: 'updateOffer' } as const, null as string | null)
 // Edit results the person unfolded.
 const unfoldedDiffs = atom({ plugin: 'tessera', key: 'unfoldedDiffs' } as const, [] as string[])
 const CARRY_SHOWN = 5
-const POLL_MS = 250
-const PASTE_HEAD = 4
-const pastes = new Map<number, string | null>()
-let shownPastes = ''
-const THUMB_SIZES: Record<string, [number, number]> = { small: [28, 8], medium: [40, 12], large: [64, 20] }
-
-let thumbBox: [number, number] = [40, 12]
-let imageMode = 'auto'
-let usePixels = false
 // False while no setting or locale chose Chinese, so a prompt written in Chinese may still switch to it.
 let langSettled = false
 // Notes stay in the transcript once sent, so each goes once per context: again only after a compaction drops it.
@@ -64,13 +47,7 @@ let matchReplyLanguage = true
 // Renders cannot ask the engine, so tool rows read the session's working directory from here.
 let workDir: string | undefined
 
-let tmpRoot: string | undefined
-let imagesDir: { sessionId: string; dir: string } | undefined
-let shownKey = ''
-let isChecking = false
-const pixels = new Map<string, Rgba | null>()
 
-// Claude Code caches each paste as <tmp>/<project>/<session>/images/<n>.png; on Windows <tmp> is %TEMP%\claude.
 // Every variable the platform decisions read, each named literally so the engine can list them, read
 // at once: each is a round trip to the engine.
 async function readEnv($: EngineInterface): Promise<Env> {
@@ -88,142 +65,6 @@ async function readEnv($: EngineInterface): Promise<Env> {
     $.env.get('WSL_DISTRO_NAME'),
   ])
   return { OS, TEMP, HOME, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME }
-}
-
-async function root($: EngineInterface): Promise<string> {
-  if (tmpRoot !== undefined) return tmpRoot
-  const base = pasteRoot(session.env)
-  tmpRoot = base.includes('{uid}') ? base.replace('{uid}', (await $.process.run(['id', '-u'])).stdout.trim()) : base
-  return tmpRoot
-}
-
-async function findImagesDir($: EngineInterface): Promise<string | undefined> {
-  const sessionId = await $.session.id()
-  if (imagesDir?.sessionId === sessionId) return imagesDir.dir
-  const base = await root($)
-  for (const entry of await $.fs.list(base).catch(() => [])) {
-    const dir = `${base}/${entry.name}/${sessionId}/images`
-    if (entry.kind === 'dir' && (await $.fs.exists(dir))) {
-      imagesDir = { sessionId, dir }
-      return dir
-    }
-  }
-  return undefined
-}
-
-// Null when the file is no PNG this decoder reads or is over the engine's 4 MiB read cap.
-async function pixelsOf($: EngineInterface, path: string): Promise<Rgba | null> {
-  if (!pixels.has(path)) {
-    const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
-    pixels.set(path, file === undefined ? null : decodePng(Uint8Array.fromBase64(file.base64)))
-  }
-  return pixels.get(path) ?? null
-}
-
-async function viewOf($: EngineInterface, path: string): Promise<ImageView | null> {
-  const [maxColumns, maxRows] = thumbBox
-  if (usePixels) {
-    const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
-    const size = file === undefined ? null : pngSize(Uint8Array.fromBase64(file.base64))
-    return { kind: 'pixels', ...fitCells(size?.width ?? 16, size?.height ?? 9, maxColumns, maxRows) }
-  }
-  const img = await pixelsOf($, path)
-  return img === null ? null : { kind: 'cells', ...thumbnail(img, maxColumns, maxRows) }
-}
-
-async function check($: EngineInterface) {
-  if (isChecking) return
-  isChecking = true
-  try {
-    const draft = (await $.prompt.read()).text
-    const found = placeholders(draft)
-    for (const p of found) if (!pastes.has(p.n)) pastes.set(p.n, await readPaste($, p.extraLines))
-    const pasted = found.map(p => p.n).filter(n => typeof pastes.get(n) === 'string')
-    if (pasted.join(',') !== shownPastes) {
-      shownPastes = pasted.join(',')
-      await update($, draftPastes, () =>
-        pasted.map(n => {
-          const lines = (pastes.get(n) ?? '').split(/\r?\n/)
-          return { n, total: lines.length, head: lines.slice(0, PASTE_HEAD) }
-        }),
-      )
-    }
-    const numbers = [...new Set([...draft.matchAll(/\[Image #(\d+)\]/g)].map(m => Number(m[1])))]
-    const key = numbers.join(',')
-    if (key === shownKey) return
-    const dir = numbers.length > 0 ? await findImagesDir($) : undefined
-    const list: DraftImage[] = []
-    if (dir !== undefined) {
-      for (const n of numbers) {
-        const path = `${dir}/${n}.png`
-        if (!(await $.fs.exists(path))) continue
-        list.push({ n, path, view: await viewOf($, path) })
-      }
-    }
-    shownKey = list.length === numbers.length ? key : ''
-    await update($, draftImages, () => list)
-  } finally {
-    isChecking = false
-  }
-}
-
-async function openOriginal($: EngineInterface, path: string) {
-  for (const argv of openers(session.env, path)) {
-    const run = await $.process.run(argv, { timeoutMs: 5_000 }).catch(() => undefined)
-    if (run?.exitCode === 0) return
-  }
-}
-
-// The text of a just-collapsed paste, read once from the clipboard; null when the clipboard no longer
-// matches it (copied over since, or the paste came from another machine over SSH).
-async function readPaste($: EngineInterface, extraLines: number | undefined): Promise<string | null> {
-  for (const argv of clipboardReaders(session.env)) {
-    const run = await $.process.run(argv, { timeoutMs: 3_000 }).catch(() => undefined)
-    if (run?.exitCode === 0) return clipboardHolds(run.stdout, extraLines) ? clipboardText(run.stdout) : null
-  }
-  return null
-}
-
-function registerPastes(on: On) {
-
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.surface !== 'terminal' || e.props.hasSurvey) return next(e)
-    const list = await read($, draftImages)
-    const texts = await read($, draftPastes)
-    if (list.length === 0 && texts.length === 0) return next(e)
-    const { Box, Text, Raster, Image, Button } = $.ui.resolve(e)
-    const width = Math.max(20, (e.viewport?.columns ?? 80) - 4)
-    return (
-      <Box flexDirection="column">
-        {texts.map(paste => (
-          <Box key={`paste-${paste.n}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
-            <Text dimColor>{t().pastedText(paste.n, paste.total)}</Text>
-            {paste.head.map((line, i) => (
-              <Text key={`paste-${paste.n}-${i}`} wrap="truncate-end">{[...line].slice(0, width).join('') || ' '}</Text>
-            ))}
-            {paste.total > paste.head.length && <Text dimColor>…</Text>}
-          </Box>
-        ))}
-      <Box flexDirection="row" gap={2}>
-        {list.map(img => (
-          <Box key={`img-${img.n}`} flexDirection="column" alignItems="center">
-            {img.view === null ? (
-              <Text dimColor>{t().noPreview}</Text>
-            ) : img.view.kind === 'pixels' ? (
-              <Image key={`image-${img.n}`} source={{ file: img.path, format: 'png' }} columns={img.view.columns} rows={img.view.rows} alt={`[Image #${img.n}]`} />
-            ) : (
-              <Raster key={`raster-${img.n}`} columns={img.view.columns} rows={img.view.rows} cells={img.view.cells} />
-            )}
-            <Box flexDirection="row" gap={1}>
-              <Text dimColor>#{img.n}</Text>
-              <Button key={`open-${img.n}`} label={t().original} onPress={() => openOriginal($, img.path)} />
-            </Box>
-          </Box>
-        ))}
-      </Box>
-      </Box>
-    )
-  })
 }
 
 // The reply note sits far back in a long context and stops holding; a last reply in another language
@@ -527,8 +368,6 @@ export const register: Register = (on, options) => {
   session.voice = undefined
   hintSent = false
   notedVoice = undefined
-  imageMode = typeof options.imageMode === 'string' ? options.imageMode : 'auto'
-  thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
 
   on('session.start', async ($, e, next) => {
     // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
@@ -547,7 +386,6 @@ export const register: Register = (on, options) => {
     workDir = sessionCwd
     if (carryOn && todoTools === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
     session.env = readsEnv
-    usePixels = drawsPixels(imageMode, session.env)
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
       // The language the person wrote in last time, ahead of a system locale that may not be theirs.
@@ -558,7 +396,6 @@ export const register: Register = (on, options) => {
     ]
     session.lang = pickLang(options.language, hints)
     langSettled = options.language === 'en' || options.language === 'zh-TW' || session.lang === 'zh-TW'
-    if (imagesOn) $.clock.every(POLL_MS, () => void check($))
     const returning = setupSeen === true
     if (!returning) {
       await $.store.set('setupSeen', true).catch(() => undefined)
@@ -592,7 +429,7 @@ export const register: Register = (on, options) => {
   })
 
   const imagesOn = options.pastePreview !== false
-  if (imagesOn) registerPastes(on)
+  if (imagesOn) registerPastes(on, options)
   if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)

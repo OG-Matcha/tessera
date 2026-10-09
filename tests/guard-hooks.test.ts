@@ -190,3 +190,15 @@ test('a bare force push asks git for the branch, and a feature branch goes throu
   branch = 'feature/x'
   expect((await $.tool.call({ tool: 'Bash', command: 'git push --force-with-lease' })).deny).toBe(undefined)
 })
+
+test('the blocked toast names the rule in the person’s language', { options: { language: 'zh-TW' } }, async ($, on) => {
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  on('session.cwd', () => ({ value: '/w' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'pushed' }) as never)
+  await $.tool.call({ tool: 'Bash', command: 'git push --force origin main' })
+  expect(toasts).toEqual(['tessera 已攔下：強制推送'])
+})

@@ -1,5 +1,38 @@
 export type Lang = 'en' | 'zh-TW'
 
+// The names the guards give their rules in the toast; the reason the model reads stays English.
+const RULES_EN = {
+  'node_modules link': 'node_modules link',
+  'delete through a link': 'delete through a link',
+  'git add -A': 'git add -A',
+  'git tree rewrite': 'git tree rewrite',
+  'force push': 'force push',
+  'zh-TW wording': 'zh-TW wording',
+  'project glossary': 'project glossary',
+  'unquoted heredoc': 'unquoted heredoc',
+  'Workflow model': 'Workflow model',
+  'Workflow authorization': 'Workflow authorization',
+  'CJK as \\u escapes': 'CJK as \\u escapes',
+  'Agent model': 'Agent model',
+}
+
+export type Rule = keyof typeof RULES_EN
+
+const RULES_ZH: Record<Rule, string> = {
+  'node_modules link': '連結 node_modules',
+  'delete through a link': '刪除會穿過連結',
+  'git add -A': 'git add -A',
+  'git tree rewrite': '改寫主工作區',
+  'force push': '強制推送',
+  'zh-TW wording': '繁中用語',
+  'project glossary': '專案用語表',
+  'unquoted heredoc': '未加引號的 heredoc',
+  'Workflow model': 'Workflow 未指定模型',
+  'Workflow authorization': 'Workflow 未引用你的話',
+  'CJK as \\u escapes': 'CJK 寫成 \\u 跳脫',
+  'Agent model': 'Agent 未指定模型',
+}
+
 const EN = {
   copied: 'Copied',
   copyFailed: 'Copy failed',
@@ -37,7 +70,7 @@ const EN = {
   commandDescription: 'Switch the tessera theme, copy the last reply, or show the demo',
   original: 'original',
   noPreview: '(no preview)',
-  blocked: (rule: string) => `tessera blocked: ${rule}`,
+  blocked: (rule: Rule) => `tessera blocked: ${RULES_EN[rule]}`,
   inboxFiled: (count: number, regressed: number[]) => `Inbox: filed ${count}${regressed.length ? ` · looks like fixed ${regressed.map(n => `#${n}`).join(', ')} again` : ''}`,
   inboxMarked: (ids: number[], commit: string) => `Marked ${ids.map(n => `#${n}`).join(', ') || 'nothing'} fixed in ${commit}.`,
   inboxEmpty: 'The inbox is empty. Paste a chat log with timestamped lines (22:55 Name message) to fill it.',
@@ -82,7 +115,7 @@ const ZH: typeof EN = {
   commandDescription: '切換 tessera 主題、複製上一則回覆，或顯示示範',
   original: '原圖',
   noPreview: '（無法預覽）',
-  blocked: rule => `tessera 已攔下：${rule}`,
+  blocked: rule => `tessera 已攔下：${RULES_ZH[rule]}`,
   inboxFiled: (count, regressed) => `收件匣：新增 ${count} 則${regressed.length ? ` · 疑似 ${regressed.map(n => `#${n}`).join('、')} 又壞了` : ''}`,
   inboxMarked: (ids, commit) => `已將 ${ids.map(n => `#${n}`).join('、') || '（無）'} 標為已修（${commit}）。`,
   inboxEmpty: '收件匣是空的。貼上帶時間的聊天紀錄（22:55 名字 訊息）就會建立項目。',

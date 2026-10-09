@@ -23,7 +23,7 @@ import type { CarryStore, TaskLog } from './carry'
 import { carriedFrom, recordSession, restoredTasks } from './carry'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
-import type { Lang } from './i18n'
+import type { Lang, Rule } from './i18n'
 import { STRINGS, pickLang } from './i18n'
 import { completions } from './complete'
 import { FEATURES } from './features'
@@ -297,7 +297,7 @@ async function isMainTree($: EngineInterface, command: string): Promise<boolean>
   return mainTrees.get(dir) ?? false
 }
 
-function refuse($: EngineInterface, rule: string, reason: string) {
+function refuse($: EngineInterface, rule: Rule, reason: string) {
   $.ui.toast(t().blocked(rule))
   return { deny: `tessera blocked this call: ${reason}.` }
 }
@@ -365,7 +365,7 @@ function judgeHeredoc($: EngineInterface, command: string) {
   return refuseOnce($, command, 'unquoted heredoc', `its heredoc delimiter is unquoted, so the shell expands ${token} in the body before anything is written: \${x}, $(cmd) and backticks are replaced and \\\\ becomes \\. Quote the delimiter (<<'EOF') to keep the text as written. If the expansion is intended`)
 }
 
-function refuseOnce($: EngineInterface, key: string, rule: string, reason: string) {
+function refuseOnce($: EngineInterface, key: string, rule: Rule, reason: string) {
   if (key === refusedOnce) {
     refusedOnce = ''
     return undefined

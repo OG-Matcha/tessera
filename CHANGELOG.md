@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-10-09
+
 ### Fixed
 
 - Chinese and Japanese text in replies, quotes, alerts, lists, table cells and your own prompts breaks between characters. The terminal breaks lines only at spaces, so a long run of Chinese after an English word moved whole to the next line and left the word alone above it (`● HTTP`, then the sentence). Closing punctuation never starts a line. The `/tessera setup` descriptions wrap the same way and keep their indent.
@@ -126,7 +128,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/OG-Matcha/tessera/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/OG-Matcha/tessera/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/OG-Matcha/tessera/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/OG-Matcha/tessera/compare/v0.5.0...v0.6.0

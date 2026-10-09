@@ -35,6 +35,7 @@ const RULES_ZH: Record<Rule, string> = {
 
 const EN = {
   copied: 'Copied',
+  copyLabels: { block: '⧉ copy', reply: '⧉ copy reply', prompt: '⧉ copy prompt', source: '⧉ source', art: '⧉ art' },
   copyFailed: 'Copy failed',
   nothingToCopy: 'Nothing to copy yet.',
   noCodeBlock: 'The last reply has no code block.',
@@ -81,6 +82,7 @@ const EN = {
 
 const ZH: typeof EN = {
   copied: '已複製',
+  copyLabels: { block: '⧉ 複製', reply: '⧉ 複製回覆', prompt: '⧉ 複製 prompt', source: '⧉ 原始碼', art: '⧉ 文字圖' },
   copyFailed: '複製失敗',
   nothingToCopy: '還沒有可以複製的回覆。',
   noCodeBlock: '上一則回覆沒有程式碼區塊。',

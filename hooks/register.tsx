@@ -8,7 +8,7 @@ import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
-import type { Drawn } from './render'
+import type { CopyKind, Drawn } from './render'
 import { remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
@@ -332,12 +332,12 @@ const expandedCalls = new Set<string>()
 
 const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, style: Style, blocks: ReturnType<typeof parse>, columns: number, reply?: string): RenderElement[] => {
   const { Button } = el
-  const copy = (text: string | (() => string), key: string, label = '⧉ copy') =>
+  const copy = (text: string | (() => string), key: string, kind: CopyKind | 'reply' = 'block') =>
     style.copyButtons ? (
       <Button
         key={key}
         variant="primary"
-        label={label}
+        label={t().copyLabels[kind]}
         onPress={press => {
           $.ui.copy({ text: typeof text === 'function' ? text() : text, surface: press.surface })
             .then(r => $.ui.toast(r.isCopied ? t().copied : `${t().copyFailed}: ${r.reason}`))
@@ -354,7 +354,7 @@ const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['
     }
   }
   const elements = renderBlocks(el, style, blocks, columns, drawn, copy)
-  const button = reply === undefined ? null : copy(reply, 'reply', '⧉ copy reply')
+  const button = reply === undefined ? null : copy(reply, 'reply', 'reply')
   return button ? [...elements, <el.Box key="reply" alignSelf="flex-end">{button}</el.Box>] : elements
 }
 

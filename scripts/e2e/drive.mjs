@@ -51,7 +51,7 @@ async function press(term, write, label) {
 // Clicks the last reply's copy button. A terminal copy reaches the system clipboard directly or as an
 // OSC 52 request the terminal carries out, so both are read back.
 async function pressCopyReply(term, write, osc52) {
-  const missing = await press(term, write, '⧉ copy reply')
+  const missing = await press(term, write, ['⧉ copy reply', '⧉ 複製回覆'])
   return missing ?? `${osc52()}
 ${readClipboard()}`
 }

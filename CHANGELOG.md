@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - `/tessera inbox` and `/tessera peek` drew their first line broken: Claude Code prefixes a plugin's answer with `tessera: `, which shifted every column of the inbox table one place and left a peeked file's `### name` heading as text. tessera drops its own prefix before drawing; the command echo above still says whose output it is.
 - The inbox table's headers were Chinese in every language; they follow the interface language now.
+- Copy buttons are named in the interface language (`⧉ 複製`, `⧉ 複製回覆`, `⧉ 文字圖`); they were English next to Chinese fold and carry-over text.
 - `/tessera` help, its argument hint in the command menu and the `/tessera demo` command table now list `setup`, `peek <file>` and `copy prompt`; they had been left out since those commands were added.
 
 ## [0.6.1] - 2026-10-09

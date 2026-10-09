@@ -484,7 +484,9 @@ const renderPrompt = (el: ElementTable, style: Style, lines: string[], columns: 
   )
 }
 
-export type CopyButton =(text: string | (() => string), key: string, label?: string) => RenderElement | null
+// Which copy a button makes; the hooks module names it in the person's language.
+export type CopyKind = 'block' | 'prompt' | 'source' | 'art'
+export type CopyButton = (text: string | (() => string), key: string, kind?: CopyKind) => RenderElement | null
 export type Drawn = Map<number, { element: RenderElement; art: string }>
 
 const copySource = (block: Block): string | undefined =>
@@ -507,7 +509,7 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
       case 'rule':
         return <Text key={key} color={t.rule} dimColor={!t.rule}>{'─'.repeat(Math.max(8, Math.min(columns, 80)))}</Text>
       case 'code':
-        if (block.lang === 'prompt') return renderPrompt(el, style, block.lines, columns, key, copy?.(block.lines.join('\n'), `copy${b}`, '⧉ copy prompt'))
+        if (block.lang === 'prompt') return renderPrompt(el, style, block.lines, columns, key, copy?.(block.lines.join('\n'), `copy${b}`, 'prompt'))
         return drawn.get(b)?.element ?? (
           <Box key={key} flexDirection="column" alignSelf="flex-start">
             <Box flexDirection="row" justifyContent="space-between" columnGap={4}>
@@ -530,8 +532,8 @@ export const renderBlocks = (el: ElementTable, style: Style, blocks: Block[], co
     const text = block ? copySource(block) : undefined
     const isPlainCode = block?.kind === 'code' && !drawn.has(b)
     const art = drawn.get(b)?.art ?? (block?.kind === 'table' ? () => tableArt(block) : undefined)
-    const first = text === undefined || isPlainCode ? null : copy?.(text, `copy${b}`, art === undefined || block?.kind === 'table' ? undefined : '⧉ source')
-    const second = first && art !== undefined ? copy?.(art, `art${b}`, '⧉ art') : null
+    const first = text === undefined || isPlainCode ? null : copy?.(text, `copy${b}`, art === undefined || block?.kind === 'table' ? undefined : 'source')
+    const second = first && art !== undefined ? copy?.(art, `art${b}`, 'art') : null
     const button = second ? (
       <el.Box key={`copies${b}`} flexDirection="row" columnGap={1}>
         {first}

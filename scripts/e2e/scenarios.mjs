@@ -201,7 +201,7 @@ export const scenarios = [
         ],
       },
     ],
-    check: s => seen(s.reply, /1\. build\s+\[ ⧉ copy \]/i),
+    check: s => seen(s.reply, /1\. build\s+\[ ⧉ (copy|複製) \]/i),
   },
   {
     name: 'agent-model-auto',

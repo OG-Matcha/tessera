@@ -371,3 +371,12 @@ test('a one-paragraph English block gets no copy reply button', async $ => {
   expect((await ui.findAll({ type: 'Button' })).some(b => b.props.label === '⧉ copy reply')).toBe(false)
   await ui.unmount()
 })
+
+test('copy buttons are named in the interface language', { options: { language: 'zh-TW' } }, async $ => {
+  const ui = await $.ui.mount(mount('先看表格。\n\n| a | b |\n|---|---|\n| 1 | 2 |'))
+  const labels = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
+  expect(labels).toContain('⧉ 複製')
+  expect(labels).toContain('⧉ 文字圖')
+  expect(labels).toContain('⧉ 複製回覆')
+  await ui.unmount()
+})

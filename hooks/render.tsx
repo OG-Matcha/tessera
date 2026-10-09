@@ -587,6 +587,16 @@ const field = (input: unknown, ...keys: string[]): string | undefined => {
   return undefined
 }
 
+// Claude Code names a file by its path from the working directory; the model passes absolute paths.
+export const shortPath = (path: string, base: string | undefined): string => {
+  if (base === undefined) return path
+  const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '')
+  const root = norm(base)
+  const isWindows = /^[a-z]:\//i.test(root)
+  const within = isWindows ? norm(path).toLowerCase().startsWith(`${root.toLowerCase()}/`) : norm(path).startsWith(`${root}/`)
+  return within && root !== '' ? path.slice(root.length + 1) : path
+}
+
 const toolDim = (style: Style) => style.toolStyle !== "classic"
 
 const toolGutter = ({ Box, Text }: ElementTable, style: Style, color: string | undefined, running: boolean) =>
@@ -605,14 +615,15 @@ const toolLayout = (el: ElementTable, style: Style, columns: number, label: stri
   )
 }
 
-export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100): RenderElement => {
+export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100, cwd?: string): RenderElement => {
   const { Text } = el
   const t = style.theme
   const isShell = row.tool === 'Bash' || row.tool === 'PowerShell'
   const verb = VERBS[row.tool] ?? row.tool.replace(/^mcp__([^_]+)__/, '$1 ')
+  const file = isShell ? undefined : field(row.input, 'file_path', 'notebook_path', 'path')
   const target = isShell
     ? field(row.input, 'command')?.split('\n')[0]
-    : field(row.input, 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description')
+    : file !== undefined ? shortPath(file, cwd) : field(row.input, 'pattern', 'url', 'query', 'description')
   const dot = row.isErrored ? t.codeFlag : row.isInterrupted ? t.codeComment : row.isRunning ? t.accent : t.number
   const isPath = target !== undefined && /^(~|\.{0,2}\/|[A-Za-z]:\\)/.test(target)
 
@@ -694,14 +705,15 @@ export const groupSummary = (calls: readonly { tool: string }[]): string => {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly ToolRow[], isActive: boolean, columns = 100): RenderElement => {
+export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly ToolRow[], isActive: boolean, columns = 100, cwd?: string): RenderElement => {
   const { Text } = el
   const t = style.theme
   const failed = calls.filter(c => c.isErrored).length
   const running = isActive && calls.some(c => c.isRunning)
   const dot = failed ? t.codeFlag : running ? t.accent : t.number
   const last = calls[calls.length - 1]
-  const lastTarget = last ? field(last.input, 'command', 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description')?.split('\n')[0] : undefined
+  const lastLine = last ? field(last.input, 'command', 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description')?.split('\n')[0] : undefined
+  const lastTarget = lastLine === undefined ? undefined : shortPath(lastLine, cwd)
   const label = `${groupSummary(calls)}${failed ? ` · ${failed} failed` : ""}${lastTarget ? ` · last: ${lastTarget}` : ""}`
   return toolLayout(el, style, columns, label, dot, running, (
       <Text wrap="truncate-end" dimColor={toolDim(style)}>

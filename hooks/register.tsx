@@ -68,6 +68,8 @@ let voice: Voice | undefined
 let hintSent = false
 let notedVoice: Voice | undefined
 let matchReplyLanguage = true
+// Renders cannot ask the engine, so tool rows read the session's working directory from here.
+let workDir: string | undefined
 const t = () => STRINGS[lang]
 
 let tmpRoot: string | undefined
@@ -751,7 +753,7 @@ export const register: Register = (on, options) => {
     // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
     // value the person set, on or off, stands.
     // Everything read before the session starts is read at once: each read is a round trip to the engine.
-    const [todoTools, readsEnv, settings, wroteLang, lcAll, langVar, setupSeen] = await Promise.all([
+    const [todoTools, readsEnv, settings, wroteLang, lcAll, langVar, setupSeen, sessionCwd] = await Promise.all([
       $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS'),
       readEnv($),
       $.settings.read({}).catch(() => ({}) as Record<string, unknown>),
@@ -759,7 +761,9 @@ export const register: Register = (on, options) => {
       $.env.get('LC_ALL'),
       $.env.get('LANG'),
       $.store.get('setupSeen').catch(() => true),
+      $.session.cwd().catch(() => undefined),
     ])
+    workDir = sessionCwd
     if (carryOn && todoTools === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
     env = readsEnv
     usePixels = drawsPixels(imageMode, env)
@@ -938,10 +942,10 @@ export const register: Register = (on, options) => {
         for (const call of e.props.calls) if (call.tool_use_id) expandedCalls.add(call.tool_use_id)
         return next(e)
       }
-      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns)
+      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns, workDir)
     })
     on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns)
+      if (!expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns, workDir)
       return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, e.props) : next(e)
     })
   }

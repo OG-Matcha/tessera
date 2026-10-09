@@ -1,5 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
+import { shortPath } from '../hooks/render'
 import { parse } from '../hooks/markdown'
 import { PRESETS } from '../hooks/presets'
 import { resolveStyle } from '../hooks/theme'
@@ -292,5 +293,22 @@ test('tables draw boxed by default, with a double line under the header', async 
 test('tableStyle rules keeps the open look', { options: { tableStyle: 'rules' } }, async $ => {
   const ui = await $.ui.mount({ ...draw(TABLE), surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /┌|│/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a path under the working directory is shown from it, as Claude Code names files', () => {
+  expect(shortPath('C:\\p\\src\\a.ts', 'c:/p')).toBe('src\\a.ts')
+  expect(shortPath('/home/me/app/src/a.ts', '/home/me/app/')).toBe('src/a.ts')
+  expect(shortPath('/home/me/app2/a.ts', '/home/me/app')).toBe('/home/me/app2/a.ts')
+  expect(shortPath('/etc/hosts', undefined)).toBe('/etc/hosts')
+})
+
+test('tool rows name files from the session directory', async ($, on) => {
+  on('session.cwd', () => ({ value: '/w/app' }))
+  on('session.start', () => ({ cwd: '/w/app' }) as never)
+  on('env.get', () => ({ value: undefined }) as never)
+  await $.session.start({ cwd: '/w/app', surface: 'terminal', isInteractive: false })
+  const ui = await $.ui.mount({ ...toolRow('Edit', { file_path: '/w/app/src/a.ts' }), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^src\/a\.ts$/ })).toBeDefined()
   await ui.unmount()
 })

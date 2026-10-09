@@ -141,6 +141,8 @@ export function registerPastes(on: On, options: Record<string, unknown>) {
     if (list.length === 0 && texts.length === 0) return next(e)
     const { Box, Text, Raster, Image, Button } = $.ui.resolve(e)
     const width = Math.max(20, (e.viewport?.columns ?? 80) - 4)
+    // What other plugins draw above the prompt stays, below the previews.
+    const below = await next(e)
     return (
       <Box flexDirection="column">
         {texts.map(paste => (
@@ -169,6 +171,7 @@ export function registerPastes(on: On, options: Record<string, unknown>) {
           </Box>
         ))}
       </Box>
+      {below}
       </Box>
     )
   })

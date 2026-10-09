@@ -26,10 +26,30 @@ test('the clipboard is read as UTF-8 on Windows and through the usual tools else
   expect(clipboardReaders({ HOME: '/home/a', TERM: 'xterm' }).map(a => a[0])).toEqual(['wl-paste', 'xclip', 'xsel'])
 })
 
+// The paste drafts as given, the image list empty and every other state key unset.
+const draft = (key: string | undefined, pasted: unknown) => (key === 'draftPastes' ? pasted : key === 'draftImages' ? [] : null)
+
 test('collapsed pasted text shows its first lines and its length above the prompt', { options: { language: 'en' } }, async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
   const pasted = [{ n: 2, total: 40, head: ['Error: boom', '  at main (a.ts:1:1)'] }]
-  on('state.get', (_, e) => ({ value: { value: (e as { key?: string }).key === 'draftPastes' ? pasted : [], version: 1 } }) as never)
+  on('state.get', (_, e) => ({ value: { value: draft((e as { key?: string }).key, pasted), version: 1 } }) as never)
   const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 80, rows: 20 } } as never)
   expect(await ui.find({ type: 'Text', text: 'Pasted text #2 · 40 lines' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: 'Error: boom' })).toBeDefined()
+})
+
+test('another plugin above the prompt still draws under the paste preview', { options: { language: 'en' } }, async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>other band</Text>
+  })
+  const pasted = [{ n: 1, total: 30, head: ['line one'] }]
+  on('state.get', (_, e) => ({ value: { value: draft((e as { key?: string }).key, pasted), version: 1 } }) as never)
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 80, rows: 20 } } as never)
+  expect(await ui.find({ type: 'Text', text: 'line one' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'other band' })).toBeDefined()
+  await ui.unmount()
 })

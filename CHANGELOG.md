@@ -6,7 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
-- A line break inside a Chinese or Japanese paragraph, quote or alert no longer shows as a space: lines wrapped by hand join without one, as they do between Latin words with one.
+- A line break inside a Chinese or Japanese paragraph, quote or alert no longer shows as a space when the lines are joined; between Latin words it still does.
+- Other mods' rows above the prompt (Token Weather, Next Steps and the like) and tessera's own carry-over and update offers disappeared while a paste preview showed; they now draw under it.
 - Tool group rows leave out ToolSearch, which only loads other tools (`Ran 2 commands`, not `Used 1 ToolSearch, ran 2 commands`).
 
 ## [0.6.3] - 2026-10-09

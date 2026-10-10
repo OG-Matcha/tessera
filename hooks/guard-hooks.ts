@@ -46,18 +46,19 @@ async function resolveIn($: EngineInterface, command: string, path?: string): Pr
   return path === undefined ? dir : isAbsolute(path) ? path : `${dir}/${path}`
 }
 
-// Whether a path is, or holds, a junction or symlink that a recursive delete would follow; false when unknown.
-async function holdsLink($: EngineInterface, path: string): Promise<boolean> {
+// Whether a recursive delete of the path would follow a link into another tree: the path is itself a
+// link, or on Windows holds a junction, which rmdir /s and git follow; rm and git on other systems unlink
+// a symlink inside a tree without entering it. Unknown when the Windows listing did not finish.
+async function holdsLink($: EngineInterface, path: string): Promise<'yes' | 'no' | 'unknown'> {
   const stat = await $.fs.stat(path).catch(() => undefined)
-  if (stat === undefined) return false
-  if (stat.isLink) return true
-  if (stat.kind !== 'dir') return false
-  const argv =
-    platformOf(session.env) === 'windows'
-      ? ['cmd', '/c', 'dir', '/AL', '/S', '/B', path.replace(/\//g, '\\')]
-      : ['find', path, '-maxdepth', '8', '-type', 'l', '-print', '-quit']
-  const run = await $.process.run(argv, { timeoutMs: 8_000 }).catch(() => undefined)
-  return run?.exitCode === 0 && run.stdout.trim() !== ''
+  if (stat === undefined) return 'no'
+  if (stat.isLink) return 'yes'
+  if (stat.kind !== 'dir' || platformOf(session.env) !== 'windows') return 'no'
+  const run = await $.process.run(['cmd', '/c', 'dir', '/AL', '/S', '/B', path.replace(/\//g, '\\')], { timeoutMs: 8_000 }).catch(() => undefined)
+  // dir exits 1 with nothing listed when there is no link; a timeout ends it with no listing either.
+  if (run === undefined) return 'unknown'
+  if (run.stdout.trim() !== '') return 'yes'
+  return run.exitCode === 0 || /File Not Found/i.test(run.stderr) ? 'no' : 'unknown'
 }
 
 async function currentBranch($: EngineInterface, command: string): Promise<string | undefined> {
@@ -117,8 +118,11 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   const risks = shellRisks(command)
   if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
   for (const target of recursiveDeletes(command)) {
-    if (await holdsLink($, await resolveIn($, command, target)))
+    const linked = await holdsLink($, await resolveIn($, command, target))
+    if (linked === 'yes')
       return refuse($, 'delete through a link', `it deletes ${target} recursively and ${target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
+    if (linked === 'unknown')
+      return refuseOnce($, command, 'delete through a link', `it deletes ${target} recursively and the check for junctions inside it (dir /AL /S /B) did not finish, so a junction there could carry the delete into another tree. Check it yourself, or`)
   }
   // Sometimes intended, such as cleaning up a fresh repository, so it is a reminder.
   for (const branch of forcePushes(command)) {

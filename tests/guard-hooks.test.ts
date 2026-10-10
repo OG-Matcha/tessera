@@ -1,3 +1,4 @@
+import type { TestBody } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
 const ran: string[] = []
@@ -85,14 +86,42 @@ test('choose refuses a Workflow whose agents name no model', { options: { agentM
   expect(result.deny).toContain('the model its task needs')
 })
 
-test('a recursive delete whose target holds a junction is refused', async ($, on) => {
-  on('ui.toast', () => ({ value: undefined }))
-  on('session.cwd', () => ({ value: '/w' }))
-  on('fs.stat', (_, e) => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: e.path.endsWith('/link') } }) as never)
-  on('process.run', () => ({ value: { exitCode: 0, stdout: '/w/wt-a/node_modules\n', stderr: '' } }) as never)
+// On Windows the session reads OS=Windows_NT at its start; the listing is what dir /AL /S /B answers.
+const windows = (on: Parameters<TestBody>[1], listing: { exitCode: number; stdout: string; stderr: string } | 'timeout') => {
+  on('env.get', (_, e) => ({ value: (e as { name?: string }).name === 'OS' ? 'Windows_NT' : undefined }) as never)
+  on('session.start', () => ({ cwd: 'C:/w' }))
+  on('session.cwd', () => ({ value: 'C:/w' }))
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('process.run', () => (listing === 'timeout' ? Promise.reject(new Error('timed out')) : { value: listing }) as never)
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+}
+
+test('on Windows a recursive delete whose target holds a junction is refused', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  windows(on, { exitCode: 0, stdout: 'C:\\w\\wt-a\\node_modules\n', stderr: '' })
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
   const result = await $.tool.call({ tool: 'Bash', command: 'git worktree remove --force wt-a' })
   expect(result.deny).toContain('wt-a is or holds a junction')
+})
+
+test('on Windows a listing that did not finish is a reminder, and no link listed is a pass', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  windows(on, 'timeout')
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  const call = { tool: 'Bash', command: 'rm -rf wt-a' } as const
+  expect((await $.tool.call(call)).deny).toContain('did not finish')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('elsewhere only a target that is itself a link is refused', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('fs.stat', (_, e) => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: /[\\/]link$/.test(String(e.path)) } }) as never)
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '/w/wt-a/node_modules\n', stderr: '' } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  expect((await $.tool.call({ tool: 'Bash', command: 'git worktree remove --force wt-a' })).deny).toBe(undefined)
+  expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf link' })).deny).toContain('link is or holds a junction')
 })
 
 test('a recursive delete with no link inside goes through', async ($, on) => {

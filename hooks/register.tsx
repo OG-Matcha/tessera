@@ -88,8 +88,12 @@ let pythonUtf8 = true
 let backgroundOn = true
 const taskLog: TaskLog = { tasks: new Map(), todos: [] }
 
+// The key holds for the whole session, and the repository lookup runs git, which the short bound
+// session.end runs under cannot afford: a lookup there lost the ended mark on a busy machine.
+let carryKeyKnown: string | undefined
 async function carryKey($: EngineInterface): Promise<string> {
-  return `carry:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
+  carryKeyKnown ??= `carry:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
+  return carryKeyKnown
 }
 
 async function readCarry($: EngineInterface, key: string): Promise<CarryStore> {

@@ -119,6 +119,34 @@ test('a new session speaks the language the person wrote in last time', async ($
   expect((await ui.find({ type: 'Button' }))?.props.label).toBe('接續')
 })
 
+test('at exit the record is marked ended with no repository lookup, which the short end bound cannot afford', async ($, on) => {
+  let repoLookups = 0
+  let store: unknown = {}
+  on('session.repo', () => {
+    repoLookups++
+    return { value: { root: 'C:/p' } } as never
+  })
+  on('session.id', () => ({ value: 'now' }) as never)
+  on('clock.now', () => ({ value: 5 }) as never)
+  on('env.get', () => ({ value: '1' }) as never)
+  on('store.get', (_, e) => ({ value: String((e as { key?: string }).key).startsWith('carry:') ? store : undefined }) as never)
+  on('store.set', (_, e) => {
+    if (String((e as { key?: string }).key).startsWith('carry:')) store = (e as { value?: unknown }).value
+    return { value: undefined } as never
+  })
+  on('session.start', () => ({ cwd: '/tmp' }))
+  on('tool.call', { tool: 'TaskCreate' }, (_, e) => ({ result: { task: { id: '1', subject: e.subject } } }) as never)
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: false })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'ship it', description: 'x' })
+  expect(repoLookups).toBe(1)
+  await $.session.end({ reason: 'exit', sessionId: 'now', resume: { id: 'now' } } as never)
+  expect(repoLookups).toBe(1)
+  const record = (store as Record<string, { ended?: true; open: string[] }>).now
+  expect(record?.ended).toBe(true)
+  expect(record?.open).toEqual(['ship it'])
+})
+
 test('a task tool runs once and keeps its result when recording it fails', async ($, on) => {
   let runs = 0
   on('session.repo', () => {

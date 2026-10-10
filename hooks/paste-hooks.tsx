@@ -2,7 +2,6 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On } from 'claude-code'
 
 import type { DraftImage, DraftPaste, ImageView } from '../types'
-import type { Rgba } from './png'
 import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
 import { clipboardReaders, drawsPixels, openers, pasteRoot } from './platform'
@@ -26,7 +25,7 @@ let tmpRoot: string | undefined
 let imagesDir: { sessionId: string; dir: string } | undefined
 let shownKey = ''
 let isChecking = false
-const pixels = new Map<string, Rgba | null>()
+const views = new Map<string, ImageView | null>()
 // Claude Code caches each paste as <tmp>/<project>/<session>/images/<n>.png; on Windows <tmp> is %TEMP%\claude.
 async function root($: EngineInterface): Promise<string> {
   if (tmpRoot !== undefined) return tmpRoot
@@ -50,24 +49,31 @@ async function findImagesDir($: EngineInterface): Promise<string | undefined> {
   return undefined
 }
 
-// Null when the file is no PNG this decoder reads or is over the engine's 4 MiB read cap.
-async function pixelsOf($: EngineInterface, path: string): Promise<Rgba | null> {
-  if (!pixels.has(path)) {
-    const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
-    pixels.set(path, file === undefined ? null : decodePng(Uint8Array.fromBase64(file.base64)))
-  }
-  return pixels.get(path) ?? null
-}
-
+// The view of a pasted image at the current thumbnail size, decoded once: the pixels themselves are not
+// kept (a 4K paste is 33 MB), and a file this decoder cannot read (not a PNG, over the engine's 4 MiB
+// read cap) stays null rather than being decoded again every quarter second.
 async function viewOf($: EngineInterface, path: string): Promise<ImageView | null> {
   const [maxColumns, maxRows] = thumbBox
-  if (usePixels) {
-    const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
-    const size = file === undefined ? null : pngSize(Uint8Array.fromBase64(file.base64))
-    return { kind: 'pixels', ...fitCells(size?.width ?? 16, size?.height ?? 9, maxColumns, maxRows) }
+  const key = `${usePixels ? 'pixels' : 'cells'}:${maxColumns}x${maxRows}:${path}`
+  const known = views.get(key)
+  if (known !== undefined) return known
+  const file = await $.fs.read(path, { as: 'bytes' }).catch(() => undefined)
+  if (file === undefined) return null
+  let view: ImageView | null = null
+  try {
+    const bytes = Uint8Array.fromBase64(file.base64)
+    if (usePixels) {
+      const size = pngSize(bytes)
+      view = { kind: 'pixels', ...fitCells(size?.width ?? 16, size?.height ?? 9, maxColumns, maxRows) }
+    } else {
+      const img = decodePng(bytes)
+      view = img === null ? null : { kind: 'cells', ...thumbnail(img, maxColumns, maxRows) }
+    }
+  } catch {
+    view = null
   }
-  const img = await pixelsOf($, path)
-  return img === null ? null : { kind: 'cells', ...thumbnail(img, maxColumns, maxRows) }
+  views.set(key, view)
+  return view
 }
 
 async function check($: EngineInterface) {

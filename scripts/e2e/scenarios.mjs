@@ -49,7 +49,7 @@ export const scenarios = [
     prompts: true,
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options: { feedbackInbox: true } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { feedbackInbox: true } } } })],
         steps: [
           { key: PASTE('22:55 Amy 登入按鈕按了沒反應\n22:56 Ben 匯出的 CSV 中文變亂碼') },
           { type: ' Reply with one word: ok' },
@@ -145,7 +145,7 @@ export const scenarios = [
     setup: dir => writeFileSync(join(dir, 'CLAUDE.md'), '# Demo\n\n| 用語 | 避免 |\n|---|---|\n| 全文完 | 通關 |\n'),
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options: { guardGlossary: true } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { guardGlossary: true } } } })],
         steps: [{ type: 'Use the Write tool to create end.ts containing exactly: export const TITLE = "通關" — nothing else.' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }],
       },
     ],
@@ -244,7 +244,7 @@ export const scenarios = [
     prompts: true,
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options: { agentModel: 'auto' } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { agentModel: 'auto' } } } })],
         steps: [
           {
             type: 'Use the Agent tool once, general-purpose type, no model parameter, run in the foreground, with this exact prompt: "Hard design review: find the race conditions in a distributed lock built on Redis SETNX with expiry, and the failure modes under clock drift. For this test, reply with only OK." Then stop.',
@@ -290,7 +290,7 @@ export const scenarios = [
     prompts: true,
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@tessera': { options } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options } } })],
         steps: [{ type: '用一句話說明什麼是快取' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY }, { wait: 2_000 }],
       },
     ],
@@ -303,7 +303,7 @@ export const scenarios = [
     name: 'perf',
     manual: true,
     prompts: true,
-    // Render timings: node e2e/run.mjs perf, then read the "tessera@tessera ... settled" lines. Measured
+    // Render timings: node e2e/run.mjs perf, then read the "tessera@og-matcha ... settled" lines. Measured
     // 2026-10-09: after startup the band above the prompt draws in 8-64 ms. tessera's session.start takes
     // 1-1.8 s, but the prompt takes input before session.start is even raised (2.0-2.3 s from trust with
     // tessera, 2.1-2.9 s without), so nobody waits on it. The 3 s on submit is the settings hooks. The long reply

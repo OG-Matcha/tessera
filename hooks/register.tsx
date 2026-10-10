@@ -13,7 +13,7 @@ import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDi
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { CarryStore, TaskLog } from './carry'
-import { carriedFrom, recordSession, restoredTasks } from './carry'
+import { carriedFrom, endSession, recordSession, restoredTasks } from './carry'
 import { pickLang } from './i18n'
 import { session, t } from './session'
 import { isAbsolute } from './guard'
@@ -168,10 +168,13 @@ function registerCarryOver(on: On) {
   // A /clear ends the conversation with no session.start after it: the fresh one starts with an empty
   // task list, and what the cleared one left open is offered like a new session's.
   on('session.end', async ($, e, next) => {
+    const key = await carryKey($)
+    const store = endSession(await readCarry($, key), e.sessionId, await $.clock.now())
+    await $.store.set(key, store).catch(() => undefined)
     if (e.reason !== 'clear') return next(e)
     taskLog.tasks.clear()
     taskLog.todos = []
-    const open = (await readCarry($, await carryKey($)))[e.sessionId]?.open ?? []
+    const open = store[e.sessionId]?.open ?? []
     // The session's state is reset once session.end is done, so the offer is written when the fresh
     // conversation's id is in place.
     if (open.length > 0) {
@@ -421,10 +424,10 @@ export const register: Register = (on, options) => {
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
     const carry = async () => {
-      const [store, sessionId] = await Promise.all([carryKey($).then(key => readCarry($, key)), $.session.id()])
+      const [store, sessionId, now] = await Promise.all([carryKey($).then(key => readCarry($, key)), $.session.id(), $.clock.now()])
       // A reload starts the module over within the same session: pick its task list back up.
       if (taskLog.tasks.size === 0) taskLog.tasks = restoredTasks(store, sessionId)
-      const offer = e.isInteractive ? carriedFrom(store, sessionId) : undefined
+      const offer = e.isInteractive ? carriedFrom(store, sessionId, now) : undefined
       if (offer !== undefined) await update($, carryOver, () => offer)
     }
     // Asked once, from the second session on, so the first one only shows the setup hint. An install

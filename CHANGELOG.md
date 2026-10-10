@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - Wrapping a long Chinese or Japanese paragraph measured every candidate line from its start, so a reply of a few thousand characters took about 150 ms to lay out, on every streamed piece of it. The text is measured once and each line's width is a subtraction: the same paragraph takes a few milliseconds.
+- A second terminal in the same repository offered the first one's task list as unfinished while the first was still working on it, and dismissing the offer dropped the first one's record. A session is offered only once it has ended, or after two hours without a change when it never said so.
+- A pasted image was decoded and kept as pixels for the session (a 4K paste is 33 MB), and a file the decoder cannot read was decoded again every quarter second. The thumbnail is kept instead, and an unreadable file is tried once.
 - Resume after limits never ran: it listened on a classic hook event, which Claude Code does not deliver to plugins a person installs. It now listens for the end of a turn that an API error cut short and schedules the resume from the usage figures.
 
 - While agents run, the tree guard did nothing when Claude ran git from a subdirectory of the repository: git reports the repository's `.git` as an absolute path and the shared one as a relative path, and the two were compared as text. Both are resolved first.

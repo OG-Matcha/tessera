@@ -60,7 +60,7 @@ export const showcaseTextZh = (themes: readonly string[]): string => `
 ### 程式碼
 
 \`\`\`powershell
-claude plugin install tessera@tessera --scope user
+claude plugin install tessera@og-matcha --scope user
 \`\`\`
 
 ### 圖表：中文節點不跑版

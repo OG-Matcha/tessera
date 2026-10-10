@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { carriedFrom, openItems, recordSession, restoredTasks } from '../hooks/carry'
+import { carriedFrom, endSession, openItems, recordSession, restoredTasks } from '../hooks/carry'
 
 test('open items are the tasks and todos not completed', () => {
   const log = {
@@ -22,11 +22,20 @@ test('the store keeps the newest five sessions', () => {
   expect(Object.keys(store).sort()).toEqual(['s2', 's3', 's4', 's5', 's6'])
 })
 
-test('the offer is the latest other session, and nothing when it finished its list', () => {
-  const store = { a: { at: 1, open: ['old'] }, b: { at: 2, open: ['left over'] }, now: { at: 3, open: ['mine'] } }
-  expect(carriedFrom(store, 'now')).toEqual({ from: 'b', items: ['left over'] })
-  expect(carriedFrom({ ...store, c: { at: 2.5, open: [] } }, 'now')).toBe(undefined)
-  expect(carriedFrom({}, 'now')).toBe(undefined)
+test('the offer is the latest other session that ended, and nothing when it finished its list', () => {
+  const store = { a: { at: 1, open: ['old'], ended: true as const }, b: { at: 2, open: ['left over'], ended: true as const }, now: { at: 3, open: ['mine'] } }
+  expect(carriedFrom(store, 'now', 4)).toEqual({ from: 'b', items: ['left over'] })
+  expect(carriedFrom({ ...store, c: { at: 2.5, open: [], ended: true as const } }, 'now', 4)).toBe(undefined)
+  expect(carriedFrom({}, 'now', 4)).toBe(undefined)
+})
+
+test('a session still running in another terminal is not offered until it ends or goes quiet for two hours', () => {
+  const hour = 60 * 60_000
+  const live = { other: { at: 10 * hour, open: ['in progress'] } }
+  expect(carriedFrom(live, 'now', 11 * hour)).toBe(undefined)
+  expect(carriedFrom(live, 'now', 13 * hour)).toEqual({ from: 'other', items: ['in progress'] })
+  expect(carriedFrom(endSession(live, 'other', 11 * hour), 'now', 11 * hour)).toEqual({ from: 'other', items: ['in progress'] })
+  expect(endSession({}, 'unknown', 1)).toEqual({})
 })
 
 test('a reloaded module gets the session task list back with its ids', () => {

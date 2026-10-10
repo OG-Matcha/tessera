@@ -56,7 +56,23 @@ async function pressCopyReply(term, write, osc52) {
 ${readClipboard()}`
 }
 
+// E2E_PLUGIN_DIR names a checkout to drive instead of the installed copy: it loads through --plugin-dir
+// while the installed copy is disabled, and Claude Code reads its options under the bare name.
+const PLUGIN_DIR = process.env.E2E_PLUGIN_DIR
+export const PLUGIN_ID = PLUGIN_DIR ? 'tessera' : 'tessera@og-matcha'
+
+function withPluginDir(args) {
+  if (!PLUGIN_DIR) return args
+  const disabled = { 'tessera@og-matcha': false }
+  const at = args.indexOf('--settings')
+  if (at === -1) return [...args, '--plugin-dir', PLUGIN_DIR, '--settings', JSON.stringify({ enabledPlugins: disabled })]
+  const given = JSON.parse(args[at + 1])
+  const merged = { ...given, enabledPlugins: { ...disabled, ...given.enabledPlugins } }
+  return [...args.slice(0, at), '--settings', JSON.stringify(merged), ...args.slice(at + 2), '--plugin-dir', PLUGIN_DIR]
+}
+
 export async function session({ cwd, args = [], env = {}, steps }) {
+  args = withPluginDir(args)
   const term = new xterm.Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true })
   // Buttons take clicks only in fullscreen, which Claude Code turns off for the whole machine after two
   // fullscreen launches die before they are healthy; this keeps the sessions in fullscreen regardless.

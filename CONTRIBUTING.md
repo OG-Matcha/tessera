@@ -42,9 +42,10 @@ cd scripts
 npm ci
 node e2e/run.mjs                 # every scenario
 node e2e/run.mjs paste-text      # one by name
+E2E_PLUGIN_DIR=/path/to/checkout node e2e/run.mjs   # a branch, before it merges
 ```
 
-It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends. Screens of failed scenarios land in `scripts/e2e/last/`; `E2E_KEEP=1` keeps every screen, which is how a UI change is compared before and after. Sessions share your Claude Code config, so tessera may draw them in the language you last wrote in: match both languages in checks. A fullscreen launch killed before it reports healthy counts against fullscreen for the whole machine, and two turn it off in your own sessions too (`fullscreenAutoDisabled` in `~/.claude.json`; `/tui fullscreen` fixes only the session it runs in, so delete that key, or set `CLAUDE_CODE_NO_FLICKER=1` under `env` in `~/.claude/settings.json`): let every session you script run a few seconds past its first prompt. The driver sets `CLAUDE_CODE_NO_FLICKER=1` so its sessions stay in fullscreen, where buttons take clicks.
+It needs a signed-in `claude` with tessera installed from this working tree, spends a few Haiku turns, and replaces your clipboard. With `E2E_PLUGIN_DIR` it drives that checkout through `--plugin-dir` instead, with the installed copy disabled for those sessions, so a branch is checked before it merges; the two scenarios of the installed copy's own update offers are skipped then. Clipboard scenarios run on Windows only. Run it before a release, and add a scenario with any feature that depends on what Claude Code sends. Screens of failed scenarios land in `scripts/e2e/last/`; `E2E_KEEP=1` keeps every screen, which is how a UI change is compared before and after. Sessions share your Claude Code config, so tessera may draw them in the language you last wrote in: match both languages in checks. A fullscreen launch killed before it reports healthy counts against fullscreen for the whole machine, and two turn it off in your own sessions too (`fullscreenAutoDisabled` in `~/.claude.json`; `/tui fullscreen` fixes only the session it runs in, so delete that key, or set `CLAUDE_CODE_NO_FLICKER=1` under `env` in `~/.claude/settings.json`): let every session you script run a few seconds past its first prompt. The driver sets `CLAUDE_CODE_NO_FLICKER=1` so its sessions stay in fullscreen, where buttons take clicks.
 
 ## Rules
 
@@ -58,7 +59,7 @@ It needs a signed-in `claude` with tessera installed from this working tree, spe
 
 `master` is protected: nothing is pushed to it directly, and a pull request merges only once every CI job has passed on the branch with the current `master` underneath it. Work on a branch named `feat/…`, `fix/…`, `docs/…` or `chore/…`, open a pull request, and when the checks are green merge it with a rebase (`gh pr merge --rebase --delete-branch`): history stays linear, and the branch goes away. Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Open an issue for what others can act on or weigh in on: a bug, a design decision, a request. A small change needs no issue, only the pull request.
 
-In the maintainer's own setup the working tree at `master` is the installed copy, so a branch lives in a separate `git worktree` and `master` moves only by `git pull --ff-only` after a merge; the e2e then runs from it against the installed copy, and a failure goes back through a pull request.
+In the maintainer's own setup the working tree at `master` is the installed copy, so a branch lives in a separate `git worktree` and `master` moves only by `git pull --ff-only` after a merge. The e2e runs against the branch with `E2E_PLUGIN_DIR` before the merge, and against the installed copy after it.
 
 ## Releases
 

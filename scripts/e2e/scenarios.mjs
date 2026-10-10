@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { homedir, platform } from 'node:os'
 
-import { ALT_V, PASTE, clipboardImage, clipboardText } from './drive.mjs'
+import { ALT_V, PASTE, PLUGIN_ID, clipboardImage, clipboardText } from './drive.mjs'
 
 const HAIKU = ['--model', 'haiku']
 const REPLY = 90_000
@@ -53,7 +53,7 @@ export const scenarios = [
     prompts: true,
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { feedbackInbox: true } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options: { feedbackInbox: true } } } })],
         steps: [
           { key: PASTE('22:55 Amy 登入按鈕按了沒反應\n22:56 Ben 匯出的 CSV 中文變亂碼') },
           { type: ' Reply with one word: ok' },
@@ -149,7 +149,7 @@ export const scenarios = [
     setup: dir => writeFileSync(join(dir, 'CLAUDE.md'), '# Demo\n\n| 用語 | 避免 |\n|---|---|\n| 全文完 | 通關 |\n'),
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { guardGlossary: true } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options: { guardGlossary: true } } } })],
         steps: [{ type: 'Use the Write tool to create end.ts containing exactly: export const TITLE = "通關" — nothing else.' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }],
       },
     ],
@@ -249,7 +249,7 @@ export const scenarios = [
     prompts: true,
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { agentModel: 'auto' } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options: { agentModel: 'auto' } } } })],
         steps: [
           {
             type: 'Use the Agent tool once, general-purpose type, no model parameter, run in the foreground, with this exact prompt: "Hard design review: find the race conditions in a distributed lock built on Redis SETNX with expiry, and the failure modes under clock drift. For this test, reply with only OK." Then stop.',
@@ -295,7 +295,7 @@ export const scenarios = [
     prompts: true,
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options } } })],
         steps: [{ type: '用一句話說明什麼是快取' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY }, { wait: 2_000 }],
       },
     ],
@@ -332,6 +332,7 @@ export const scenarios = [
   },
   {
     name: 'update-offer',
+    installed: true,
     // A GitHub install of tessera with auto-update off.
     sessions: () => [
       {
@@ -343,6 +344,7 @@ export const scenarios = [
   },
   {
     name: 'moved-install',
+    installed: true,
     // A GitHub install under the marketplace's old name, which no longer updates.
     sessions: () => [
       {
@@ -490,7 +492,7 @@ export const scenarios = [
     // A backgrounded sleep writes nothing; with the quiet time at a minute the row shows on the first check.
     sessions: () => [
       {
-        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { backgroundQuietMinutes: 1 } } } })],
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options: { backgroundQuietMinutes: 1 } } } })],
         steps: [
           { type: 'Use the Bash tool with run_in_background set to true to run exactly this command, then stop and wait: sleep 300' },
           { key: '\r', until: /written nothing for|沒有輸出/, timeoutMs: 200_000, shot: 'band' },

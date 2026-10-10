@@ -4,7 +4,7 @@ import type { EngineInterface, On } from 'claude-code'
 import type { Quiet } from '../types'
 import type { Watched } from './background'
 import { checked } from './background'
-import { pasteRoot } from './platform'
+import { pasteRoot, platformOf } from './platform'
 import { session, t } from './session'
 
 const CHECK_MS = 60_000
@@ -20,21 +20,25 @@ let tasksDir: { sessionId: string; dir: string } | undefined
 export const background = { watched }
 
 // Claude Code writes a background task's output to <tmp>/<project>/<session>/tasks/<id>.output, beside
-// the paste cache; the id is the engine's, so the path never comes from the command's output.
+// the paste cache; the id is the engine's, so the path never comes from the command's output. Under a
+// CLAUDE_CODE_TMPDIR the engine may keep its own claude or claude-<uid> folder, so those are looked in too.
 async function findTasksDir($: EngineInterface): Promise<string | undefined> {
   const sessionId = await $.session.id()
   if (tasksDir?.sessionId === sessionId) return tasksDir.dir
   const root = pasteRoot(session.env)
-  const uid = root.includes('{uid}') ? (await $.process.run(['id', '-u']).catch(() => undefined))?.stdout.trim() : undefined
+  const posix = platformOf(session.env) !== 'windows'
+  const uid = posix ? (await $.process.run(['id', '-u']).catch(() => undefined))?.stdout.trim() : undefined
   if (root.includes('{uid}') && !uid) return undefined
   const base = uid === undefined ? root : root.replace('{uid}', uid)
-  for (const entry of await $.fs.list(base).catch(() => [])) {
-    const dir = `${base}/${entry.name}/${sessionId}/tasks`
-    if (entry.kind === 'dir' && (await $.fs.exists(dir))) {
-      tasksDir = { sessionId, dir }
-      return dir
+  const bases = session.env.CLAUDE_CODE_TMPDIR ? [base, `${base}/claude`, ...(uid ? [`${base}/claude-${uid}`] : [])] : [base]
+  for (const where of bases)
+    for (const entry of await $.fs.list(where).catch(() => [])) {
+      const dir = `${where}/${entry.name}/${sessionId}/tasks`
+      if (entry.kind === 'dir' && (await $.fs.exists(dir))) {
+        tasksDir = { sessionId, dir }
+        return dir
+      }
     }
-  }
   return undefined
 }
 
@@ -87,15 +91,25 @@ export function registerBackgroundWatch(on: On, options: Record<string, unknown>
   watched.clear()
   tasksDir = undefined
 
+  // A command reaches the background by its own flag, by Claude Code moving it there when it outlives
+  // its timeout, or by the person pressing ctrl+b: the result says, the flag does not.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const done = await next(e)
-    if (done.deny === undefined && e.run_in_background === true) await watch($, e.command, done.result)
+    if (done.deny === undefined) await watch($, e.command, done.result)
     return done
   })
   // PowerShell exists only in the Windows build's tool table.
   on('tool.call', { tool: 'PowerShell' as 'Bash' }, async ($, e, next) => {
     const done = await next(e)
-    if (done.deny === undefined && e.run_in_background === true) await watch($, e.command, done.result)
+    if (done.deny === undefined) await watch($, e.command, done.result)
+    return done
+  })
+  // A task the person or Claude stopped writes no more, and is not quiet.
+  on('tool.call', { tool: 'TaskStop' as 'Bash' }, async ($, e, next) => {
+    const done = await next(e)
+    const { task_id: taskId, shell_id: shellId } = e as unknown as { task_id?: string; shell_id?: string }
+    const id = taskId ?? shellId
+    if (done.deny === undefined && id !== undefined && watched.has(id)) await forget($, id)
     return done
   })
 

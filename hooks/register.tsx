@@ -18,7 +18,7 @@ import { carriedFrom, endSession, recordSession, restoredTasks } from './carry'
 import { pickLang } from './i18n'
 import { session, t } from './session'
 import { isAbsolute } from './guard'
-import { registerGuards } from './guard-hooks'
+import { guards, registerGuards } from './guard-hooks'
 import { registerPastes } from './paste-hooks'
 import { background, registerBackgroundWatch } from './background-hooks'
 import { notifiedTask } from './background'
@@ -175,32 +175,6 @@ function registerCarryOver(on: On) {
     await saveTasks($)
     return out
   })
-  // A /clear ends the conversation with no session.start after it: the fresh one starts with an empty
-  // task list, and what the cleared one left open is offered like a new session's.
-  on('session.end', async ($, e, next) => {
-    const key = await carryKey($)
-    const store = endSession(await readCarry($, key), e.sessionId, await $.clock.now())
-    await $.store.set(key, store).catch(() => undefined)
-    if (e.reason !== 'clear') return next(e)
-    taskLog.tasks.clear()
-    taskLog.todos = []
-    // The fresh conversation's state starts empty, so the watched tasks' rows would never come back.
-    background.watched.clear()
-    const open = store[e.sessionId]?.open ?? []
-    // The session's state is reset once session.end is done, so the offer is written when the fresh
-    // conversation's id is in place.
-    if (open.length > 0) {
-      let tries = 0
-      const wait: Timer = $.clock.every(100, async () => {
-        if (++tries > 50) return wait.cancel()
-        if ((await $.session.id()) === e.sessionId) return
-        wait.cancel()
-        await update($, carryOver, () => ({ from: e.sessionId, items: open }))
-      })
-    }
-    return next(e)
-  })
-
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const offer = await read($, carryOver)
     if (e.surface !== 'terminal' || e.props.hasSurvey || offer === null) return next(e)
@@ -381,7 +355,7 @@ export const register: Register = (on, options) => {
     // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
     // value the person set, on or off, stands.
     // Everything read before the session starts is read at once: each read is a round trip to the engine.
-    const [todoTools, pyUtf8, readsEnv, settings, userSettings, wroteLang, lcAll, langVar, setupSeen, sessionCwd, setVars] = await Promise.all([
+    const [todoTools, pyUtf8, readsEnv, settings, userSettings, wroteLang, lcAll, langVar, setupSeen, sessionCwd, setVars, sessionId] = await Promise.all([
       $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS'),
       $.env.get('PYTHONUTF8'),
       readEnv($),
@@ -397,11 +371,14 @@ export const register: Register = (on, options) => {
       $.store.get('setupSeen').catch(() => true),
       $.session.cwd().catch(() => undefined),
       $.store.get('setVars').catch(() => undefined),
+      $.session.id().catch(() => undefined),
     ])
     workDir = sessionCwd
-    // Variables tessera set in a session are noted, so a session with the option off unsets what tessera
-    // set, and leaves a value the person set alone.
-    const noted = Array.isArray(setVars) ? setVars.filter((v): v is string => typeof v === 'string') : []
+    // Variables tessera set are noted with the session, so after a reload a value it set is known as its
+    // own and unset when the option is off, while a value found in a new process is the person's: an
+    // environment does not outlive its process, so nothing tessera set in an earlier session is there.
+    const record = setVars !== null && typeof setVars === 'object' ? (setVars as { session?: unknown; vars?: unknown }) : undefined
+    const noted = record !== undefined && sessionId !== undefined && record.session === sessionId && Array.isArray(record.vars) ? record.vars.filter((v): v is string => typeof v === 'string') : []
     const wanted = [
       ...(carryOn && (todoTools === undefined || (todoTools === '1' && noted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS'))) ? ['CLAUDE_CODE_ENABLE_TODO_TOOLS'] : []),
       // Python on Windows reads and writes the system code page by default (until 3.15), where CJK fails.
@@ -411,7 +388,7 @@ export const register: Register = (on, options) => {
     if (wanted.includes('PYTHONUTF8') && pyUtf8 === undefined) await $.env.set('PYTHONUTF8', '1').catch(() => undefined)
     if (!wanted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS') && todoTools === '1' && noted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS')) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', undefined).catch(() => undefined)
     if (!wanted.includes('PYTHONUTF8') && pyUtf8 === '1' && noted.includes('PYTHONUTF8')) await $.env.set('PYTHONUTF8', undefined).catch(() => undefined)
-    if (wanted.join() !== noted.join()) await $.store.set('setVars', wanted).catch(() => undefined)
+    if (wanted.join() !== noted.join()) await $.store.set('setVars', { session: sessionId, vars: wanted }).catch(() => undefined)
     session.env = readsEnv
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
@@ -474,6 +451,34 @@ export const register: Register = (on, options) => {
   registerSetup(on, options)
   carryOn = options.carryOver !== false
   if (carryOn) registerCarryOver(on)
+  // The module's one session.end, whatever is on. A /clear ends the conversation with no session.start
+  // after it: the fresh one starts with an empty task list, and what the cleared one left open is offered
+  // like a new session's. The store write comes first: the whole chain runs under one short bound.
+  on('session.end', async ($, e, next) => {
+    const key = carryOn ? await carryKey($) : undefined
+    const store = key === undefined ? undefined : endSession(await readCarry($, key), e.sessionId, await $.clock.now())
+    if (key !== undefined && store !== undefined) await $.store.set(key, store).catch(() => undefined)
+    if (e.reason !== 'clear') return next(e)
+    taskLog.tasks.clear()
+    taskLog.todos = []
+    // The fresh conversation's state starts empty, so the watched tasks' rows would never come back; its
+    // id is new, so the cleared one's edits are noted as this conversation's own.
+    background.watched.clear()
+    guards.ownSessions.add(e.sessionId)
+    const open = store?.[e.sessionId]?.open ?? []
+    // The session's state is reset once session.end is done, so the offer is written when the fresh
+    // conversation's id is in place.
+    if (open.length > 0) {
+      let tries = 0
+      const wait: Timer = $.clock.every(100, async () => {
+        if (++tries > 50) return wait.cancel()
+        if ((await $.session.id()) === e.sessionId) return
+        wait.cancel()
+        await update($, carryOver, () => ({ from: e.sessionId, items: open }))
+      })
+    }
+    return next(e)
+  })
   registerUpdateOffer(on)
   inboxOn = options.feedbackInbox === true
   const parsed = new Map<string, ReturnType<typeof parse>>()

@@ -105,7 +105,7 @@ Claude Code 的選項值跟著安裝 ID 走，搬完後用 `/tessera setup` 或 
 | 用我的語言回覆 | 開 | 你自己打的字是中文、日文或韓文時，Claude 用同一種語言回覆；貼上的程式碼、log、引用不算 |
 | 接續未完成 | 開 | 新 session 或 `/clear` 之後，會提示這個 repo 上次沒做完的待辦：**接續** 把它們填進輸入框，**略過** 就不再提。它會在 session 裡替 Claude 打開待辦工具（`CLAUDE_CODE_ENABLE_TODO_TOOLS`，Claude Code 對 Claude 5.x 預設不開），你自己設過這個變數就照你的設定；打開後 Claude 可能在畫面上列出待辦清單（`Ctrl+T` 收起） |
 | 中日韓跳脫守門 | 開 | 文件和提示裡把中日韓文字寫成 `\uXXXX` 時擋下；程式碼裡可能是刻意的跳脫，提醒一次 |
-| 丟棄前先 stash | 關 | 工作區守門提醒過的丟棄指令（`git reset --hard`、`git checkout -- <路徑>`、`git restore`）再送一次時，先把會丟掉的已追蹤改動存進 `git stash`（`stash@{0}`），`git stash pop` 就能拿回來，並以通知告知。這會寫入 repo 的 `.git`。`git clean` 沒有快照，stash 不含未追蹤檔案 |
+| 丟棄前先 stash | 關 | 工作區守門提醒過的丟棄指令（`git reset --hard`、`git checkout -- <路徑>`、`git restore`）再送一次時，先把會丟掉的已追蹤改動存進 `git stash`（`stash@{0}`），`git stash pop` 就能拿回來；只丟棄部分檔案時用 `git checkout stash@{0} -- <檔案>`（其他改動還在工作區時 pop 會拒絕），並以通知告知。這會寫入 repo 的 `.git`。`git clean` 沒有快照，stash 不含未追蹤檔案 |
 | 資料庫守門 | 開 | 會把資料庫或其 volume 整個丟掉的指令前提醒一次：`prisma migrate reset`、`supabase db reset`、`rails db:drop`、`artisan migrate:fresh`、`docker compose down -v`、`docker volume rm`、`dropdb` 和同類指令；再送一次就執行 |
 | 編碼守門 | 開 | 編輯既有、不是 UTF-8 的檔案（Big5、Shift-JIS、GBK、EUC-KR、UTF-16，1 MiB 以內）前提醒一次：Claude Code 以 UTF-8 讀寫檔案，內容會被改寫成 `�`（[#7134](https://github.com/anthropics/claude-code/issues/7134)）；再送一次就執行，這個 session 裡不再檢查那個檔案 |
 | 多 session 守門 | 開 | 這台電腦上另一個 Claude Code session 30 分鐘內改過的檔案，Claude 要編輯前提醒一次：對方可能還在改，先重新讀過或問你；再送一次就執行。只認得裝了 tessera 的 session，你在編輯器裡改的不算 |

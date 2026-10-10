@@ -14,6 +14,9 @@ test('an install under the old marketplace name is told to move; the current nam
   expect(marketplaceRenamed({ extraKnownMarketplaces: { 'a\nb': { source: { source: 'github', repo: 'OG-Matcha/tessera' } } } })).toBe(undefined)
   expect(marketplaceRenamed({ extraKnownMarketplaces: { t: { source: { source: 'git', url: 'https://evil.com/OG-Matcha/tessera' } } } })).toBe(undefined)
   expect(marketplaceRenamed({ extraKnownMarketplaces: { t: { source: { source: 'git', url: 'git@github.com:OG-Matcha/tessera.git' } } } })).toBe('t')
+  for (const url of ['ssh://git@github.com/OG-Matcha/tessera.git', 'https://github.com/OG-Matcha/tessera#v0.8.0', 'https://raw.githubusercontent.com/OG-Matcha/tessera/master/.claude-plugin/marketplace.json'])
+    expect(marketplaceRenamed({ extraKnownMarketplaces: { t: { source: { source: 'git', url } } } })).toBe('t')
+  expect(marketplaceRenamed({ extraKnownMarketplaces: { t: { source: { source: 'git', url: 'https://github.com/OG-Matcha/tessera-fork' } } } })).toBe(undefined)
 })
 
 test('a session under the old marketplace name shows the move once, and copying the commands settles it', { options: { language: 'en', carryOver: false } }, async ($, on) => {

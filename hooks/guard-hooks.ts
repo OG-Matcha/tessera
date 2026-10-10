@@ -4,7 +4,7 @@ import type { Risk } from './guard'
 import type { Discard } from './guard'
 import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
-import { asEditLog, recentEdit, remember } from './edits'
+import { asEditLog, prune, recentEdit, remember } from './edits'
 import { commandHead } from './background'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
@@ -219,18 +219,26 @@ async function judgeEncoding($: EngineInterface, tool: string, input: Record<str
 
 const EDITS = 'edits'
 
-// A file another session on this machine edited in the last half hour may still be in its hands.
+// The session ids this conversation has had: a /clear ends one and starts another in the same terminal,
+// and the cleared one's edits are still this conversation's. register.tsx adds to it at session.end.
+export const guards = { ownSessions: new Set<string>() }
+
+// A file another session on this machine edited in the last half hour may still be in its hands. Entries
+// past the window are dropped here as well as at each write, so the store holds no stale paths.
 async function judgeSessions($: EngineInterface, tool: string, input: Record<string, unknown>) {
   if (!guardSessions) return undefined
   const file = writtenFile(tool, input)
   if (file === undefined || file.path === '') return undefined
-  const [log, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id(), $.clock.now()])
-  const other = recentEdit(asEditLog(log), file.path, sessionId, now)
+  const [stored, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id(), $.clock.now()])
+  const log = asEditLog(stored)
+  const live = prune(log, now)
+  if (live !== log) await $.store.set(EDITS, live).catch(() => undefined)
+  const other = recentEdit(live, file.path, s => s === sessionId || guards.ownSessions.has(s), now)
   if (other === undefined) return undefined
   return refuseOnce($, file.path, 'other session', `another Claude Code session on this machine edited ${file.path} ${other.ago} and may still be working in it. Read the file again before changing it, keep to the lines your task needs, and if both sessions are meant to work on this file, tell the person. If the edit is still right`)
 }
 
-// Every file write is noted for the other sessions, once the tool has run.
+// Every file write that went through is noted for the other sessions, once the tool has run.
 async function noteEdit($: EngineInterface, tool: string, input: Record<string, unknown>) {
   const file = guardSessions ? writtenFile(tool, input) : undefined
   if (file === undefined || file.path === '') return
@@ -346,7 +354,7 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
     if (sessions !== undefined) return sessions
     if (tool !== 'Bash' && tool !== 'PowerShell') {
       const result = await next(e)
-      await noteEdit($, tool, input)
+      if (result.deny === undefined) await noteEdit($, tool, input)
       return result
     }
     const command = String(input.command ?? '')

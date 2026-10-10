@@ -107,7 +107,7 @@ export function discards(command: string): Discard[] {
   for (const piece of pieces(command)) {
     const git = GIT.exec(piece)
     const verb = git?.[1]?.toLowerCase()
-    const words = (git?.[2] ?? '').trim().split(/\s+/).filter(w => w !== '')
+    const words = tokens(git?.[2] ?? '')
     if (verb === 'reset' && words.includes('--hard')) found.push({ verb, args: [] })
     if (verb === 'checkout') {
       const dashes = words.indexOf('--')
@@ -166,7 +166,8 @@ export function commandDir(command: string): string | undefined {
 // A path as Git Bash on Windows spells it (/c/w, ~/w) as the file system does: C:/w, <home>/w.
 export const hostPath = (path: string, home: string | undefined, windows: boolean): string => {
   const expanded = home !== undefined ? path.replace(/^~(?=[\\/]|$)/, home) : path
-  return windows ? expanded.replace(/^\/([a-zA-Z])(?=\/|$)/, (_, drive: string) => `${drive.toUpperCase()}:`).replace(/^([A-Z]:)$/, '$1/') : expanded
+  // A bare drive (C:, d:, /c) is its root.
+  return windows ? expanded.replace(/^\/([a-zA-Z])(?=\/|$)/, (_, drive: string) => `${drive.toUpperCase()}:`).replace(/^([A-Za-z]:)$/, '$1/') : expanded
 }
 
 const QUOTE = 10
@@ -189,7 +190,8 @@ export function quotesUser(script: string, userPrompts: string[]): boolean {
 // A Workflow script whose agent() calls name no model runs them all on the session's model.
 export const scriptNamesModel = (script: string) => !/\bagent\s*\(/.test(script) || /\bmodel\s*:/.test(script)
 
-const words = (piece: string) => [...piece.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3] ?? '')
+const tokens = (piece: string) => [...piece.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3] ?? '')
+const words = tokens
 
 // The commands whose switches are written /s /q, joined as /s/q too; for rm, /c is the Git Bash C: drive.
 const CMD_STYLE = new Set(['rd', 'rmdir', 'del'])
@@ -217,7 +219,7 @@ export function recursiveDeletes(command: string): string[] {
   }
   // The home variables are read as ~, which hostPath expands; any other variable makes a target unknowable.
   return targets
-    .map(t => t.replace(/^(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE)(?=[\\/]|$)/i, '~').replace(/^([\\/])\*$/, '$1').replace(/(?<=.)[\\/]\*$/, ''))
+    .map(t => t.replace(/^(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE|\$\{env:USERPROFILE\}|%HOMEDRIVE%%HOMEPATH%|\$env:HOMEDRIVE\$env:HOMEPATH)(?=[\\/]|$)/i, '~').replace(/^([\\/])\*$/, '$1').replace(/(?<=.)[\\/]\*$/, ''))
     .filter(t => t !== '' && !/[$*?`]/.test(t))
 }
 

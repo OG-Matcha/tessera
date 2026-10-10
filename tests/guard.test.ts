@@ -222,3 +222,12 @@ test('a << in a message is not a heredoc, so the lines after it are judged; a sh
 test('an Agent prompt written with CJK escapes is caught', () => {
   expect(misEscapedCjk('Agent', { prompt: '\\u4fee\\u6b63 bug', description: 'fix' })).toBe('\\u4fee')
 })
+
+test('a discard of a quoted path with a space is seen, a bare lower-case drive is a root, and more home spellings are home', () => {
+  expect(discards('git checkout -- "my file.ts" src/b.ts')).toEqual([{ verb: 'checkout', args: ['my file.ts', 'src/b.ts'] }])
+  expect(discards("git restore 'a b.ts'")).toEqual([{ verb: 'restore', args: ['a b.ts'] }])
+  expect(hostPath('d:', undefined, true)).toBe('d:/')
+  expect(rootLike(hostPath('d:', undefined, true), 'C:/w', 'C:/Users/u', true)).toBe(true)
+  expect(recursiveDeletes('Remove-Item -Recurse ${env:USERPROFILE}\\x')).toEqual(['~\\x'])
+  expect(recursiveDeletes('rmdir /s /q %HOMEDRIVE%%HOMEPATH%')).toEqual(['~'])
+})

@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- One reminder per call across every guard: an unquoted heredoc beside a discard, or an encoding reminder beside a session reminder on one edit, each took a resend of its own (up to four sends of one command, each reminder saying the next send goes through). The shell reminder is keyed by the command alone, so a junction listing that times out on one send and not the next does not change the key.
+- After a `/clear`, or a `/resume` typed in the session, the ended conversation's edits were another session's to the new one (and after a hot reload too), and the note of the variables tessera set was left under the old id. Once the new conversation's id is in place, both records are re-keyed to it. The note is kept per session, so two sessions at once do not overwrite each other's.
+- An edit the tool reported as failed (old string not found, a refused permission) was noted as made for the session guard.
+- A discard of a quoted path with a space (`git checkout -- "my file.ts"`) was never reminded about and never stashed. A bare lower-case drive (`Remove-Item -Recurse d:`) is a drive root like `D:`. `${env:USERPROFILE}` and `%HOMEDRIVE%%HOMEPATH%` are the home directory. A CRLF command's first line no longer carries its carriage return into the background-watch row and the stash message.
+- The carry-over key is looked up per call again, so a session that changes directory records its tasks under the new repository; `session.end` still uses the last value, inside its short bound.
+
 ## [0.8.1] - 2026-10-11
 
 ### Fixed

@@ -18,10 +18,11 @@ import { carriedFrom, endSession, recordSession, restoredTasks } from './carry'
 import { pickLang } from './i18n'
 import { session, t } from './session'
 import { isAbsolute } from './guard'
-import { guards, registerGuards } from './guard-hooks'
+import { registerGuards } from './guard-hooks'
 import { registerPastes } from './paste-hooks'
 import { background, registerBackgroundWatch } from './background-hooks'
 import { notifiedTask } from './background'
+import { EDITS, asEditLog, rekeyed } from './edits'
 import { completions } from './complete'
 import { FEATURES } from './features'
 import { foldPatch, patchOf } from './fold'
@@ -88,13 +89,28 @@ let pythonUtf8 = true
 let backgroundOn = true
 const taskLog: TaskLog = { tasks: new Map(), todos: [] }
 
-// The key holds for the whole session, and the repository lookup runs git, which the short bound
-// session.end runs under cannot afford: a lookup there lost the ended mark on a busy machine.
+// Looked up per call, since the session's directory can change, and the last value kept for session.end,
+// which runs under one short bound that the repository lookup (a git call) overran on a busy machine.
 let carryKeyKnown: string | undefined
 async function carryKey($: EngineInterface): Promise<string> {
-  carryKeyKnown ??= `carry:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
+  carryKeyKnown = `carry:${(await $.session.repo())?.root ?? (await $.session.cwd())}`
   return carryKeyKnown
 }
+
+// The ended conversation's records under the new conversation's id: the files it edited, so they are not
+// another session's to the fresh one, and the variables tessera set for it, so the fresh one still owns them.
+async function rekeyRecords($: EngineInterface, from: string, to: string) {
+  const edits = rekeyed(asEditLog(await $.store.get(EDITS).catch(() => undefined)), from, to)
+  if (edits !== undefined) await $.store.set(EDITS, edits).catch(() => undefined)
+  const vars = await $.store.get('setVars').catch(() => undefined)
+  if (vars !== null && typeof vars === 'object' && from in vars) {
+    const { [from]: own, ...rest } = vars as Record<string, unknown>
+    await $.store.set('setVars', { ...rest, [to]: own }).catch(() => undefined)
+  }
+}
+
+// The newest entries of a store record keyed by session id.
+const newest = (record: Record<string, unknown>, n: number) => Object.fromEntries(Object.entries(record).slice(-n))
 
 async function readCarry($: EngineInterface, key: string): Promise<CarryStore> {
   const stored = await $.store.get(key).catch(() => undefined)
@@ -374,11 +390,13 @@ export const register: Register = (on, options) => {
       $.session.id().catch(() => undefined),
     ])
     workDir = sessionCwd
-    // Variables tessera set are noted with the session, so after a reload a value it set is known as its
-    // own and unset when the option is off, while a value found in a new process is the person's: an
+    // Variables tessera set are noted under the session's id, so after a reload a value it set is known as
+    // its own and unset when the option is off, while a value found in a new process is the person's: an
     // environment does not outlive its process, so nothing tessera set in an earlier session is there.
-    const record = setVars !== null && typeof setVars === 'object' ? (setVars as { session?: unknown; vars?: unknown }) : undefined
-    const noted = record !== undefined && sessionId !== undefined && record.session === sessionId && Array.isArray(record.vars) ? record.vars.filter((v): v is string => typeof v === 'string') : []
+    // One entry per session, so two sessions at once do not overwrite each other's note.
+    const record = setVars !== null && typeof setVars === 'object' ? (setVars as Record<string, unknown>) : {}
+    const own = sessionId === undefined ? undefined : record[sessionId]
+    const noted = Array.isArray(own) ? own.filter((v): v is string => typeof v === 'string') : []
     const wanted = [
       ...(carryOn && (todoTools === undefined || (todoTools === '1' && noted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS'))) ? ['CLAUDE_CODE_ENABLE_TODO_TOOLS'] : []),
       // Python on Windows reads and writes the system code page by default (until 3.15), where CJK fails.
@@ -388,7 +406,7 @@ export const register: Register = (on, options) => {
     if (wanted.includes('PYTHONUTF8') && pyUtf8 === undefined) await $.env.set('PYTHONUTF8', '1').catch(() => undefined)
     if (!wanted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS') && todoTools === '1' && noted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS')) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', undefined).catch(() => undefined)
     if (!wanted.includes('PYTHONUTF8') && pyUtf8 === '1' && noted.includes('PYTHONUTF8')) await $.env.set('PYTHONUTF8', undefined).catch(() => undefined)
-    if (wanted.join() !== noted.join()) await $.store.set('setVars', { session: sessionId, vars: wanted }).catch(() => undefined)
+    if (sessionId !== undefined && wanted.join() !== noted.join()) await $.store.set('setVars', newest({ ...record, [sessionId]: wanted }, 8)).catch(() => undefined)
     session.env = readsEnv
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
@@ -451,32 +469,31 @@ export const register: Register = (on, options) => {
   registerSetup(on, options)
   carryOn = options.carryOver !== false
   if (carryOn) registerCarryOver(on)
-  // The module's one session.end, whatever is on. A /clear ends the conversation with no session.start
-  // after it: the fresh one starts with an empty task list, and what the cleared one left open is offered
-  // like a new session's. The store write comes first: the whole chain runs under one short bound.
+  // The module's one session.end, whatever is on. A /clear, or a /resume typed in the session, ends the
+  // conversation and starts another in this terminal with no session.start between: the task list and the
+  // watched tasks start empty, and once the new id is in place the ended conversation's records are
+  // re-keyed to it, and what a cleared one left open is offered like a new session's. The store write
+  // comes first: the whole chain runs under one short bound.
   on('session.end', async ($, e, next) => {
-    const key = carryOn ? await carryKey($) : undefined
+    const key = carryOn ? (carryKeyKnown ?? (await carryKey($))) : undefined
     const store = key === undefined ? undefined : endSession(await readCarry($, key), e.sessionId, await $.clock.now())
     if (key !== undefined && store !== undefined) await $.store.set(key, store).catch(() => undefined)
-    if (e.reason !== 'clear') return next(e)
+    if (e.reason !== 'clear' && e.reason !== 'resume') return next(e)
     taskLog.tasks.clear()
     taskLog.todos = []
-    // The fresh conversation's state starts empty, so the watched tasks' rows would never come back; its
-    // id is new, so the cleared one's edits are noted as this conversation's own.
     background.watched.clear()
-    guards.ownSessions.add(e.sessionId)
-    const open = store?.[e.sessionId]?.open ?? []
-    // The session's state is reset once session.end is done, so the offer is written when the fresh
-    // conversation's id is in place.
-    if (open.length > 0) {
-      let tries = 0
-      const wait: Timer = $.clock.every(100, async () => {
-        if (++tries > 50) return wait.cancel()
-        if ((await $.session.id()) === e.sessionId) return
-        wait.cancel()
-        await update($, carryOver, () => ({ from: e.sessionId, items: open }))
-      })
-    }
+    const open = e.reason === 'clear' ? (store?.[e.sessionId]?.open ?? []) : []
+    // The session's state is reset once session.end is done, so the records move and the offer is written
+    // when the fresh conversation's id is in place.
+    let tries = 0
+    const wait: Timer = $.clock.every(100, async () => {
+      if (++tries > 50) return wait.cancel()
+      const fresh = await $.session.id()
+      if (fresh === e.sessionId) return
+      wait.cancel()
+      await rekeyRecords($, e.sessionId, fresh)
+      if (open.length > 0) await update($, carryOver, () => ({ from: e.sessionId, items: open }))
+    })
     return next(e)
   })
   registerUpdateOffer(on)

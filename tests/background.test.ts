@@ -30,3 +30,7 @@ test('the band shows one line of the command, cut between code points', () => {
   expect(commandHead('x'.repeat(80))).toBe(`${'x'.repeat(59)}…`)
   expect(commandHead('😀'.repeat(70))).toBe(`${'😀'.repeat(59)}…`)
 })
+
+test('a command head drops the carriage return of a CRLF command', () => {
+  expect(commandHead('npm test\r\necho done\r\n')).toBe('npm test')
+})

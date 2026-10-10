@@ -126,7 +126,7 @@ export const scenarios = [
       },
     ],
     // The refusal sits in a collapsed tool row; the row's failed count, or Claude retelling it, shows it.
-    check: s => seen(s.reply, /tessera blocked|unquoted heredoc|heredoc delimiter is unquoted|(d+ failed · last|d+ 個失敗 · 最後)[:：] ?cat > a\.ts <<EOF/i),
+    check: s => seen(s.reply, /tessera blocked|unquoted heredoc|heredoc delimiter is unquoted|(\d+ failed · last|\d+ 個失敗 · 最後)[:：] ?cat > a\.ts <<EOF/i),
   },
   {
     name: 'zh-tw-guard',
@@ -163,14 +163,14 @@ export const scenarios = [
     },
     // rmdir /s and git on Windows follow a junction inside the tree; rm elsewhere follows only a link it is given.
     sessions: () => [{ args: HAIKU, steps: [{ type: `Run this exact Bash command and nothing else: rm -rf ${platform() === 'win32' ? 'wt' : 'wt/node_modules/'}` }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
-    check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink|tessera (refused|blocked)|(d+ failed · last|d+ 個失敗 · 最後)[:：] ?rm -rf wt/i) : 'the delete went through the link: shared/keep.txt is gone'),
+    check: (s, dir) => (existsSync(join(dir, 'shared', 'keep.txt')) ? seen(s.reply, /delete through a link|holds a junction or symlink|tessera (refused|blocked)|(\d+ failed · last|\d+ 個失敗 · 最後)[:：] ?rm -rf wt/i) : 'the delete went through the link: shared/keep.txt is gone'),
   },
   {
     name: 'force-push-guard',
     prompts: true,
     // The throwaway repository has no remote, so a push that gets through goes nowhere.
     sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command once and nothing else: git push --force origin main' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
-    check: s => seen(s.reply, /force-pushes to main|force push|強制推送|tessera (refused|blocked)|(d+ failed · last|d+ 個失敗 · 最後)[:：] ?git push --force/i),
+    check: s => seen(s.reply, /force-pushes to main|force push|強制推送|tessera (refused|blocked)|(\d+ failed · last|\d+ 個失敗 · 最後)[:：] ?git push --force/i),
   },
   {
     name: 'discard-guard',
@@ -183,7 +183,7 @@ export const scenarios = [
       writeFileSync(join(dir, 'notes.txt'), 'first\nunsaved edit\n')
     },
     sessions: () => [{ args: HAIKU, steps: [{ type: 'Run this exact Bash command once and nothing else: git checkout -- notes.txt' }, { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' }] }],
-    check: s => seen(s.reply, /throws away uncommitted|uncommitted (work|changes)|未提交|(d+ failed · last|d+ 個失敗 · 最後)[:：] ?git checkout/i),
+    check: s => seen(s.reply, /throws away uncommitted|uncommitted (work|changes)|未提交|(\d+ failed · last|\d+ 個失敗 · 最後)[:：] ?git checkout/i),
   },
   {
     name: 'copy-reply',
@@ -421,7 +421,7 @@ export const scenarios = [
         ],
       },
     ],
-    check: s => seen(s.reply, /Name the directory meant|root delete|根目錄|tessera (refused|blocked)|(d+ failed · last|d+ 個失敗 · 最後)/i),
+    check: s => seen(s.reply, /Name the directory meant|root delete|根目錄|tessera (refused|blocked)|(\d+ failed · last|\d+ 個失敗 · 最後)/i),
   },
   {
     name: 'data-reset-guard',
@@ -436,7 +436,7 @@ export const scenarios = [
         ],
       },
     ],
-    check: s => seen(s.reply, /database reset|throws away a database|重置資料庫|tessera (refused|blocked)|(d+ failed · last|d+ 個失敗 · 最後)[:：] ?docker compose down -v/i),
+    check: s => seen(s.reply, /database reset|throws away a database|重置資料庫|tessera (refused|blocked|hook)|(\d+ failed · last|\d+ 個失敗 · 最後)[:：] ?docker compose down -v/i),
   },
   {
     name: 'encoding-guard',
@@ -452,7 +452,7 @@ export const scenarios = [
         ],
       },
     ],
-    check: s => seen(s.reply, /file encoding|not UTF-8|#7134|檔案編碼|(d+ failed · last|d+ 個失敗 · 最後)/i),
+    check: s => seen(s.reply, /file encoding|not UTF-8|#7134|檔案編碼|(\d+ failed · last|\d+ 個失敗 · 最後)/i),
   },
   {
     name: 'session-guard',
@@ -475,7 +475,7 @@ export const scenarios = [
         ],
       },
     ],
-    check: (s, dir) => seen(s.first, /note\.txt/) ?? (readFileSync(join(dir, 'note.txt'), 'utf8').startsWith('B') || readFileSync(join(dir, 'note.txt'), 'utf8').startsWith('C') ? undefined : 'the first edit did not land') ?? seen(s.second, /another Claude Code session|另一個 session|(d+ failed · last|d+ 個失敗 · 最後)/i),
+    check: (s, dir) => seen(s.first, /note\.txt/) ?? (readFileSync(join(dir, 'note.txt'), 'utf8').startsWith('B') || readFileSync(join(dir, 'note.txt'), 'utf8').startsWith('C') ? undefined : 'the first edit did not land') ?? seen(s.second, /another Claude Code session|另一個 session|(\d+ failed · last|\d+ 個失敗 · 最後)/i),
   },
   {
     name: 'background-watch',

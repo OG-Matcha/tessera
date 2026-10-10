@@ -353,13 +353,13 @@
     "guardGit": {
       "type": "boolean",
       "title": "Guard the shared tree",
-      "description": "Refuse a recursive delete (rm -r, Remove-Item -Recurse, rmdir /s, git worktree remove) whose target holds a junction or symlink, and junctions or symlinks to node_modules; remind once before a force push (--force, -f, --force-with-lease, +refspec) to main or master, and before git reset --hard, checkout or restore of paths, or clean -f would throw away uncommitted work, naming the files, letting the same command through when sent again; while agents work, also refuse git checkout/switch/reset/restore/stash/clean -f and git add -A / commit -a in the main working tree.",
+      "description": "Refuse a recursive delete (rm -r, Remove-Item -Recurse, rmdir /s, git worktree remove) whose target is itself a junction or symlink, or on Windows holds a junction (a reminder, passed when sent again, when the listing does not finish), and junctions or symlinks to node_modules; remind once before a force push (--force, -f, --force-with-lease, +refspec) to main or master, and before git reset --hard, checkout or restore of paths, or clean -f would throw away uncommitted work, naming the files, letting the same command through when sent again; while agents work, also refuse git checkout/switch/reset/restore/stash/clean -f and git add -A / commit -a in the main working tree.",
       "default": true
     },
     "agentModel": {
       "type": "string",
       "title": "Model for agents",
-      "description": "Agents that name no model run on the session's model. auto: Haiku reads the task and fills in haiku, sonnet, opus or fable for a general-purpose agent (agent types with their own model are left alone), with a toast naming the pick. choose: refuse those calls and ask Claude for a model. opus, sonnet, haiku or fable: fill that model in. off: leave models alone. Workflow scripts cannot be filled in: auto reminds Claude once to name a model for each agent(), choose refuses until it does.",
+      "description": "Agents that name no model run on the session's model. auto: Haiku reads the task and fills in haiku, sonnet, opus or fable for a general-purpose agent (agent types with their own model are left alone), with a toast naming the pick. choose: refuse those calls and ask Claude for a model. opus, sonnet, haiku or fable: fill that model in. off: leave models alone. Workflow scripts cannot be filled in: auto reminds Claude once to name a model for each agent(); choose, and a fixed model, refuse until it does.",
       "default": "auto",
       "options": [
         "off",
@@ -386,7 +386,7 @@
     "guardCjkEscapes": {
       "type": "boolean",
       "title": "Guard CJK escapes",
-      "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text (anthropics/claude-code#83033).",
+      "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text; in a code file that also holds CJK text, where an escape can be meant, remind once (anthropics/claude-code#83033).",
       "default": true
     },
     "guardSimplified": {
@@ -418,17 +418,23 @@
       "description": "Keep what the session's task list (TaskCreate, TaskUpdate, TodoWrite) leaves open, per repository, and offer it above the prompt in the next session there, or in the conversation a /clear starts: continue puts the items in the prompt box, dismiss forgets them. Only items made with Claude's task tools count; Claude Code leaves those off for Claude 5.x, so while this is on tessera sets CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session unless you set that variable yourself.",
       "default": true
     },
+    "backgroundWatch": {
+      "type": "boolean",
+      "title": "Watch background work",
+      "description": "When Claude runs a command in the background and its output file stops growing for the quiet time below, say so above the prompt: ask Claude fills the prompt box with a request to check the task, ignore drops it. A hung command otherwise reports nothing until you ask. Only the output file's size is read.",
+      "default": true
+    },
+    "backgroundQuietMinutes": {
+      "type": "number",
+      "title": "Background quiet time (minutes)",
+      "description": "How long a background command's output file may stay the same before tessera says so.",
+      "default": 10
+    },
     "pythonUtf8": {
       "type": "boolean",
       "title": "Python in UTF-8",
       "description": "On Windows, set PYTHONUTF8=1 for the Claude Code process, so the Python that Claude runs reads and writes files and the console in UTF-8 instead of the system code page (cp950, cp932, cp936, cp949), where CJK text fails with UnicodeEncodeError or shows as ?. Nothing is set when you set the variable yourself; no effect elsewhere.",
       "default": true
-    },
-    "resumeAfterLimit": {
-      "type": "boolean",
-      "title": "Resume after limits",
-      "description": "Off by default. When a usage limit stops a turn, queue a prompt that continues the work a minute after the limit resets; anything you type first cancels it.",
-      "default": false
     }
   }
 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, discards, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('one place spelled two ways resolves to one path', () => {
   expect(resolvePath('I:/w/pkg/sub', '../.git')).toBe('i:/w/pkg/.git')
@@ -61,13 +61,42 @@ test('a heredoc body is data, not commands', () => {
   expect(shellRisks(commit)).toEqual([])
   expect(discards(commit)).toEqual([])
   expect(shellRisks("cat > a.txt <<EOF\nplain\nEOF\ngit stash")).toEqual(['tree-rewrite'])
+  // Commands after a body are still commands: a << in the body, several heredocs, CRLF, no end line.
+  expect(forcePushes("git commit -F - <<'EOF'\nUse << operator\nEOF\ngit push -f origin main")).toEqual(['main'])
+  expect(forcePushes('cat <<A <<B\na\nA\nb\nB\ngit push -f origin main')).toEqual(['main'])
+  expect(forcePushes('cat <<EOF\r\nx\r\nEOF\r\ngit push -f origin main')).toEqual(['main'])
+  expect(shellRisks('cat <<EOF\ngit stash')).toEqual([])
+  // A shift and a herestring are not heredocs.
+  expect(forcePushes('echo $((1<<n))\ngit push --force origin main')).toEqual(['main'])
+  expect(recursiveDeletes('echo $((1<<n))\nrm -rf foo')).toEqual(['foo'])
+  expect(shellRisks('cat <<<EOF\ngit reset --hard\nEOF')).toEqual(['tree-rewrite'])
+  // A body a local shell reads is commands.
+  expect(shellRisks("bash <<'EOF'\ngit reset --hard\nEOF")).toEqual(['tree-rewrite'])
+  expect(expandedHeredoc('cat > a <<EOF\r\n${x}\r\nEOF\r\n')).toBe('${')
 })
 
 test('only commit -a or --all stages everything', () => {
   expect(shellRisks('git commit -am "wip"')).toEqual(['stage-all'])
+  expect(shellRisks('git commit -am"wip"')).toEqual(['stage-all'])
+  expect(shellRisks('git commit -amwip')).toEqual(['stage-all'])
   expect(shellRisks('git commit --all -m x')).toEqual(['stage-all'])
   expect(shellRisks('git commit -m "add a test"')).toEqual([])
   expect(shellRisks('git commit --amend --no-edit')).toEqual([])
+})
+
+test('any git option before the verb is skipped, and -C is found behind them', () => {
+  for (const c of ['git --no-optional-locks reset --hard', 'git --git-dir .git reset --hard', 'git -P reset --hard', 'git --work-tree=../wt -c a=b stash']) expect(shellRisks(c)).toEqual(['tree-rewrite'])
+  expect(commandDir('git --no-pager -C wt reset --hard')).toBe('wt')
+  expect(commandDir('git -c a=b -C wt stash')).toBe('wt')
+})
+
+test('Git Bash paths on Windows are the file system’s', () => {
+  expect(hostPath('/c/w/x', '/home/u', true)).toBe('C:/w/x')
+  expect(hostPath('/c', undefined, true)).toBe('C:')
+  expect(hostPath('~/w', 'C:/Users/u', true)).toBe('C:/Users/u/w')
+  expect(hostPath('~/w', '/home/u', false)).toBe('/home/u/w')
+  expect(hostPath('/c/w', undefined, false)).toBe('/c/w')
+  expect(hostPath('/usr/bin', undefined, true)).toBe('/usr/bin')
 })
 
 test('a script quotes the user when ten of their characters appear verbatim', () => {

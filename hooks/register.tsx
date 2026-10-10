@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude-code'
 
-import type { CarryOver, UpdateOffer } from '../types'
+import type { CarryOver, Quiet, UpdateOffer } from '../types'
 import type { Env } from './platform'
 import { platformOf } from './platform'
 import type { InboxItem } from './inbox'
@@ -20,12 +20,13 @@ import { session, t } from './session'
 import { isAbsolute } from './guard'
 import { registerGuards } from './guard-hooks'
 import { registerPastes } from './paste-hooks'
+import { background, registerBackgroundWatch } from './background-hooks'
+import { notifiedTask } from './background'
 import { completions } from './complete'
 import { FEATURES } from './features'
 import { foldPatch, patchOf } from './fold'
 import { MARKETPLACE, marketplaceRenamed, marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
-import { resumeAt } from './limits'
 import type { Voice } from './voice'
 import { replyNote, voiceOf } from './voice'
 import { PRESET_NAMES } from './presets'
@@ -37,6 +38,7 @@ import { TERMINALS, hasRtl } from './rtl'
 const carryOver = atom({ plugin: 'tessera', key: 'carryOver' } as const, null as CarryOver | null)
 // The marketplace named in the one-time offer to turn on auto-update, while it shows.
 const updateOffer = atom({ plugin: 'tessera', key: 'updateOffer' } as const, null as UpdateOffer | null)
+const quietTasks = atom({ plugin: 'tessera', key: 'quietTasks' } as const, [] as Quiet[])
 // Edit results the person unfolded.
 const unfoldedDiffs = atom({ plugin: 'tessera', key: 'unfoldedDiffs' } as const, [] as string[])
 const CARRY_SHOWN = 5
@@ -82,6 +84,7 @@ async function replyDrifted($: EngineInterface, wanted: Voice): Promise<boolean>
 // there offers it back above the prompt.
 let carryOn = true
 let pythonUtf8 = true
+let backgroundOn = true
 const taskLog: TaskLog = { tasks: new Map(), todos: [] }
 
 async function carryKey($: EngineInterface): Promise<string> {
@@ -176,6 +179,8 @@ function registerCarryOver(on: On) {
     if (e.reason !== 'clear') return next(e)
     taskLog.tasks.clear()
     taskLog.todos = []
+    // The fresh conversation's state starts empty, so the watched tasks' rows would never come back.
+    background.watched.clear()
     const open = store[e.sessionId]?.open ?? []
     // The session's state is reset once session.end is done, so the offer is written when the fresh
     // conversation's id is in place.
@@ -252,31 +257,6 @@ async function markInbox($: EngineInterface, ids: number[], commit: string): Pro
   const key = await inboxKey($)
   await $.store.set(key, markFixed(await readInbox($, key), ids, commit))
   return t().inboxMarked(ids, commit)
-}
-
-// Resume after a rate limit: one queued "go on" prompt at the reset, cancelled when the person types first.
-let pendingResume: Timer | undefined
-
-async function scheduleResume($: EngineInterface) {
-  const now = await $.clock.now()
-  const at = resumeAt((await $.session.usage()).rateLimits, now)
-  if (at === undefined) return
-  pendingResume?.cancel()
-  pendingResume = $.clock.after(at - now + 60_000, () => {
-    pendingResume = undefined
-    void $.prompt.submit({ text: t().resumePrompt })
-  })
-  $.ui.toast(t().resumeScheduled(new Date(at + 60_000).toTimeString().slice(0, 5)))
-}
-
-// Classic hook events are not delivered to plugins a person installs, so the turn's own end is watched:
-// the usage figures say whether a window is used up and when it resets.
-function registerResume(on: On) {
-  on('turn.complete', async ($, e, next) => {
-    const done = await next(e)
-    if (e.reason === 'error') await scheduleResume($)
-    return done
-  })
 }
 
 const SETUP_PANE = 'tessera-setup'
@@ -396,21 +376,37 @@ export const register: Register = (on, options) => {
     // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
     // value the person set, on or off, stands.
     // Everything read before the session starts is read at once: each read is a round trip to the engine.
-    const [todoTools, pyUtf8, readsEnv, settings, wroteLang, lcAll, langVar, setupSeen, sessionCwd] = await Promise.all([
+    const [todoTools, pyUtf8, readsEnv, settings, userSettings, wroteLang, lcAll, langVar, setupSeen, sessionCwd, setVars] = await Promise.all([
       $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS'),
       $.env.get('PYTHONUTF8'),
       readEnv($),
       $.settings.read({}).catch(() => ({}) as Record<string, unknown>),
+      // The marketplace names go into commands shown to the person, so only what they wrote themselves is
+      // read for them: their own settings file and the --settings they launched with, not a repository's.
+      Promise.all([$.settings.read({ source: 'user' }), $.settings.read({ source: 'flag' })])
+        .then(([user, flag]) => ({ extraKnownMarketplaces: { ...(user.extraKnownMarketplaces as object | undefined), ...(flag.extraKnownMarketplaces as object | undefined) } }) as Record<string, unknown>)
+        .catch(() => ({}) as Record<string, unknown>),
       $.store.get('wroteLang').catch(() => undefined),
       $.env.get('LC_ALL'),
       $.env.get('LANG'),
       $.store.get('setupSeen').catch(() => true),
       $.session.cwd().catch(() => undefined),
+      $.store.get('setVars').catch(() => undefined),
     ])
     workDir = sessionCwd
-    if (carryOn && todoTools === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
-    // Python on Windows reads and writes the system code page by default (until 3.15), where CJK fails.
-    if (pythonUtf8 && pyUtf8 === undefined && platformOf(readsEnv) === 'windows') await $.env.set('PYTHONUTF8', '1').catch(() => undefined)
+    // Variables tessera set in a session are noted, so a session with the option off unsets what tessera
+    // set, and leaves a value the person set alone.
+    const noted = Array.isArray(setVars) ? setVars.filter((v): v is string => typeof v === 'string') : []
+    const wanted = [
+      ...(carryOn && (todoTools === undefined || (todoTools === '1' && noted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS'))) ? ['CLAUDE_CODE_ENABLE_TODO_TOOLS'] : []),
+      // Python on Windows reads and writes the system code page by default (until 3.15), where CJK fails.
+      ...(pythonUtf8 && platformOf(readsEnv) === 'windows' && (pyUtf8 === undefined || (pyUtf8 === '1' && noted.includes('PYTHONUTF8'))) ? ['PYTHONUTF8'] : []),
+    ]
+    if (wanted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS') && todoTools === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
+    if (wanted.includes('PYTHONUTF8') && pyUtf8 === undefined) await $.env.set('PYTHONUTF8', '1').catch(() => undefined)
+    if (!wanted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS') && todoTools === '1' && noted.includes('CLAUDE_CODE_ENABLE_TODO_TOOLS')) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', undefined).catch(() => undefined)
+    if (!wanted.includes('PYTHONUTF8') && pyUtf8 === '1' && noted.includes('PYTHONUTF8')) await $.env.set('PYTHONUTF8', undefined).catch(() => undefined)
+    if (wanted.join() !== noted.join()) await $.store.set('setVars', wanted).catch(() => undefined)
     session.env = readsEnv
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,
@@ -430,7 +426,14 @@ export const register: Register = (on, options) => {
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
     const carry = async () => {
-      const [store, sessionId, now] = await Promise.all([carryKey($).then(key => readCarry($, key)), $.session.id(), $.clock.now()])
+      const [key, sessionId, now] = await Promise.all([carryKey($), $.session.id(), $.clock.now()])
+      let store = await readCarry($, key)
+      // A session resumed with --resume is running again: its record is no longer another terminal's leftovers.
+      if (store[sessionId]?.ended === true) {
+        const { ended: _, ...live } = store[sessionId]!
+        store = { ...store, [sessionId]: { ...live, at: now } }
+        await $.store.set(key, store).catch(() => undefined)
+      }
       // A reload starts the module over within the same session: pick its task list back up.
       if (taskLog.tasks.size === 0) taskLog.tasks = restoredTasks(store, sessionId)
       const offer = e.isInteractive ? carriedFrom(store, sessionId, now) : undefined
@@ -438,8 +441,8 @@ export const register: Register = (on, options) => {
     }
     // Asked once, from the second session on, so the first one only shows the setup hint. An install
     // under the marketplace's old name gets no updates at all, so that comes before auto-update.
-    const moved = marketplaceRenamed(settings)
-    const market = marketplaceWithoutUpdates(settings)
+    const moved = marketplaceRenamed(userSettings)
+    const market = marketplaceWithoutUpdates(userSettings)
     const offer: UpdateOffer | undefined = moved !== undefined ? { reason: 'moved', market: moved } : market !== undefined ? { reason: 'auto-update', market } : undefined
     const offerUpdate = async () => {
       if (e.isInteractive && returning && offer !== undefined && (await $.store.get(offeredKey(offer)).catch(() => true)) !== true)
@@ -459,10 +462,11 @@ export const register: Register = (on, options) => {
 
   const imagesOn = options.pastePreview !== false
   if (imagesOn) registerPastes(on, options)
+  backgroundOn = options.backgroundWatch !== false
+  if (backgroundOn) registerBackgroundWatch(on, options)
   if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
-  if (options.resumeAfterLimit === true) registerResume(on)
   carryOn = options.carryOver !== false
   if (carryOn) registerCarryOver(on)
   registerUpdateOffer(on)
@@ -493,11 +497,15 @@ export const register: Register = (on, options) => {
 
   on('prompt.submit', async ($, e, next) => {
     const own = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
+    // A background task's own notification says it ended, however it ended.
+    const ended = backgroundOn && e.origin.kind === 'task-notification' ? notifiedTask(e.text) : undefined
+    if (ended !== undefined) {
+      background.watched.delete(ended)
+      if ((await read($, quietTasks)).some(q => q.id === ended)) await update($, quietTasks, list => list.filter(q => q.id !== ended))
+    }
     const context = [...(e.context ?? [])]
     if (own) {
       if (carryOn && (await read($, carryOver)) !== null) await update($, carryOver, () => null)
-      pendingResume?.cancel()
-      pendingResume = undefined
       session.voice = voiceOf(e.text) ?? session.voice
       if (!langSettled && (session.voice === 'zh-Hant' || session.voice === 'zh-Hans')) {
         session.lang = 'zh-TW'

@@ -55,18 +55,21 @@ const measure = (text: string): Measured => {
   return { ends, widths, boundary }
 }
 
-// The grapheme boundary at or before an offset: a break unit can start inside a cluster (a variation
-// selector after a character), and then the cluster's start stands for it.
-const boundaryAt = (m: Measured, offset: number): number => {
-  let i = m.boundary[offset] ?? -1
-  for (let o = offset; i === -1 && o > 0; ) i = m.boundary[--o] ?? -1
-  return Math.max(i, 0)
+// The grapheme boundary at an offset, or the nearest one in the direction given: a break unit can start
+// or end inside a cluster (a combining mark or variation selector after a character), and then the
+// cluster's start stands for the unit's start and its end for the unit's end, so the cluster's width
+// is counted once and it is never cut.
+const boundaryAt = (m: Measured, offset: number, direction: -1 | 1): number => {
+  let o = offset
+  while (o > 0 && o < m.boundary.length && m.boundary[o] === -1) o += direction
+  return Math.max(m.boundary[o] ?? 0, 0)
 }
 
 export const wrapRanges = (text: string, w: number): [number, number][] => {
+  // Most texts fit (every short table cell): one width pass, no tables built.
+  if (width(text) <= w) return [[0, text.length]]
   const m = measure(text)
-  const between = (a: number, b: number) => m.widths[boundaryAt(m, b)]! - m.widths[boundaryAt(m, a)]!
-  if (between(0, text.length) <= w) return [[0, text.length]]
+  const between = (a: number, b: number) => m.widths[boundaryAt(m, b, 1)]! - m.widths[boundaryAt(m, a, -1)]!
   const out: [number, number][] = []
   let line: [number, number] | undefined
   for (const word of text.matchAll(BREAKS)) {
@@ -75,13 +78,16 @@ export const wrapRanges = (text: string, w: number): [number, number][] => {
     while (between(start, end) > w) {
       if (line) out.push(line)
       line = undefined
-      // The longest run of whole graphemes from start that fits, at least one.
-      const from = boundaryAt(m, start)
+      // The longest run of whole graphemes from start that fits, at least one; a unit's end inside a
+      // cluster takes the whole cluster.
+      const from = boundaryAt(m, start, -1)
+      const last = boundaryAt(m, end, 1)
       let i = from + 1
-      while (i + 1 < m.ends.length && m.ends[i + 1]! <= end && m.widths[i + 1]! - m.widths[from]! <= w) i++
-      const cut = Math.min(m.ends[i]!, end)
+      while (i + 1 <= last && m.widths[i + 1]! - m.widths[from]! <= w) i++
+      const cut = Math.min(m.ends[i]!, Math.max(end, m.ends[last]!))
       out.push([start, cut])
       start = cut
+      if (start >= end) break
     }
     if (start === end) continue
     if (line && between(line[0], end) <= w) line = [line[0], end]
@@ -116,7 +122,7 @@ const mostLines = (text: string, w: number): number => (text.match(/\S+/g)?.leng
 const wrapInline = (nodes: Inline[], w: number): Inline[][] => {
   const text = inlineText(nodes)
   const ranges = wrapRanges(text, w)
-  return ranges.length === 1 && ranges[0]![1] === text.length ? [nodes] : ranges.map(([a, b]) => sliceInline(nodes, a, b))
+  return ranges.length === 1 && ranges[0]![0] === 0 && ranges[0]![1] === text.length ? [nodes] : ranges.map(([a, b]) => sliceInline(nodes, a, b))
 }
 
 const flowOf = (style: Style, nodes: Inline[], columns: number) => (style.reorder ? flow(nodes, columns, width, style.shape) : null)

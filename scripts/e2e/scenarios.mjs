@@ -407,5 +407,20 @@ export const scenarios = [
     ],
     check: s => seen(s.cleared, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
   },
+  {
+    name: 'background-watch',
+    prompts: true,
+    // A backgrounded sleep writes nothing; with the quiet time at a minute the row shows on the first check.
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { 'tessera@og-matcha': { options: { backgroundQuietMinutes: 1 } } } })],
+        steps: [
+          { type: 'Use the Bash tool with run_in_background set to true to run exactly this command, then stop and wait: sleep 300' },
+          { key: '\r', until: /written nothing for|沒有輸出/, timeoutMs: 200_000, shot: 'band' },
+        ],
+      },
+    ],
+    check: s => seen(s.band, /(written nothing for \d+ min|\d+ 分鐘沒有輸出)[\s\S]*(ask Claude|問 Claude)[\s\S]*sleep 300/),
+  },
 ]
 

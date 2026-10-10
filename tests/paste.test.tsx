@@ -27,7 +27,7 @@ test('the clipboard is read as UTF-8 on Windows and through the usual tools else
 })
 
 // The paste drafts as given, the image list empty and every other state key unset.
-const draft = (key: string | undefined, pasted: unknown) => (key === 'draftPastes' ? pasted : key === 'draftImages' ? [] : null)
+const draft = (key: string | undefined, pasted: unknown) => (key === 'draftPastes' ? pasted : key === 'draftImages' || key === 'quietTasks' ? [] : null)
 
 test('collapsed pasted text shows its first lines and its length above the prompt', { options: { language: 'en' } }, async ($, on) => {
   on('ui.render', ($, e) => {

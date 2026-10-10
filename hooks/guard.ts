@@ -1,25 +1,56 @@
 export type Risk = 'tree-rewrite' | 'stage-all' | 'link-node-modules'
 
+// A heredoc: `<<` or `<<-`, a delimiter, quoted or not, and the body from the next line to the line that
+// is the delimiter (a trailing \r allowed). `<<<` is a herestring and `<<` inside `$(( ))` a shift, not
+// one. Several on one line take their bodies in order; a body with no end runs to the end of the text.
+// `shell` is a body fed to a local shell (bash <<'EOF'), which is commands, not data.
+type Heredoc = { quoted: boolean; bodyStart: number; bodyEnd: number; delimiterLine: number; shell: boolean }
+
+const HEREDOC_START = /(?<![<$(])<<(?!<)(-?)\s*(["']?)([A-Za-z_][\w-]*)\2/g
+const inArithmetic = (line: string, at: number) => /\$\(\((?![\s\S]*\)\))/.test(line.slice(0, at))
+const LOCAL_SHELL = /(?:^|[;&|]\s*)(?:ba|z|da)?sh\b[^;&|]*$/
+
+export function heredocs(command: string): Heredoc[] {
+  const out: Heredoc[] = []
+  const lines = command.split('\n')
+  const offsets: number[] = []
+  for (let o = 0, i = 0; i < lines.length; i++) {
+    offsets.push(o)
+    o += lines[i]!.length + 1
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const starts = [...line.matchAll(HEREDOC_START)].filter(m => !inArithmetic(line, m.index))
+    let next = i + 1
+    for (const m of starts) {
+      const strip = m[1] === '-'
+      const ends = (l: string) => (strip ? l.replace(/^\t+/, '') : l).replace(/\r$/, '') === m[3]
+      let j = next
+      while (j < lines.length && !ends(lines[j]!)) j++
+      const bodyEnd = j < lines.length ? offsets[j]! + lines[j]!.length : command.length
+      out.push({ quoted: m[2] !== '', bodyStart: Math.min(offsets[next] ?? command.length, command.length), bodyEnd, delimiterLine: j, shell: LOCAL_SHELL.test(line.slice(0, m.index)) })
+      next = j + 1
+    }
+    if (starts.length > 0) i = next - 1
+  }
+  return out
+}
+
 // A heredoc's body is data (a commit message, a file), not commands, so it is left out before a line is
-// split; the `<<` line itself stays.
+// split, unless a local shell reads it; the `<<` line itself stays.
 const withoutHeredocs = (command: string): string => {
   let out = command
-  for (const m of [...command.matchAll(HEREDOC)].reverse()) {
-    const start = command.indexOf('\n', m.index)
-    if (start === -1) continue
-    const lines = command.slice(start + 1).split('\n')
-    const end = lines.findIndex(l => (m[1] === '-' ? l.replace(/^\t+/, '') : l) === m[3])
-    const body = lines.slice(0, end === -1 ? lines.length : end + 1).join('\n')
-    out = `${out.slice(0, start)}${out.slice(start + body.length + 1)}`
-  }
+  for (const h of heredocs(command).filter(h => !h.shell).reverse()) out = `${out.slice(0, h.bodyStart)}${out.slice(h.bodyEnd)}`
   return out
 }
 
 // One shell command line split at ;, &&, || and | so each git call is judged on its own.
 const pieces = (command: string) => withoutHeredocs(command).split(/;|&&|&|\|\||\||\n/).map(p => p.trim())
 
-// git with the options that may come before its verb: -C <dir>, -c key=value, --no-pager, --git-dir=.
-const GIT = /^(?:git|git\.exe)\s+(?:(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)|-c\s+\S+|--no-pager|--git-dir=\S+|--work-tree=\S+)\s+)*(\S+)(.*)$/i
+// git with the options that may come before its verb: the ones that take a value (-C <dir>, -c k=v,
+// --git-dir <path>) and the flags (--no-pager, -P, --no-optional-locks, --bare).
+const GIT_OPTIONS = String.raw`(?:(?:-[Cc]|--git-dir|--work-tree|--namespace|--exec-path|--config-env)\s+(?:"[^"]*"|'[^']*'|\S+)|--[\w-]+(?:=\S*)?|-[A-Za-z])\s+`
+const GIT = new RegExp(String.raw`^(?:git|git\.exe)\s+(?:${GIT_OPTIONS})*([^-\s]\S*)(.*)$`, 'i')
 
 export function shellRisks(command: string): Risk[] {
   const risks = new Set<Risk>()
@@ -32,7 +63,7 @@ export function shellRisks(command: string): Risk[] {
       if (verb === 'stash' && !/^\s+(list|show)\b/.test(rest)) risks.add('tree-rewrite')
       if (verb === 'clean' && /\s-\w*f/.test(rest)) risks.add('tree-rewrite')
       if (verb === 'add' && /\s(-A|--all|\.)(\s|$)/.test(rest)) risks.add('stage-all')
-      if (verb === 'commit' && rest.split(/\s+/).some(w => w === '--all' || /^-[a-zA-Z]*a[a-zA-Z]*$/.test(w))) risks.add('stage-all')
+      if (verb === 'commit' && rest.split(/\s+/).some(w => w === '--all' || /^-[a-zA-Z]*a/.test(w))) risks.add('stage-all')
     }
     const links = /\bmklink\s+\/[JD]\b|\bNew-Item\b.*-ItemType\s+['"]?(Junction|SymbolicLink)|\bln\s+-\w*s/i.test(piece)
     if (links && /node_modules/i.test(piece)) risks.add('link-node-modules')
@@ -103,29 +134,34 @@ export function resolvePath(base: string, path: string): string {
 
 // A heredoc with an unquoted delimiter is expanded before it is written: ${x}, $(cmd) and backticks are
 // replaced and \\ becomes \, so code written through one loses its template literals and escapes.
-const HEREDOC = /<<(-?)\s*(["']?)([A-Za-z_][\w-]*)\2/g
 const EXPANDED = /\$\{|\$\(|`|\\[\\$`]/
 
 export function expandedHeredoc(command: string): string | undefined {
-  for (const m of command.matchAll(HEREDOC)) {
-    if (m[2] !== '') continue
-    const start = command.indexOf('\n', m.index)
-    if (start === -1) continue
-    const lines = command.slice(start + 1).split('\n')
-    const end = lines.findIndex(l => (m[1] === '-' ? l.replace(/^\t+/, '') : l) === m[3])
-    const hit = EXPANDED.exec((end === -1 ? lines : lines.slice(0, end)).join('\n'))
+  const lines = command.split('\n')
+  for (const h of heredocs(command)) {
+    if (h.quoted) continue
+    const body = command.slice(h.bodyStart, h.delimiterLine < lines.length ? h.bodyEnd - lines[h.delimiterLine]!.length : h.bodyEnd)
+    const hit = EXPANDED.exec(body)
     if (hit) return hit[0]
   }
   return undefined
 }
 
+// The git -C directory, after any other option before the verb; -c is a config value, so the case counts.
+const GIT_DASH_C = new RegExp(String.raw`\b[gG]it(?:\.exe)?\s+(?:${GIT_OPTIONS.replace('-[Cc]', '-c')})*-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)`)
+
 export function commandDir(command: string): string | undefined {
   const unquote = (s: string) => s.replace(/^["']|["']$/g, '')
   const cd = /^\s*(?:cd|Set-Location|sl|pushd)\s+(?:\/d\s+)?("[^"]+"|'[^']+'|[^\s;&|]+)/i.exec(command)
   if (cd?.[1]) return unquote(cd[1])
-  // -C is a directory; -c is a config value, so the case counts.
-  const dashC = /\b[gG]it\s+-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)/.exec(command)
+  const dashC = GIT_DASH_C.exec(command)
   return dashC?.[1] ? unquote(dashC[1]) : undefined
+}
+
+// A path as Git Bash on Windows spells it (/c/w, ~/w) as the file system does: C:/w, <home>/w.
+export const hostPath = (path: string, home: string | undefined, windows: boolean): string => {
+  const expanded = home !== undefined ? path.replace(/^~(?=[\\/]|$)/, home) : path
+  return windows ? expanded.replace(/^\/([a-zA-Z])(?=\/|$)/, (_, drive: string) => `${drive.toUpperCase()}:`) : expanded
 }
 
 const QUOTE = 10

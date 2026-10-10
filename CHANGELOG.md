@@ -6,7 +6,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Watch background work (`backgroundWatch`, on): when a command Claude runs in the background writes nothing to its output file for ten minutes (`backgroundQuietMinutes`), a row above the prompt says so, with **ask Claude** to fill the prompt box with a request to check the task and **ignore** to drop it. A hung command otherwise reports nothing, and nobody looks until the person asks. The row goes when the task's own notification arrives.
 - Python in UTF-8 (`pythonUtf8`, on): on Windows, tessera sets `PYTHONUTF8=1` for the session unless you set it yourself, so the Python that Claude runs reads and writes files and the console in UTF-8 rather than the system code page, where Chinese, Japanese or Korean text fails with `UnicodeEncodeError` or prints as `?`. Python itself switches to this default in 3.15 (PEP 686).
+
+### Removed
+
+- Resume after limits (`resumeAfterLimit`). It never ran: it listened on a classic hook event, which Claude Code does not deliver to plugins a person installs. Claude Code 2.1.296 itself now continues at the reset ("Usage limit reached · continuing automatically at …"), so there is nothing left for tessera to add.
 
 ### Changed
 
@@ -17,9 +22,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - Wrapping a long Chinese or Japanese paragraph measured every candidate line from its start, so a reply of a few thousand characters took about 150 ms to lay out, on every streamed piece of it. The text is measured once and each line's width is a subtraction: the same paragraph takes a few milliseconds.
 - A second terminal in the same repository offered the first one's task list as unfinished while the first was still working on it, and dismissing the offer dropped the first one's record. A session is offered only once it has ended, or after two hours without a change when it never said so.
 - A pasted image was decoded and kept as pixels for the session (a 4K paste is 33 MB), and a file the decoder cannot read was decoded again every quarter second. The thumbnail is kept instead, and an unreadable file is tried once.
-- The tree guard read a heredoc's body as commands, so a commit message that mentioned `git reset --hard` was refused while agents ran; the body is left out. `git -c key=value` was read as `-C` and sent the guard's git reads to the wrong directory, and options before the verb (`--no-pager`, `-c`) hid it; only `git commit -a` or `--all` counts as staging everything, not `-m "add a test"`.
+- The tree guard read a heredoc's body as commands, so a commit message that mentioned `git reset --hard` was refused while agents ran; the body is left out, unless a local shell reads it (`bash <<'EOF'`), and a herestring or a `<<` inside `$(( ))` is not taken for one.
+- On Windows, a Git Bash path (`/c/w`, `~/w`) given to a recursive delete or `git -C` was looked up as written and never found, so the link and main-tree checks passed it; it is read as the file system spells it. The junction listing's "no link" answer was read from its English message, so on a Windows in another language every recursive delete was reminded once; the exit code is read instead. `git -c key=value` was read as `-C` and sent the guard's git reads to the wrong directory, and options before the verb (`--no-pager`, `-c`) hid it; only `git commit -a` or `--all` counts as staging everything, not `-m "add a test"`.
 - On macOS and Linux, `rm -rf` of a directory holding a symlink was refused, though rm and git there unlink a symlink without entering it; only a target that is itself a link is refused now. On Windows, where `rmdir /s` and git follow a junction inside the tree, the junction listing is kept, and a listing that does not finish in time is a reminder rather than a pass.
-- Resume after limits never ran: it listened on a classic hook event, which Claude Code does not deliver to plugins a person installs. It now listens for the end of a turn that an API error cut short and schedules the resume from the usage figures.
 
 - While agents run, the tree guard did nothing when Claude ran git from a subdirectory of the repository: git reports the repository's `.git` as an absolute path and the shared one as a relative path, and the two were compared as text. Both are resolved first.
 - Two different calls reminded one after the other each go through when sent again; before, the second reminder forgot the first, so the first call was refused again. A reminder lapses after ten minutes.
@@ -28,7 +33,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - A bare URL in a reply ends before the Chinese, Japanese or Korean text and punctuation that follows it (`https://example.com/docs就知道。` links `/docs`), while CJK after `/`, `=`, `#` or `%` stays part of the link (`zh.wikipedia.org/wiki/中文`).
 - A guard's refusal still goes out when its toast fails; the toast for a reminder says tessera asked Claude to confirm, and only a hard refusal says blocked.
 - Feature descriptions say which guards remind once and which refuse; the diagram hint is described as about 300 tokens once per context, as the README measures it; the `/tessera` command description names setup and peek; the help screen says `/reload-plugins`.
-- On Linux and macOS, paste previews no longer stop at startup when `id -u` cannot run; the `UID` variable is used instead.
+- On Linux and macOS, paste previews no longer stop at startup when `id -u` cannot run; they stay off for that session.
 
 ## [0.7.0] - 2026-10-09
 

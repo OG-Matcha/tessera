@@ -30,7 +30,7 @@ const views = new Map<string, ImageView | null>()
 async function root($: EngineInterface): Promise<string> {
   if (tmpRoot !== undefined) return tmpRoot
   const base = pasteRoot(session.env)
-  const uid = base.includes('{uid}') ? (await $.process.run(['id', '-u']).catch(() => undefined))?.stdout.trim() ?? session.env.UID : undefined
+  const uid = base.includes('{uid}') ? (await $.process.run(['id', '-u']).catch(() => undefined))?.stdout.trim() || undefined : undefined
   tmpRoot = uid === undefined ? base : base.replace('{uid}', uid)
   return tmpRoot
 }

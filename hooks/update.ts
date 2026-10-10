@@ -6,12 +6,18 @@ export const MARKETPLACE = 'og-matcha'
 
 type Marketplace = { source?: { source?: string; repo?: string; url?: string }; autoUpdate?: boolean }
 
+// The names tessera's marketplace is known under: its GitHub repository, or a git URL of it. A name is
+// what the person typed in `claude plugin marketplace add`, and goes into commands shown to them, so
+// only plain names count; settings are read from the user's own file, not a repository's.
+const NAME = /^[A-Za-z0-9._-]+$/
+const REPO_URL = new RegExp(String.raw`^(?:https?://|git@)github\.com[/:]${REPO.replace('/', '\\/')}(?:\.git)?/?$`, 'i')
+
 function ours(settings: Record<string, unknown>): [string, Marketplace][] {
   const markets = settings.extraKnownMarketplaces
   if (markets === null || typeof markets !== 'object') return []
-  return Object.entries(markets as Record<string, Marketplace>).filter(([, m]) => {
+  return Object.entries(markets as Record<string, Marketplace>).filter(([name, m]) => {
     const source = m?.source
-    return source?.repo?.toLowerCase() === REPO.toLowerCase() || (source?.url?.toLowerCase().includes(REPO.toLowerCase()) ?? false)
+    return NAME.test(name) && (source?.repo?.toLowerCase() === REPO.toLowerCase() || REPO_URL.test(source?.url ?? ''))
   })
 }
 

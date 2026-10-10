@@ -2,7 +2,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { Risk } from './guard'
 import type { Discard } from './guard'
-import { commandDir, discards, expandedHeredoc, forcePushes, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
@@ -41,9 +41,10 @@ const RISK_REASONS: Record<Risk, string> = {
 // A path as the command would see it: absolute as given, else under the command's cd / git -C, else the session's directory.
 async function resolveIn($: EngineInterface, command: string, path?: string): Promise<string> {
   const cwd = await $.session.cwd()
+  const host = (p: string) => hostPath(p, session.env.HOME, platformOf(session.env) === 'windows')
   const named = commandDir(command)
-  const dir = named === undefined ? cwd : isAbsolute(named) ? named : `${cwd}/${named}`
-  return path === undefined ? dir : isAbsolute(path) ? path : `${dir}/${path}`
+  const dir = named === undefined ? cwd : isAbsolute(host(named)) ? host(named) : `${cwd}/${named}`
+  return path === undefined ? dir : isAbsolute(host(path)) ? host(path) : `${dir}/${path}`
 }
 
 // Whether a recursive delete of the path would follow a link into another tree: the path is itself a
@@ -55,10 +56,11 @@ async function holdsLink($: EngineInterface, path: string): Promise<'yes' | 'no'
   if (stat.isLink) return 'yes'
   if (stat.kind !== 'dir' || platformOf(session.env) !== 'windows') return 'no'
   const run = await $.process.run(['cmd', '/c', 'dir', '/AL', '/S', '/B', path.replace(/\//g, '\\')], { timeoutMs: 8_000 }).catch(() => undefined)
-  // dir exits 1 with nothing listed when there is no link; a timeout ends it with no listing either.
+  // dir exits 1 with nothing listed when there is no link (its message is in the system's language); a
+  // timeout rejects, so it never gets here.
   if (run === undefined) return 'unknown'
   if (run.stdout.trim() !== '') return 'yes'
-  return run.exitCode === 0 || /File Not Found/i.test(run.stderr) ? 'no' : 'unknown'
+  return run.exitCode === 0 || run.exitCode === 1 ? 'no' : 'unknown'
 }
 
 async function currentBranch($: EngineInterface, command: string): Promise<string | undefined> {
@@ -117,31 +119,37 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   if (!guardGit) return undefined
   const risks = shellRisks(command)
   if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
-  for (const target of recursiveDeletes(command)) {
-    const linked = await holdsLink($, await resolveIn($, command, target))
-    if (linked === 'yes')
-      return refuse($, 'delete through a link', `it deletes ${target} recursively and ${target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
-    if (linked === 'unknown')
-      return refuseOnce($, command, 'delete through a link', `it deletes ${target} recursively and the check for junctions inside it (dir /AL /S /B) did not finish, so a junction there could carry the delete into another tree. Check it yourself, or`)
-  }
-  // Sometimes intended, such as cleaning up a fresh repository, so it is a reminder.
-  for (const branch of forcePushes(command)) {
-    const target = branch ?? (await currentBranch($, command))
-    if (target !== undefined && isDefaultBranch(target))
-      return refuseOnce($, command, 'force push', `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended`)
-  }
+  // The refusals come first, so a reminder that was answered cannot let one through.
+  const deletes: { target: string; linked: 'yes' | 'no' | 'unknown' }[] = []
+  for (const target of recursiveDeletes(command)) deletes.push({ target, linked: await holdsLink($, await resolveIn($, command, target)) })
+  const through = deletes.find(d => d.linked === 'yes')
+  if (through !== undefined)
+    return refuse($, 'delete through a link', `it deletes ${through.target} recursively and ${through.target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
   const shared = risks.filter(r => r !== 'link-node-modules')
   const agentsRunning = shared.length > 0 && (agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS)
   if (agentsRunning && (await isMainTree($, command))) {
     const risk = shared[0] as Risk
     return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
   }
-  // Discarding is often what the person asked for, so it is a reminder that names what goes.
+  // Reminders, each answered once: a call sent again passes the one it answered and meets the next.
+  for (const { target } of deletes.filter(d => d.linked === 'unknown')) {
+    const reminded = await refuseOnce($, command, 'delete through a link', `it deletes ${target} recursively and the check for junctions inside it (dir /AL /S /B) did not finish, so a junction there could carry the delete into another tree. Check it yourself, or`)
+    if (reminded !== undefined) return reminded
+  }
+  // Sometimes intended, such as cleaning up a fresh repository.
+  for (const branch of forcePushes(command)) {
+    const target = branch ?? (await currentBranch($, command))
+    if (target === undefined || !isDefaultBranch(target)) continue
+    const reminded = await refuseOnce($, command, 'force push', `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended`)
+    if (reminded !== undefined) return reminded
+  }
+  // Discarding is often what the person asked for, so the reminder names what goes.
   for (const discard of discards(command)) {
     const lost = await lostFiles($, command, discard)
     if (lost.length === 0) continue
     const named = `${lost.slice(0, 8).join(', ')}${lost.length > 8 ? ` and ${lost.length - 8} more` : ''}`
-    return refuseOnce($, command, 'discard changes', `it throws away uncommitted work that git cannot bring back: ${discard.verb === 'clean' ? 'untracked files' : 'changes to'} ${named}. Commit or \`git stash\` them first, or narrow the command to the files meant. If discarding them is intended`)
+    const reminded = await refuseOnce($, command, 'discard changes', `it throws away uncommitted work that git cannot bring back: ${discard.verb === 'clean' ? 'untracked files' : 'changes to'} ${named}. Commit or \`git stash\` them first, or narrow the command to the files meant. If discarding them is intended`)
+    if (reminded !== undefined) return reminded
   }
   return undefined
 }
@@ -236,7 +244,8 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
       // Code can mean an escape (a regex, a test of an escaper); prose and prompts never do.
       const file = writtenFile(tool, input)
       if (file === undefined || isProse(file.path)) return refuse($, 'CJK as \\u escapes', reason)
-      return (await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'CJK as \\u escapes', `${reason}. If the escape itself is meant here`)) ?? next(e)
+      const reminded = await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'CJK as \\u escapes', `${reason}. If the escape itself is meant here`)
+      if (reminded !== undefined) return reminded
     }
     // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
     const hans = await judgeHans($, tool, input)

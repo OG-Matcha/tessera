@@ -114,6 +114,45 @@ test('on Windows a listing that did not finish is a reminder, and no link listed
   expect((await $.tool.call(call)).deny).toBe(undefined)
 })
 
+test('on Windows no link listed is a pass, whatever language dir speaks', async ($, on) => {
+  windows(on, { exitCode: 1, stdout: '', stderr: '找不到檔案\n' })
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf dist' })).deny).toBe(undefined)
+})
+
+test('a reminder that was answered does not pass the refusal behind it', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('env.get', (_, e) => ({ value: (e as { name?: string }).name === 'OS' ? 'Windows_NT' : undefined }) as never)
+  on('session.start', () => ({ cwd: 'C:/w' }))
+  on('session.cwd', () => ({ value: 'C:/w' }))
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  // big-dir's listing times out; wt-b's lists a junction.
+  on('process.run', (_, e) => (String((e as { argv: string[] }).argv.at(-1)).endsWith('big-dir') ? Promise.reject(new Error('timed out')) : { value: { exitCode: 0, stdout: 'C:\\w\\wt-b\\node_modules\n', stderr: '' } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  const call = { tool: 'Bash', command: 'rm -rf big-dir wt-b' } as const
+  expect((await $.tool.call(call)).deny).toContain('wt-b is or holds')
+  expect((await $.tool.call(call)).deny).toContain('wt-b is or holds')
+})
+
+test('a Git Bash path on Windows reaches the file system', async ($, on) => {
+  const stats: string[] = []
+  on('ui.toast', () => ({ value: undefined }))
+  on('env.get', (_, e) => ({ value: { OS: 'Windows_NT', HOME: 'C:/Users/u' }[(e as { name: string }).name] }) as never)
+  on('session.start', () => ({ cwd: 'C:/w' }))
+  on('session.cwd', () => ({ value: 'C:/w' }))
+  on('fs.stat', (_, e) => {
+    stats.push(String((e as { path: string }).path))
+    return { value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true } } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf /c/w/link' })).deny).toContain('is or holds a junction')
+  expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/wt' })).deny).toContain('is or holds a junction')
+  expect(stats.map(s => s.replace(/\\/g, '/'))).toEqual(['C:/w/link', 'C:/Users/u/wt'])
+})
+
 test('elsewhere only a target that is itself a link is refused', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
   on('session.cwd', () => ({ value: '/w' }))

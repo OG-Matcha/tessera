@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 在多數終端機裡，貼上的圖只顯示 `[Image #1]` | | 輸入框上方顯示縮圖：kitty、Ghostty 顯示原圖，其他終端機用色塊 |
 | 貼上的文字送出前就被摺疊成 `[Pasted text #1 +40 lines]` | [#23134](https://github.com/anthropics/claude-code/issues/23134) | 在輸入框上方顯示前幾行 |
-| 韓文、中文、日文被寫成 `\uXXXX`，結果變成錯字 | [#83033](https://github.com/anthropics/claude-code/issues/83033) | 寫入前就擋下 |
+| 韓文、中文、日文被寫成 `\uXXXX`，結果變成錯字 | [#83033](https://github.com/anthropics/claude-code/issues/83033) | 寫入前就擋下；程式碼裡可能是刻意的跳脫，提醒一次 |
 | 用中文問問題，因為貼的 log 是英文，Claude 就用英文回答 | | 依你自己打的字的語言回覆 |
 | 寫繁中專案時，Claude 寫進簡體字或簡中用語 | | 擋下一次，並列出 zh-TW 寫法 |
 | 開新 session 或 `/clear` 之後，忘了上次還有什麼沒做 | | 輸入框上方提示沒做完的待辦 |
@@ -85,10 +85,11 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 | 功能 | 預設 | 說明 |
 | --- | --- | --- |
+| 監看背景工作 | 開 | Claude 丟到背景的指令十分鐘（`backgroundQuietMinutes`）沒有新輸出時，輸入框上方會多一列：**問 Claude** 把查看這個工作的請求填進輸入框，**忽略** 就不再提。卡住的指令本來不會回報，要等你去問才知道 |
 | Python 用 UTF-8 | 開 | Windows 上替 session 設 `PYTHONUTF8=1`，Claude 執行的 Python 改用 UTF-8 讀寫，不再卡在系統 code page（中日韓文字出現 `UnicodeEncodeError` 或印成 `?`）；你自己設過這個變數就不動，其他系統上沒有作用 |
 | 工作區守門 | 開 | 擋下穿過連結的遞迴刪除、連到 `node_modules` 的連結；強制推送到 `main` 或 `master` 前，以及 `git reset --hard`、`git checkout -- <路徑>`、`git restore`、`git clean -f` 會丟掉未提交的改動前，列出檔案提醒一次；agent 執行時擋下改寫主樹和 `git add -A` |
 | heredoc 守門 | 開 | Bash 的 heredoc 分隔符號沒加引號（`<<EOF`），內文又會被 shell 改掉時提醒一次：`${x}`、`$(cmd)`、反引號被展開，`\\` 變成 `\`；再送一次就執行 |
-| agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定 |
+| agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定；設成 `choose` 或固定模型時則擋下，直到指定為止 |
 
 ### 選用
 
@@ -99,7 +100,6 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | 用語表守門 | 關 | repo 的 `CLAUDE.md` 有含 **用語** 和 **避免** 兩欄的表格時，寫入檔案帶到「避免」的寫法時提醒一次並列出該用的詞；沒有這種表格就什麼都不做 |
 | Workflow 引用原話 | 關 | Workflow 腳本必須逐字引用你說過的話，agent 才不會因為你後來的一句提問就停工 |
 | 客戶回饋收件匣 | 關 | 貼上的聊天紀錄（`22:55 名字 訊息`）變成編號項目；和已修項目相似的抱怨會標成可能回歸 |
-| 額度重置後續跑 | 關 | 額度用完中斷後，在重置後一分鐘自動繼續 |
 
 ## 指令
 
@@ -129,7 +129,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 ## 在你電腦上做了什麼
 
-自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
+自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 
@@ -144,6 +144,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | 守門 | 擋下的理由，一小段 | 只有真的擋下時 |
 | agent 自動選模型 | 另外一次 Haiku 呼叫，帶 agent 任務的前 2,000 字 | 每次沒指定模型的 Agent 呼叫；不進你的對話 |
 | 接續未完成 | 量不出差別：Claude Code 用到待辦工具時才載入 | |
+| 監看背景工作 | 沒有，除非你按 **問 Claude** 並送出它填好的提示 | |
 | 客戶回饋收件匣 | 一段列出收進哪些項目的說明 | 你貼上聊天紀錄時 |
 | 回覆美化、貼上預覽、摺疊長差異 | 0：只改顯示 | |
 

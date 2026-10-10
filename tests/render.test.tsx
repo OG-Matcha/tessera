@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { breakUnits, shortPath } from '../hooks/render'
+import { breakUnits, shortPath, width, wrapRanges } from '../hooks/render'
 import { parse } from '../hooks/markdown'
 import { PRESETS } from '../hooks/presets'
 import { resolveStyle } from '../hooks/theme'
@@ -347,4 +347,17 @@ test('a bare URL stops before CJK text and punctuation, but keeps a CJK path', (
   expect(links('說明在 https://example.com/a）、https://example.com/b」，還有 https://example.com/c，')).toEqual(['https://example.com/a', 'https://example.com/b', 'https://example.com/c'])
   expect(links('條目 https://zh.wikipedia.org/wiki/中文。')).toEqual(['https://zh.wikipedia.org/wiki/中文'])
   expect(links('see https://example.com/x?q=日本語#節 now.')).toEqual(['https://example.com/x?q=日本語#節'])
+  expect(links('見 https://zh.wikipedia.org/wiki/中文-文件 和 https://zh.wikipedia.org/wiki/台北·市')).toEqual(['https://zh.wikipedia.org/wiki/中文-文件', 'https://zh.wikipedia.org/wiki/台北·市'])
+  expect(links('全形 https://example.com/ＡＢ 也算')).toEqual(['https://example.com/ＡＢ'])
+  // A CJK character right after a Latin letter ends the link, as it does before 就知道.
+  expect(links('https://zh.wikipedia.org/wiki/C語言')).toEqual(['https://zh.wikipedia.org/wiki/C'])
+})
+
+test('a break unit that ends inside a grapheme cluster keeps the cluster whole and counts its width', () => {
+  const vs = String.fromCharCode(0xfe0f)
+  const dakuten = String.fromCharCode(0x3099)
+  const cut = (text: string, w: number) => wrapRanges(text, w).map(([a, b]) => text.slice(a, b))
+  expect(cut(`abc字${vs}`, 4)).toEqual(['abc', `字${vs}`])
+  expect(cut(`abcカ${dakuten}イト${dakuten}`, 4)).toEqual(['abc', `カ${dakuten}イ`, `ト${dakuten}`])
+  for (const line of cut(`名前は葛${String.fromCodePoint(0xe0100)}城`, 6)) expect(width(line)).toBeLessThanOrEqual(6)
 })

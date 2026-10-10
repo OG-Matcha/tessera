@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- The marketplace is named `og-matcha`, so the install is `tessera@og-matcha`. Another Claude Code plugin is also called tessera with a marketplace of the same name, and Claude Code keeps one marketplace per name, so the two could not be added side by side. An install made as `tessera@tessera` keeps running but no longer updates; the README says how to move it, and tessera says so once above the prompt.
+- The marketplace is named `og-matcha`, so the install is `tessera@og-matcha`. Another Claude Code plugin is also called tessera with a marketplace of the same name, and Claude Code keeps one marketplace per name, so the two could not be added side by side. An install made as `tessera@tessera` keeps running but no longer updates; the README says how to move it, and tessera says so once above the prompt. Option values stay with the install ID, so they are picked again after the move.
 
 ### Fixed
 

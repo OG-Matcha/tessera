@@ -60,6 +60,8 @@ claude plugin marketplace add OG-Matcha/tessera
 claude plugin install tessera@og-matcha --scope user
 ```
 
+Claude Code 的選項值跟著安裝 ID 走，搬完後用 `/tessera setup` 或 `/plugin configure tessera@og-matcha` 再選一次。
+
 > [!IMPORTANT]
 > tessera 已經包含 [prismantis](https://github.com/NahumLitvin/prismantis) 的回覆美化，以及 [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view) 的貼圖預覽概念。請先移除這兩個 mod，兩個 mod 畫同一塊畫面會互相衝突。
 

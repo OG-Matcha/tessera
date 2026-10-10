@@ -60,6 +60,8 @@ claude plugin marketplace add OG-Matcha/tessera
 claude plugin install tessera@og-matcha --scope user
 ```
 
+Claude Code keeps a plugin's option values with its install ID, so pick yours again with `/tessera setup` or `/plugin configure tessera@og-matcha`.
+
 > [!IMPORTANT]
 > tessera includes the reply rendering of [prismantis](https://github.com/NahumLitvin/prismantis) and the paste preview idea of [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view). Uninstall those two first; two mods drawing the same part of the screen fight over it.
 

@@ -139,9 +139,9 @@ test('at exit the record is marked ended with no repository lookup, which the sh
   on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: false })
   await $.tool.call({ tool: 'TaskCreate', subject: 'ship it', description: 'x' })
-  expect(repoLookups).toBe(1)
+  const lookups = repoLookups
   await $.session.end({ reason: 'exit', sessionId: 'now', resume: { id: 'now' } } as never)
-  expect(repoLookups).toBe(1)
+  expect(repoLookups).toBe(lookups)
   const record = (store as Record<string, { ended?: true; open: string[] }>).now
   expect(record?.ended).toBe(true)
   expect(record?.open).toEqual(['ship it'])

@@ -4,7 +4,7 @@ import type { Risk } from './guard'
 import type { Discard } from './guard'
 import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
-import { asEditLog, prune, recentEdit, remember } from './edits'
+import { EDITS, asEditLog, prune, recentEdit, remember } from './edits'
 import { commandHead } from './background'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
@@ -44,6 +44,9 @@ const RISK_REASONS: Record<Risk, string> = {
   'stage-all': "it stages every change while agents are running, which can commit another agent's half-done or reverted files. Stage the files you edited by path",
   'link-node-modules': 'a junction or symlink to node_modules lets a recursive delete (git worktree remove, rm -rf) follow it into the main repo. Run the install inside the worktree instead',
 }
+
+// A reminder a call earned: every reminder one call earns is gathered into one deny, answered by one resend.
+type Reminder = { rule: Rule; reason: string }
 
 // A path as the command would see it: absolute as given, else under the command's cd / git -C, else the session's directory.
 // Windows sets USERPROFILE and, outside Git Bash, no HOME.
@@ -134,9 +137,11 @@ async function refuseOnce($: EngineInterface, key: string, rule: Rule, reason: s
 // every reminder the command earns is gathered into one, answered by one resend: given one at a time,
 // two hits of one rule in a command (two discards) would be refused forever, and hits of several rules
 // would take a resend each.
-async function judgeShell($: EngineInterface, command: string, agentId: string | undefined) {
-  if (!guardGit && !guardData) return undefined
-  const reminders: { rule: Rule; reason: string }[] = []
+async function judgeShell($: EngineInterface, command: string, agentId: string | undefined, heredoc: boolean) {
+  const reminders: Reminder[] = []
+  const token = heredoc && guardHeredoc ? expandedHeredoc(command) : undefined
+  if (token !== undefined)
+    reminders.push({ rule: 'unquoted heredoc', reason: `its heredoc delimiter is unquoted, so the shell expands ${token} in the body before anything is written: \${x}, $(cmd) and backticks are replaced and \\\\ becomes \\. Quote the delimiter (<<'EOF') to keep the text as written. If the expansion is intended` })
   let discarded = false
   if (guardGit) {
     const risks = shellRisks(command)
@@ -180,7 +185,9 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
       reminders.push({ rule: 'data reset', reason: `it runs ${reset}, which throws away a database or its volumes and everything in them. For a development database meant to be reset, go ahead; for anything shared or holding real data, ask the person first. If resetting it is intended` })
   const first = reminders[0]
   if (first === undefined) return undefined
-  const reminded = await refuseOnce($, `${reminders.map(r => r.rule).join('+')}\n${command}`, first.rule, reminders.map(r => r.reason).join('; and '))
+  // Keyed by the command alone: a reminder that depends on a check that may not finish (the junction
+  // listing) must not change the key between two sends of one command.
+  const reminded = await refuseOnce($, command, first.rule, reminders.map(r => r.reason).join('; and '))
   if (reminded !== undefined) return reminded
   if (stashBeforeDiscard && discarded) await stashSnapshot($, command)
   return undefined
@@ -202,7 +209,7 @@ const ENCODING_READ_MAX = 1_048_576
 // Files the person said may be rewritten as UTF-8, for the rest of the session.
 const acceptedEncodings = new Set<string>()
 
-async function judgeEncoding($: EngineInterface, tool: string, input: Record<string, unknown>) {
+async function judgeEncoding($: EngineInterface, tool: string, input: Record<string, unknown>): Promise<Reminder | undefined> {
   if (!guardEncoding || (tool !== 'Edit' && tool !== 'MultiEdit' && tool !== 'Write' && tool !== 'NotebookEdit')) return undefined
   const file = writtenFile(tool, input)
   if (file === undefined || file.path === '' || acceptedEncodings.has(file.path)) return undefined
@@ -212,48 +219,43 @@ async function judgeEncoding($: EngineInterface, tool: string, input: Record<str
   if (read === undefined) return undefined
   const encoding = encodingOf(Uint8Array.fromBase64(read.base64))
   if (encoding === 'utf-8') return undefined
-  const reminded = await refuseOnce($, file.path, 'file encoding', `it edits ${file.path}, and ${encodingNote(encoding)}. Convert the file to UTF-8 first (iconv, or the editor's "save with encoding"), keeping the original, or ask the person. If rewriting it as UTF-8 is intended`)
-  if (reminded === undefined) acceptedEncodings.add(file.path)
-  return reminded
+  return { rule: 'file encoding', reason: `it edits ${file.path}, and ${encodingNote(encoding)}. Convert the file to UTF-8 first (iconv, or the editor's "save with encoding"), keeping the original, or ask the person. If rewriting it as UTF-8 is intended` }
 }
 
-const EDITS = 'edits'
-
-// The session ids this conversation has had: a /clear ends one and starts another in the same terminal,
-// and the cleared one's edits are still this conversation's. register.tsx adds to it at session.end.
-export const guards = { ownSessions: new Set<string>() }
-
 // A file another session on this machine edited in the last half hour may still be in its hands. Entries
-// past the window are dropped here as well as at each write, so the store holds no stale paths.
-async function judgeSessions($: EngineInterface, tool: string, input: Record<string, unknown>) {
+// past the window are dropped here as well as at each write, so the store holds no stale paths. A /clear
+// or /resume re-keys the ended conversation's entries to the new id (register.tsx), so they stay its own.
+async function judgeSessions($: EngineInterface, tool: string, input: Record<string, unknown>): Promise<Reminder | undefined> {
   if (!guardSessions) return undefined
   const file = writtenFile(tool, input)
   if (file === undefined || file.path === '') return undefined
-  const [stored, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id(), $.clock.now()])
+  const [stored, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id().catch(() => undefined), $.clock.now()])
+  if (sessionId === undefined) return undefined
   const log = asEditLog(stored)
   const live = prune(log, now)
   if (live !== log) await $.store.set(EDITS, live).catch(() => undefined)
-  const other = recentEdit(live, file.path, s => s === sessionId || guards.ownSessions.has(s), now)
+  const other = recentEdit(live, file.path, s => s === sessionId, now)
   if (other === undefined) return undefined
-  return refuseOnce($, file.path, 'other session', `another Claude Code session on this machine edited ${file.path} ${other.ago} and may still be working in it. Read the file again before changing it, keep to the lines your task needs, and if both sessions are meant to work on this file, tell the person. If the edit is still right`)
+  return { rule: 'other session', reason: `another Claude Code session on this machine edited ${file.path} ${other.ago} and may still be working in it. Read the file again before changing it, keep to the lines your task needs, and if both sessions are meant to work on this file, tell the person. If the edit is still right` }
 }
 
 // Every file write that went through is noted for the other sessions, once the tool has run.
 async function noteEdit($: EngineInterface, tool: string, input: Record<string, unknown>) {
   const file = guardSessions ? writtenFile(tool, input) : undefined
   if (file === undefined || file.path === '') return
-  const [log, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id(), $.clock.now()])
+  const [log, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id().catch(() => undefined), $.clock.now()])
+  if (sessionId === undefined) return
   await $.store.set(EDITS, remember(asEditLog(log), file.path, sessionId, now)).catch(() => undefined)
 }
 
-async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {
+async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>): Promise<Reminder | undefined> {
   if (guardHans === 'off' || (guardHans === 'auto' && session.voice !== 'zh-Hant')) return undefined
   const file = writtenFile(tool, input)
   if (file === undefined || zhTwFixes(file.path, file.texts, '').length === 0) return undefined
   const existing = await $.fs.read(file.path).catch(() => '')
   const found = zhTwFixes(file.path, file.texts, typeof existing === 'string' ? existing : '')
   if (found.length === 0) return undefined
-  return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'zh-TW wording', `it writes Simplified characters or zh-CN terms into zh-TW text (${found.slice(0, 8).join(', ')}). Use the zh-TW forms. If the original is intended here, such as a quotation or a zh-CN string`)
+  return { rule: 'zh-TW wording', reason: `it writes Simplified characters or zh-CN terms into zh-TW text (${found.slice(0, 8).join(', ')}). Use the zh-TW forms. If the original is intended here, such as a quotation or a zh-CN string` }
 }
 
 async function projectGlossary($: EngineInterface): Promise<Term[]> {
@@ -265,7 +267,7 @@ async function projectGlossary($: EngineInterface): Promise<Term[]> {
   return glossary.terms
 }
 
-async function judgeGlossary($: EngineInterface, tool: string, input: Record<string, unknown>) {
+async function judgeGlossary($: EngineInterface, tool: string, input: Record<string, unknown>): Promise<Reminder | undefined> {
   if (!guardGlossary) return undefined
   const file = writtenFile(tool, input)
   if (file === undefined) return undefined
@@ -278,13 +280,7 @@ async function judgeGlossary($: EngineInterface, tool: string, input: Record<str
   const existing = await $.fs.read(file.path).catch(() => '')
   const hits = glossaryHits(terms, file.texts, typeof existing === 'string' ? existing : '')
   if (hits.length === 0) return undefined
-  return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'project glossary', `it writes wordings the glossary in CLAUDE.md replaces (${hits.slice(0, 8).join(', ')}). Use the glossary's terms. If the other wording is intended here, such as a quotation or a note about the glossary itself`)
-}
-
-async function judgeHeredoc($: EngineInterface, command: string) {
-  const token = guardHeredoc ? expandedHeredoc(command) : undefined
-  if (token === undefined) return undefined
-  return refuseOnce($, command, 'unquoted heredoc', `its heredoc delimiter is unquoted, so the shell expands ${token} in the body before anything is written: \${x}, $(cmd) and backticks are replaced and \\\\ becomes \\. Quote the delimiter (<<'EOF') to keep the text as written. If the expansion is intended`)
+  return { rule: 'project glossary', reason: `it writes wordings the glossary in CLAUDE.md replaces (${hits.slice(0, 8).join(', ')}). Use the glossary's terms. If the other wording is intended here, such as a quotation or a note about the glossary itself` }
 }
 
 // The model an agent's task calls for, picked by Haiku from the same guidance `choose` gives Claude.
@@ -335,30 +331,33 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
     const tool = String(e.tool)
     const input = e as unknown as Record<string, unknown>
     const escape = guardCjk ? misEscapedCjk(tool, input) : undefined
-    if (escape !== undefined) {
-      const reason = `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`
-      // Code can mean an escape (a regex, a test of an escaper); prose and prompts never do.
-      const file = writtenFile(tool, input)
-      if (file === undefined || isProse(file.path)) return refuse($, 'CJK as \\u escapes', reason)
-      const reminded = await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'CJK as \\u escapes', `${reason}. If the escape itself is meant here`)
-      if (reminded !== undefined) return reminded
+    const escapeReason = `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`
+    const file = writtenFile(tool, input)
+    if (file === undefined) {
+      // Prompts, todos and questions never mean an escape.
+      if (escape !== undefined) return refuse($, 'CJK as \\u escapes', escapeReason)
+      // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
+      if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
+      return (await judgeShell($, String(input.command ?? ''), e.agentId, tool === 'Bash')) ?? next(e)
     }
+    // Prose never means an escape either; code can (a regex, a test of an escaper), so there it is a reminder.
+    if (escape !== undefined && isProse(file.path)) return refuse($, 'CJK as \\u escapes', escapeReason)
+    // Every reminder the edit earns is gathered into one, answered by one resend; judged one at a time,
+    // each would take a resend of its own.
+    const reminders: Reminder[] = []
+    if (escape !== undefined) reminders.push({ rule: 'CJK as \\u escapes', reason: `${escapeReason}. If the escape itself is meant here` })
     const encoding = await judgeEncoding($, tool, input)
-    if (encoding !== undefined) return encoding
-    // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
-    const hans = await judgeHans($, tool, input)
-    if (hans !== undefined) return hans
-    const terms = await judgeGlossary($, tool, input)
-    if (terms !== undefined) return terms
-    const sessions = await judgeSessions($, tool, input)
-    if (sessions !== undefined) return sessions
-    if (tool !== 'Bash' && tool !== 'PowerShell') {
-      const result = await next(e)
-      if (result.deny === undefined) await noteEdit($, tool, input)
-      return result
+    for (const reminder of [encoding, await judgeHans($, tool, input), await judgeGlossary($, tool, input), await judgeSessions($, tool, input)]) if (reminder !== undefined) reminders.push(reminder)
+    const first = reminders[0]
+    if (first !== undefined) {
+      const reminded = await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, first.rule, reminders.map(r => r.reason).join('; and '))
+      if (reminded !== undefined) return reminded
+      if (encoding !== undefined) acceptedEncodings.add(file.path)
     }
-    const command = String(input.command ?? '')
-    return (tool === 'Bash' ? await judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
+    const result = await next(e)
+    // An edit the tool refused or that failed (old_string not found, a permission refused) changed nothing.
+    if (result.deny === undefined && !('isError' in result && result.isError === true)) await noteEdit($, tool, input)
+    return result
   }).catch((_, e, next) => next(e))
   on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
     if (agentModel === undefined || e.model !== undefined) return next(e)

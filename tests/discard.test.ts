@@ -142,3 +142,16 @@ test('the database guard works with the tree guard off', { options: { guardGit: 
   expect((await $.tool.call(call)).deny).toContain('prisma migrate reset')
   expect((await $.tool.call(call)).deny).toBe(undefined)
 })
+
+test('an unquoted heredoc and a discard in one command are one reminder, answered by one resend', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', git({ status: ' M src/a.ts\n' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const call = { tool: 'Bash', command: 'cat > run.sh <<EOF\necho $(date)\nEOF\ngit reset --hard' } as const
+  const first = (await $.tool.call(call)).deny
+  expect(first).toContain('heredoc delimiter is unquoted')
+  expect(first).toContain('src/a.ts')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})

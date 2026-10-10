@@ -10,7 +10,7 @@ export const notifiedTask = (text: string): string | undefined => /<task-notific
 
 // One line of the command, for the band, cut between code points.
 export const commandHead = (command: string): string => {
-  const line = [...(command.split('\n').find(l => l.trim() !== '') ?? '')]
+  const line = [...(command.split('\n').find(l => l.trim() !== '') ?? '').replace(/\r$/, '')]
   return line.length > 60 ? `${line.slice(0, 59).join('')}…` : line.join('')
 }
 

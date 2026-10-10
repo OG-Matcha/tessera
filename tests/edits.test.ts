@@ -1,5 +1,5 @@
 import type { TestBody } from 'claude-code/testing'
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 import { EDIT_WINDOW_MS, prune, recentEdit, remember } from '../hooks/edits'
 
@@ -27,7 +27,7 @@ test('remembering an edit drops the entries outside the window and keys a Window
 
 type Mock = Parameters<TestBody>[1]
 
-const sharedStore = (on: Mock, edits: unknown) => {
+const sharedStore = (on: Mock, edits: unknown, session: () => string = () => 'mine') => {
   const store = { edits }
   on('store.get', (_, e) => ({ value: store[(e as { key: string }).key as 'edits'] }) as never)
   on('store.set', (_, e) => {
@@ -35,7 +35,7 @@ const sharedStore = (on: Mock, edits: unknown) => {
     if (key === 'edits') store.edits = value
     return { value: undefined } as never
   })
-  on('session.id', () => ({ value: 'mine' }) as never)
+  on('session.id', () => ({ value: session() }) as never)
   on('ui.toast', () => ({ value: undefined }))
   on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited' }) as never)
   on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
@@ -79,15 +79,44 @@ test('an edit another plugin or the engine denied is not noted', async ($, on) =
   expect(store.edits).toEqual({})
 })
 
-test('after /clear the cleared conversation’s own edits are not another session’s', { options: { carryOver: false } }, async ($, on) => {
-  sharedStore(on, { 'c:/w/a.ts': { session: 'before-clear', at: 5 * MIN } })
+// A /clear or an in-session /resume starts a new conversation in the same terminal: once its id is in
+// place, the ended one's edits are re-keyed to it, so they stay this terminal's own through a hot reload.
+for (const reason of ['clear', 'resume'] as const)
+  test(`after /${reason} the ended conversation’s own edits are re-keyed to the new one`, { options: { carryOver: false } }, async ($, on) => {
+    let session = 'before'
+    const clock = mock.clock(on)
+    on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited' }) as never)
+    const store = sharedStore(on, { 'c:/w/a.ts': { session: 'before', at: 0 }, 'c:/w/b.ts': { session: 'other', at: 0 } }, () => session)
+    on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
+    await $.session.end({ reason, sessionId: 'before', resume: { id: 'before' } } as never)
+    session = 'after'
+    await clock.advance(100)
+    await clock.advance(100)
+    expect(store.edits).toEqual({ 'c:/w/a.ts': { session: 'after', at: 0 }, 'c:/w/b.ts': { session: 'other', at: 0 } })
+    expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/w/a.ts', old_string: 'a', new_string: 'b' } as never)).deny).toBe(undefined)
+    expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/w/b.ts', old_string: 'a', new_string: 'b' } as never)).deny).toContain('another Claude Code session')
+  })
+
+test('an edit that earns the encoding and the session reminder gets one, answered by one resend', async ($, on) => {
+  const big5 = new Uint8Array([0xa4, 0xa4, 0xa4, 0xe5, 0x0a])
+  on('fs.stat', () => ({ value: { kind: 'file', size: big5.length, mtimeMs: 0, isLink: false } }) as never)
+  on('fs.read', () => ({ value: { base64: btoa(String.fromCharCode(...big5)) } }) as never)
+  const store = sharedStore(on, { 'c:/w/menu.txt': { session: 'other', at: 5 * MIN } })
   on('clock.now', () => ({ value: 6 * MIN }) as never)
-  on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
-  const edit = { tool: 'Edit', file_path: 'C:/w/a.ts', old_string: 'a', new_string: 'b' } as never
-  expect((await $.tool.call(edit)).deny).toContain('another Claude Code session')
-  await $.session.end({ reason: 'clear', sessionId: 'before-clear', resume: { id: 'before-clear' } } as never)
-  expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/w/other.ts', old_string: 'a', new_string: 'b' } as never)).deny).toBe(undefined)
+  const edit = { tool: 'Edit', file_path: 'C:/w/menu.txt', old_string: 'a', new_string: 'b' } as never
+  const first = (await $.tool.call(edit)).deny
+  expect(first).toContain('#7134')
+  expect(first).toContain('another Claude Code session')
   expect((await $.tool.call(edit)).deny).toBe(undefined)
+  expect(store.edits).toEqual({ 'c:/w/menu.txt': { session: 'mine', at: 6 * MIN } })
+})
+
+test('an edit the tool reported as failed is not noted', async ($, on) => {
+  on('tool.call', { tool: 'Edit' }, () => ({ result: 'old_string not found', isError: true }) as never)
+  const store = sharedStore(on, {})
+  on('clock.now', () => ({ value: 5 * MIN }) as never)
+  await $.tool.call({ tool: 'Edit', file_path: 'C:/w/x.ts', old_string: 'a', new_string: 'b' } as never)
+  expect(store.edits).toEqual({})
 })
 
 test('with the session guard off nothing is checked or noted', { options: { guardSessions: false } }, async ($, on) => {

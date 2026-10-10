@@ -3,6 +3,7 @@
 export type EditLog = Record<string, { session: string; at: number }>
 
 export const EDIT_WINDOW_MS = 30 * 60_000
+export const EDITS = 'edits'
 
 // One spelling per file: forward slashes, and on a Windows drive path no case, since the file system has none.
 const key = (path: string) => {
@@ -25,6 +26,14 @@ export function recentEdit(log: EditLog, path: string, own: (session: string) =>
 export function prune(log: EditLog, now: number): EditLog {
   const kept = Object.entries(log).filter(([, e]) => now - e.at <= EDIT_WINDOW_MS)
   return kept.length === Object.keys(log).length ? log : Object.fromEntries(kept)
+}
+
+// The log with one session's entries under another id, for a /clear or /resume that starts a new
+// conversation in the same terminal; undefined when it has none.
+export function rekeyed(log: EditLog, from: string, to: string): EditLog | undefined {
+  const entries = Object.entries(log)
+  if (!entries.some(([, e]) => e.session === from)) return undefined
+  return Object.fromEntries(entries.map(([k, e]) => [k, e.session === from ? { ...e, session: to } : e]))
 }
 
 // The log with this edit added and the entries outside the window dropped.

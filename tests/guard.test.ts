@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('one place spelled two ways resolves to one path', () => {
   expect(resolvePath('I:/w/pkg/sub', '../.git')).toBe('i:/w/pkg/.git')
@@ -88,6 +88,21 @@ test('any git option before the verb is skipped, and -C is found behind them', (
   for (const c of ['git --no-optional-locks reset --hard', 'git --git-dir .git reset --hard', 'git -P reset --hard', 'git --work-tree=../wt -c a=b stash']) expect(shellRisks(c)).toEqual(['tree-rewrite'])
   expect(commandDir('git --no-pager -C wt reset --hard')).toBe('wt')
   expect(commandDir('git -c a=b -C wt stash')).toBe('wt')
+})
+
+test('a delete of a root, a drive, home, or the working directory or above has no good reading', () => {
+  expect(rootLike('/', '/w/repo', '/home/u')).toBe(true)
+  expect(rootLike('C:/', 'C:/w/repo', 'C:/Users/u')).toBe(true)
+  expect(rootLike('c:', 'C:/w/repo', 'C:/Users/u')).toBe(true)
+  expect(rootLike('C:/Users/u', 'C:/w/repo', 'C:/Users/u')).toBe(true)
+  expect(rootLike('C:/w/repo', 'C:/w/repo', 'C:/Users/u')).toBe(true)
+  expect(rootLike('C:/w', 'C:/w/repo', 'C:/Users/u')).toBe(true)
+  expect(rootLike('C:/w/repo/dist', 'C:/w/repo', 'C:/Users/u')).toBe(false)
+  expect(rootLike('C:/w/other', 'C:/w/repo', 'C:/Users/u')).toBe(false)
+  expect(rootLike('/w/repo/../repo', '/w/repo', undefined)).toBe(true)
+  expect(recursiveDeletes('rm -rf $HOME/.cache')).toEqual(['~/.cache'])
+  expect(recursiveDeletes('Remove-Item -Recurse $env:USERPROFILE\\tmp')).toEqual(['~\\tmp'])
+  expect(recursiveDeletes('rm -rf $OTHER/x')).toEqual([])
 })
 
 test('Git Bash paths on Windows are the file system’s', () => {

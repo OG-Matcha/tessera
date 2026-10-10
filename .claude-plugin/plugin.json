@@ -353,7 +353,7 @@
     "guardGit": {
       "type": "boolean",
       "title": "Guard the shared tree",
-      "description": "Refuse a recursive delete (rm -r, Remove-Item -Recurse, rmdir /s, git worktree remove) whose target is itself a junction or symlink, or on Windows holds a junction (a reminder, passed when sent again, when the listing does not finish), and junctions or symlinks to node_modules; remind once before a force push (--force, -f, --force-with-lease, +refspec) to main or master, and before git reset --hard, checkout or restore of paths, or clean -f would throw away uncommitted work, naming the files, letting the same command through when sent again; while agents work, also refuse git checkout/switch/reset/restore/stash/clean -f and git add -A / commit -a in the main working tree.",
+      "description": "Refuse a recursive delete (rm -r, Remove-Item -Recurse, rmdir /s, git worktree remove) of the root, a drive, your home directory, or the session's directory or one above it, and one whose target is itself a junction or symlink, or on Windows holds a junction (a reminder, passed when sent again, when the listing does not finish), and junctions or symlinks to node_modules; remind once before a force push (--force, -f, --force-with-lease, +refspec) to main or master, and before git reset --hard, checkout or restore of paths, or clean -f would throw away uncommitted work, naming the files, letting the same command through when sent again; while agents work, also refuse git checkout/switch/reset/restore/stash/clean -f and git add -A / commit -a in the main working tree.",
       "default": true
     },
     "agentModel": {

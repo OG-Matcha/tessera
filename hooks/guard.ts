@@ -200,7 +200,19 @@ export function recursiveDeletes(command: string): string[] {
       targets.push(...(named >= 0 && args[named + 1] ? [args[named + 1] as string] : plain))
     } else if (name === 'git' && args[0] === 'worktree' && args[1] === 'remove') targets.push(...plain.slice(2))
   }
-  return targets.filter(t => t !== '' && !/[$*?`]/.test(t))
+  // The home variables are read as ~, which hostPath expands; any other variable makes a target unknowable.
+  return targets.map(t => t.replace(/^(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE)(?=[\\/]|$)/i, '~')).filter(t => t !== '' && !/[$*?`]/.test(t))
+}
+
+// A recursive delete of one of these has no good reading: the file system's root, a drive, the home
+// directory, or the directory the session works in or one above it.
+export function rootLike(path: string, cwd: string, home: string | undefined): boolean {
+  const norm = (p: string) => resolvePath('', p.replace(/^([a-zA-Z]:)$/, '$1/')).replace(/\/+$/, '')
+  const target = norm(path)
+  if (target === '' || /^[a-z]:$/.test(target)) return true
+  if (home !== undefined && target === norm(home)) return true
+  const work = norm(cwd)
+  return target === work || work.startsWith(`${target}/`)
 }
 
 // Hangul, kana, CJK ideographs and their punctuation: scripts a model should write as themselves.

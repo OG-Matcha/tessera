@@ -136,6 +136,24 @@ test('a reminder that was answered does not pass the refusal behind it', async (
   expect((await $.tool.call(call)).deny).toContain('wt-b is or holds')
 })
 
+test('a recursive delete of home, the working directory or a parent is refused outright', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('env.get', (_, e) => ({ value: { OS: 'Windows_NT', HOME: 'C:/Users/u' }[(e as { name: string }).name] }) as never)
+  on('session.start', () => ({ cwd: 'C:/w/repo' }))
+  on('session.cwd', () => ({ value: 'C:/w/repo' }))
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  await $.session.start({ cwd: 'C:/w/repo', surface: 'terminal', isInteractive: true })
+  for (const command of ['rm -rf ~', 'rm -rf $HOME', 'rm -rf ..', 'rm -rf .', 'rm -rf C:/', 'rm -rf /c/w', 'rmdir /s /q C:\\w\\repo']) {
+    const deny = (await $.tool.call({ tool: 'Bash', command })).deny
+    expect(deny).toContain('Name the directory meant')
+    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBe(deny)
+  }
+  expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf dist' })).deny).toBe(undefined)
+  expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf C:/w/other' })).deny).toBe(undefined)
+})
+
 test('a Git Bash path on Windows reaches the file system', async ($, on) => {
   const stats: string[] = []
   on('ui.toast', () => ({ value: undefined }))
@@ -156,14 +174,13 @@ test('a Git Bash path on Windows reaches the file system', async ($, on) => {
 
 // A file's bytes as the engine hands them to the guard.
 const bytesOf = (on: Parameters<TestBody>[1], files: Record<string, Uint8Array>) => {
+  // A POSIX engine roots C:/… under its working directory, so the tail is what counts.
+  const fileAt = (e: unknown) => Object.entries(files).find(([key]) => String((e as { path: string }).path).replace(/\\/g, '/').endsWith(key))?.[1]
   on('fs.stat', (_, e) => {
-    const file = files[String((e as { path: string }).path).replace(/\\/g, '/')]
+    const file = fileAt(e)
     return (file === undefined ? Promise.reject(new Error('ENOENT')) : { value: { kind: 'file', size: file.length, mtimeMs: 0, isLink: false } }) as never
   })
-  on('fs.read', (_, e) => {
-    const file = files[String((e as { path: string }).path).replace(/\\/g, '/')]
-    return { value: { base64: btoa(String.fromCharCode(...(file ?? new Uint8Array()))) } } as never
-  })
+  on('fs.read', (_, e) => ({ value: { base64: btoa(String.fromCharCode(...(fileAt(e) ?? new Uint8Array()))) } }) as never)
   on('ui.toast', () => ({ value: undefined }))
   on('clock.now', () => ({ value: 0 }) as never)
   on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited' }) as never)

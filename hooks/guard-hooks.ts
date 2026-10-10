@@ -2,7 +2,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { Risk } from './guard'
 import type { Discard } from './guard'
-import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
@@ -123,7 +123,12 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
   // The refusals come first, so a reminder that was answered cannot let one through.
   const deletes: { target: string; linked: 'yes' | 'no' | 'unknown' }[] = []
-  for (const target of recursiveDeletes(command)) deletes.push({ target, linked: await holdsLink($, await resolveIn($, command, target)) })
+  for (const target of recursiveDeletes(command)) {
+    const path = await resolveIn($, command, target)
+    if (rootLike(path, await $.session.cwd(), session.env.HOME ?? session.env.USERPROFILE))
+      return refuse($, 'root delete', `it deletes ${target} recursively, and that is the root, a drive, your home directory, or the directory this session works in or one above it. Name the directory meant`)
+    deletes.push({ target, linked: await holdsLink($, path) })
+  }
   const through = deletes.find(d => d.linked === 'yes')
   if (through !== undefined)
     return refuse($, 'delete through a link', `it deletes ${through.target} recursively and ${through.target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)

@@ -77,6 +77,7 @@ const RULES_EN = {
   'CJK as \\u escapes': 'CJK as \\u escapes',
   'Agent model': 'Agent model',
   'file encoding': 'file encoding',
+  'root delete': 'delete of a root, home or the session directory',
 }
 
 export type Rule = keyof typeof RULES_EN
@@ -96,6 +97,7 @@ const RULES_ZH: Record<Rule, string> = {
   'CJK as \\u escapes': 'CJK 寫成 \\u 跳脫',
   'Agent model': 'Agent 未指定模型',
   'file encoding': '檔案編碼',
+  'root delete': '刪除根目錄、家目錄或 session 目錄',
 }
 
 const EN = {

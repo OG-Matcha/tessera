@@ -116,7 +116,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | --- | --- | --- |
 | 監看背景工作 | 開 | Claude 丟到背景的指令十分鐘（`backgroundQuietMinutes`）沒有新輸出時，輸入框上方會多一列：**問 Claude** 把查看這個工作的請求填進輸入框，**忽略** 就不再提。卡住的指令本來不會回報，要等你去問才知道 |
 | Python 用 UTF-8 | 開 | Windows 上替 session 設 `PYTHONUTF8=1`，Claude 執行的 Python 改用 UTF-8 讀寫，不再卡在系統 code page（中日韓文字出現 `UnicodeEncodeError` 或印成 `?`）；你自己設過這個變數就不動，其他系統上沒有作用 |
-| 工作區守門 | 開 | 擋下穿過連結的遞迴刪除、連到 `node_modules` 的連結；強制推送到 `main` 或 `master` 前，以及 `git reset --hard`、`git checkout -- <路徑>`、`git restore`、`git clean -f` 會丟掉未提交的改動前，列出檔案提醒一次；agent 執行時擋下改寫主樹和 `git add -A` |
+| 工作區守門 | 開 | 擋下對根目錄、磁碟、家目錄、session 目錄或其上層的遞迴刪除、穿過連結的遞迴刪除、連到 `node_modules` 的連結；強制推送到 `main` 或 `master` 前，以及 `git reset --hard`、`git checkout -- <路徑>`、`git restore`、`git clean -f` 會丟掉未提交的改動前，列出檔案提醒一次；agent 執行時擋下改寫主樹和 `git add -A` |
 | heredoc 守門 | 開 | Bash 的 heredoc 分隔符號沒加引號（`<<EOF`），內文又會被 shell 改掉時提醒一次：`${x}`、`$(cmd)`、反引號被展開，`\\` 變成 `\`；再送一次就執行 |
 | agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定；設成 `choose` 或固定模型時則擋下，直到指定為止 |
 

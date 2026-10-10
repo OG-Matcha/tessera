@@ -408,6 +408,22 @@ export const scenarios = [
     check: s => seen(s.cleared, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
   },
   {
+    name: 'root-delete-guard',
+    prompts: true,
+    // A path that reads as a root but, were the delete to run, names nothing: a drive that does not exist, or
+    // a directory that does not exist with .. after it.
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: `Run this exact Bash command and nothing else: rm -rf ${platform() === 'win32' ? 'Q:/' : '/nonexistent-tessera/..'}` },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /Name the directory meant|root delete|根目錄|tessera (refused|blocked)|(1 failed · last|1 個失敗 · 最後)/i),
+  },
+  {
     name: 'encoding-guard',
     prompts: true,
     // menu.txt holds 中文 in Big5; an edit through Claude Code's tools would rewrite it as UTF-8 with � in it.

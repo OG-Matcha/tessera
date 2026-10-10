@@ -55,10 +55,11 @@ let workDir: string | undefined
 // Every variable the platform decisions read, each named literally so the engine can list them, read
 // at once: each is a round trip to the engine.
 async function readEnv($: EngineInterface): Promise<Env> {
-  const [OS, TEMP, HOME, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME] = await Promise.all([
+  const [OS, TEMP, HOME, USERPROFILE, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME] = await Promise.all([
     $.env.get('OS'),
     $.env.get('TEMP'),
     $.env.get('HOME'),
+    $.env.get('USERPROFILE'),
     $.env.get('CLAUDE_CODE_TMPDIR'),
     $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES'),
     $.env.get('TERM'),
@@ -68,7 +69,7 @@ async function readEnv($: EngineInterface): Promise<Env> {
     $.env.get('STY'),
     $.env.get('WSL_DISTRO_NAME'),
   ])
-  return { OS, TEMP, HOME, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME }
+  return { OS, TEMP, HOME, USERPROFILE, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME }
 }
 
 // The reply note sits far back in a long context and stops holding; a last reply in another language

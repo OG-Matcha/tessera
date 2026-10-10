@@ -420,11 +420,12 @@ test('on Windows without HOME, a delete of ~, $HOME or %USERPROFILE% is the home
   on('session.start', () => ({ cwd: 'C:/w' }))
   on('session.cwd', () => ({ value: 'C:/w' }))
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
-  on('tool.call', { tool: 'PowerShell' }, () => ({ result: 'ran' }) as never)
+  // PowerShell is in the Windows build's tool table only, so the name is cast for the Linux typecheck.
+  on('tool.call', { tool: 'PowerShell' as 'Bash' }, () => ({ result: 'ran' }) as never)
   await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
   for (const command of ['rm -rf ~', 'rm -rf $HOME/', 'rm -rf /c/Users/ME', 'rm -rf /c']) expect((await $.tool.call({ tool: 'Bash', command })).deny).toContain('home directory')
-  expect((await $.tool.call({ tool: 'PowerShell', command: 'Remove-Item -Recurse $env:USERPROFILE' })).deny).toContain('home directory')
-  expect((await $.tool.call({ tool: 'PowerShell', command: 'Remove-Item -Recurse %USERPROFILE%\\tmp' })).deny).toBe(undefined)
+  expect((await $.tool.call({ tool: 'PowerShell', command: 'Remove-Item -Recurse $env:USERPROFILE' } as never)).deny).toContain('home directory')
+  expect((await $.tool.call({ tool: 'PowerShell', command: 'Remove-Item -Recurse %USERPROFILE%\\tmp' } as never)).deny).toBe(undefined)
 })
 
 test('on Windows a target holding a cmd operator is never listed, only reminded', async ($, on) => {

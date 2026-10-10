@@ -3,6 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 import type { Risk } from './guard'
 import type { Discard } from './guard'
 import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { encodingNote, encodingOf } from './encoding'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
@@ -25,6 +26,7 @@ let guardCjk = true
 let guardHans = 'auto'
 let guardHeredoc = true
 let guardGlossary = false
+let guardEncoding = true
 let glossary: { root: string; terms: Term[] } | undefined
 // Calls refused by a rule that can misjudge intent, by rule and call, with when: the same call sent
 // again within the window goes through, and calls refused in between do not reset each other.
@@ -154,6 +156,26 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
   return undefined
 }
 
+// Files up to this size are read whole before an edit; a bigger one is left to the edit.
+const ENCODING_READ_MAX = 1_048_576
+// Files the person said may be rewritten as UTF-8, for the rest of the session.
+const acceptedEncodings = new Set<string>()
+
+async function judgeEncoding($: EngineInterface, tool: string, input: Record<string, unknown>) {
+  if (!guardEncoding || (tool !== 'Edit' && tool !== 'MultiEdit' && tool !== 'Write' && tool !== 'NotebookEdit')) return undefined
+  const file = writtenFile(tool, input)
+  if (file === undefined || file.path === '' || acceptedEncodings.has(file.path)) return undefined
+  const stat = await $.fs.stat(file.path).catch(() => undefined)
+  if (stat === undefined || stat.kind !== 'file' || stat.size === 0 || stat.size > ENCODING_READ_MAX) return undefined
+  const read = await $.fs.read(file.path, { as: 'bytes' }).catch(() => undefined)
+  if (read === undefined) return undefined
+  const encoding = encodingOf(Uint8Array.fromBase64(read.base64))
+  if (encoding === 'utf-8') return undefined
+  const reminded = await refuseOnce($, file.path, 'file encoding', `it edits ${file.path}, and ${encodingNote(encoding)}. Convert the file to UTF-8 first (iconv, or the editor's "save with encoding"), keeping the original, or ask the person. If rewriting it as UTF-8 is intended`)
+  if (reminded === undefined) acceptedEncodings.add(file.path)
+  return reminded
+}
+
 async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {
   if (guardHans === 'off' || (guardHans === 'auto' && session.voice !== 'zh-Hant')) return undefined
   const file = writtenFile(tool, input)
@@ -233,6 +255,7 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
   guardHans = options.guardSimplified === 'on' || options.guardSimplified === 'off' ? options.guardSimplified : 'auto'
   guardHeredoc = options.guardHeredoc !== false
   guardGlossary = options.guardGlossary === true
+  guardEncoding = options.guardEncoding !== false
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
@@ -247,6 +270,8 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
       const reminded = await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'CJK as \\u escapes', `${reason}. If the escape itself is meant here`)
       if (reminded !== undefined) return reminded
     }
+    const encoding = await judgeEncoding($, tool, input)
+    if (encoding !== undefined) return encoding
     // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
     const hans = await judgeHans($, tool, input)
     if (hans !== undefined) return hans

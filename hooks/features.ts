@@ -35,6 +35,7 @@ export const FEATURES: Feature[] = [
   flag('pythonUtf8', true, { en: 'Python in UTF-8', 'zh-TW': 'Python 用 UTF-8' }, { en: 'On Windows, sets PYTHONUTF8=1 for the session so Python reads and prints CJK text instead of failing on the code page', 'zh-TW': 'Windows 上替 session 設 PYTHONUTF8=1，Python 讀寫中日韓文字不會卡在 code page' }),
   flag('guardGit', true, { en: 'Tree guard', 'zh-TW': '工作區守門' }, { en: 'Blocks tree rewrites while agents run, deletes through links; reminds before force-pushing main or discarding uncommitted work', 'zh-TW': 'agent 執行時擋下改寫主樹、會穿過連結的刪除；強制推送 main 或丟棄未提交的改動前提醒' }),
   flag('guardCjkEscapes', true, { en: 'CJK escape guard', 'zh-TW': '中日韓跳脫守門' }, { en: 'Refuses Korean, Chinese or Japanese written as \\u escapes in prose and prompts; reminds once in code', 'zh-TW': '文件和提示裡把中日韓文字寫成 \\u 跳脫碼時擋下，程式碼裡提醒一次' }),
+  flag('guardEncoding', true, { en: 'Encoding guard', 'zh-TW': '編碼守門' }, { en: 'Reminds once before an edit to a file that is not UTF-8 (Big5, Shift-JIS, GBK, UTF-16) rewrites it with � characters', 'zh-TW': '編輯不是 UTF-8 的檔案（Big5、Shift-JIS、GBK、UTF-16）前提醒一次，免得內容被改寫成 �' }),
   {
     key: 'guardSimplified',
     isOn: v => v !== 'off',

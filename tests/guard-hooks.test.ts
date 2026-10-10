@@ -154,6 +154,43 @@ test('a Git Bash path on Windows reaches the file system', async ($, on) => {
   expect(stats.map(s => s.replace(/\\/g, '/')).map((s, i) => s.endsWith(['C:/w/link', 'C:/Users/u/wt'][i]!))).toEqual([true, true])
 })
 
+// A file's bytes as the engine hands them to the guard.
+const bytesOf = (on: Parameters<TestBody>[1], files: Record<string, Uint8Array>) => {
+  on('fs.stat', (_, e) => {
+    const file = files[String((e as { path: string }).path).replace(/\\/g, '/')]
+    return (file === undefined ? Promise.reject(new Error('ENOENT')) : { value: { kind: 'file', size: file.length, mtimeMs: 0, isLink: false } }) as never
+  })
+  on('fs.read', (_, e) => {
+    const file = files[String((e as { path: string }).path).replace(/\\/g, '/')]
+    return { value: { base64: btoa(String.fromCharCode(...(file ?? new Uint8Array()))) } } as never
+  })
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited' }) as never)
+  on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
+}
+
+test('an edit to a file that is not UTF-8 is reminded once, then that file is let be for the session', async ($, on) => {
+  bytesOf(on, { 'C:/p/menu.txt': new Uint8Array([0xa4, 0xa4, 0xa4, 0xe5, 0x0a]), 'C:/p/ok.txt': new TextEncoder().encode('中文\n') })
+  const edit = { tool: 'Edit', file_path: 'C:/p/menu.txt', old_string: 'a', new_string: 'b' } as never
+  expect((await $.tool.call(edit)).deny).toContain('#7134')
+  expect((await $.tool.call(edit)).deny).toBe(undefined)
+  expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/p/menu.txt', old_string: 'c', new_string: 'd' } as never)).deny).toBe(undefined)
+  expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/p/ok.txt', old_string: 'a', new_string: 'b' } as never)).deny).toBe(undefined)
+  expect((await $.tool.call({ tool: 'Write', file_path: 'C:/p/new.txt', content: 'x' } as never)).deny).toBe(undefined)
+})
+
+test('guardEncoding off reads nothing', { options: { guardEncoding: false } }, async ($, on) => {
+  let reads = 0
+  on('fs.stat', () => {
+    reads++
+    return { value: { kind: 'file', size: 5, mtimeMs: 0, isLink: false } } as never
+  })
+  on('tool.call', { tool: 'Edit' }, () => ({ result: 'edited' }) as never)
+  expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/p/menu.txt', old_string: 'a', new_string: 'b' } as never)).deny).toBe(undefined)
+  expect(reads).toBe(0)
+})
+
 test('elsewhere only a target that is itself a link is refused', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
   on('session.cwd', () => ({ value: '/w' }))

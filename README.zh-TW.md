@@ -103,6 +103,7 @@ Claude Code 的選項值跟著安裝 ID 走，搬完後用 `/tessera setup` 或 
 | 用我的語言回覆 | 開 | 你自己打的字是中文、日文或韓文時，Claude 用同一種語言回覆；貼上的程式碼、log、引用不算 |
 | 接續未完成 | 開 | 新 session 或 `/clear` 之後，會提示這個 repo 上次沒做完的待辦：**接續** 把它們填進輸入框，**略過** 就不再提。它會在 session 裡替 Claude 打開待辦工具（`CLAUDE_CODE_ENABLE_TODO_TOOLS`，Claude Code 對 Claude 5.x 預設不開），你自己設過這個變數就照你的設定；打開後 Claude 可能在畫面上列出待辦清單（`Ctrl+T` 收起） |
 | 中日韓跳脫守門 | 開 | 文件和提示裡把中日韓文字寫成 `\uXXXX` 時擋下；程式碼裡可能是刻意的跳脫，提醒一次 |
+| 編碼守門 | 開 | 編輯既有、不是 UTF-8 的檔案（Big5、Shift-JIS、GBK、EUC-KR、UTF-16，1 MiB 以內）前提醒一次：Claude Code 以 UTF-8 讀寫檔案，內容會被改寫成 `�`（[#7134](https://github.com/anthropics/claude-code/issues/7134)）；再送一次就執行，這個 session 裡不再檢查那個檔案 |
 | 繁簡守門 | 自動 | 你用繁體中文時，簡體字和簡中用語寫進檔案前提醒一次，並列出繁中慣用寫法（`这→這`、`服務器→伺服器`）；zh-CN 檔案、本來就是簡體的檔案、檔案裡原本就用的詞、日文行不檢查 |
 
 Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計和複製按鈕的卡片。
@@ -171,7 +172,7 @@ mod 的 hook 在每一種載入 plugin 的 session 都會跑；畫出來的東�
 
 ## 在你電腦上做了什麼
 
-自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
+自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案，以及 Claude 要編輯的檔案的位元組（判斷編碼）；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 

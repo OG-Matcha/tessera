@@ -389,6 +389,12 @@
       "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text; in a code file that also holds CJK text, where an escape can be meant, remind once (anthropics/claude-code#83033).",
       "default": true
     },
+    "guardEncoding": {
+      "type": "boolean",
+      "title": "Encoding guard",
+      "description": "Before Claude edits an existing file of up to 1 MiB, read its bytes; when they are not UTF-8 (Big5, Shift-JIS, GBK, EUC-KR, UTF-16), remind once that Claude Code reads and writes files as UTF-8 and would rewrite the text as replacement characters, and suggest converting the file first. The same edit sent again goes through, and that file is not checked again in the session.",
+      "default": true
+    },
     "guardSimplified": {
       "type": "string",
       "title": "Guard Traditional Chinese",

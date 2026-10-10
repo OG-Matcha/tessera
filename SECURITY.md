@@ -5,7 +5,7 @@ tessera runs inside Claude Code with your user's permissions. Report a vulnerabi
 ## What tessera does on your machine
 
 - **Network:** none. tessera makes no network requests.
-- **Files read:** the paste cache Claude Code writes (`%TEMP%\claude` on Windows, `/tmp/claude-<uid>` elsewhere), the session's Workflow scripts when a Workflow starts, a file you name in `/tessera peek`, the paths a recursive delete would remove, and, while the Traditional Chinese or glossary guard is on, the repository's `CLAUDE.md` and a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into.
+- **Files read:** the paste cache Claude Code writes (`%TEMP%\claude` on Windows, `/tmp/claude-<uid>` elsewhere), the session's Workflow scripts when a Workflow starts, a file you name in `/tessera peek`, the paths a recursive delete would remove, while the Traditional Chinese or glossary guard is on, the repository's `CLAUDE.md` and a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into, and, while the encoding guard is on, the bytes of an existing file of up to 1 MiB that Claude is about to edit, to tell whether it is UTF-8.
 - **Settings:** read, never written: your `language` setting, and the name and auto-update setting of the marketplace tessera came from.
 - **Clipboard:** read, never written, except when you press a copy button or run `/tessera copy`.
 - **Files written:** none outside Claude Code's own plugin store.

@@ -76,6 +76,7 @@ const RULES_EN = {
   'Workflow authorization': 'Workflow authorization',
   'CJK as \\u escapes': 'CJK as \\u escapes',
   'Agent model': 'Agent model',
+  'file encoding': 'file encoding',
 }
 
 export type Rule = keyof typeof RULES_EN
@@ -94,6 +95,7 @@ const RULES_ZH: Record<Rule, string> = {
   'Workflow authorization': 'Workflow 未引用你的話',
   'CJK as \\u escapes': 'CJK 寫成 \\u 跳脫',
   'Agent model': 'Agent 未指定模型',
+  'file encoding': '檔案編碼',
 }
 
 const EN = {

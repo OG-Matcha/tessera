@@ -408,6 +408,22 @@ export const scenarios = [
     check: s => seen(s.cleared, /(2 unfinished from your last session here|上次在這個專案還有 2 項沒完成)[\s\S]*add input validation/),
   },
   {
+    name: 'encoding-guard',
+    prompts: true,
+    // menu.txt holds 中文 in Big5; an edit through Claude Code's tools would rewrite it as UTF-8 with � in it.
+    setup: dir => writeFileSync(join(dir, 'menu.txt'), Buffer.from([0xa4, 0xa4, 0xa4, 0xe5, 0x0a, 0x41, 0x0a])),
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use the Edit tool on menu.txt to replace the line "A" with "B". Do exactly that, nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /file encoding|not UTF-8|#7134|檔案編碼|(1 failed · last|1 個失敗 · 最後)/i),
+  },
+  {
     name: 'background-watch',
     prompts: true,
     // A backgrounded sleep writes nothing; with the quiet time at a minute the row shows on the first check.

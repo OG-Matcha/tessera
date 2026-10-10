@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { carriedFrom, endSession, openItems, recordSession, restoredTasks } from '../hooks/carry'
+import { carriedFrom, endSession, openItems, recordSession, restoredTasks, staleCarryKeys } from '../hooks/carry'
 
 test('open items are the tasks and todos not completed', () => {
   const log = {
@@ -49,4 +49,12 @@ test('with the registry of running sessions, a session not in it is over whateve
   expect(carriedFrom(store, 'now', 11, new Set(['now']))).toEqual({ from: 'other', items: ['in progress'] })
   expect(carriedFrom(store, 'now', 11, new Set(['now', 'other']))).toBe(undefined)
   expect(carriedFrom(store, 'now', 11, new Set())).toEqual({ from: 'other', items: ['in progress'] })
+})
+
+test('only the newest repositories are kept, the one in use always', () => {
+  const records = Object.fromEntries(Array.from({ length: 35 }, (_, i) => [`carry:/r${i}`, { s: { at: i, open: [] } }]))
+  const stale = staleCarryKeys(records, 'carry:/r0')
+  expect(stale).toHaveLength(35 - 30)
+  expect(stale).toEqual(['carry:/r5', 'carry:/r4', 'carry:/r3', 'carry:/r2', 'carry:/r1'])
+  expect(staleCarryKeys({ 'carry:/a': { s: { at: 1, open: [] } } }, 'carry:/a')).toEqual([])
 })

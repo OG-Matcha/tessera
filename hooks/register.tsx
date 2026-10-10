@@ -14,7 +14,7 @@ import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDi
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { CarryStore, TaskLog } from './carry'
-import { carriedFrom, endSession, recordSession, restoredTasks } from './carry'
+import { REPOSITORIES_KEPT, carriedFrom, endSession, recordSession, restoredTasks, staleCarryKeys } from './carry'
 import { pickLang } from './i18n'
 import { session, t } from './session'
 import { isAbsolute } from './guard'
@@ -449,8 +449,16 @@ export const register: Register = (on, options) => {
     }
     if (isDrawing) await applyRtl($, style)
     const started = await next(e)
+    // Only the newest repositories' records stay; one key per repository, read whole at every access.
+    const pruneCarry = async (own: string) => {
+      const keys = (await $.store.keys().catch(() => [] as string[])).filter(k => k.startsWith('carry:'))
+      if (keys.length <= REPOSITORIES_KEPT) return
+      const records = Object.fromEntries(await Promise.all(keys.map(async k => [k, await readCarry($, k)] as const)))
+      for (const stale of staleCarryKeys(records, own)) await $.store.delete(stale).catch(() => undefined)
+    }
     const carry = async () => {
       const [key, sessionId, now] = await Promise.all([carryKey($), $.session.id(), $.clock.now()])
+      await pruneCarry(key)
       let store = await readCarry($, key)
       // A session resumed with --resume is running again: its record is no longer another terminal's leftovers.
       if (store[sessionId]?.ended === true) {

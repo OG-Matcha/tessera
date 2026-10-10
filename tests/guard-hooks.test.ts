@@ -110,7 +110,7 @@ test('on Windows a listing that did not finish is a reminder, and no link listed
   windows(on, 'timeout')
   await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
   const call = { tool: 'Bash', command: 'rm -rf wt-a' } as const
-  expect((await $.tool.call(call)).deny).toContain('did not finish')
+  expect((await $.tool.call(call)).deny).toContain('could not be made')
   expect((await $.tool.call(call)).deny).toBe(undefined)
 })
 
@@ -407,4 +407,42 @@ test('the blocked toast names the rule in the person’s language', { options: {
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'pushed' }) as never)
   await $.tool.call({ tool: 'Bash', command: 'git push --force origin main' })
   expect(toasts).toEqual(['tessera 已請 Claude 再確認：強制推送'])
+})
+
+test('on Windows without HOME, a delete of ~, $HOME or %USERPROFILE% is the home directory and refused', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('session.id', () => ({ value: 's' }) as never)
+  on('session.repo', () => ({ value: { root: 'C:/w' } }) as never)
+  on('store.get', () => ({ value: undefined }) as never)
+  on('store.set', () => ({ value: undefined }) as never)
+  on('env.get', (_, e) => ({ value: { OS: 'Windows_NT', USERPROFILE: 'C:\\Users\\me' }[(e as { name?: string }).name ?? ''] }) as never)
+  on('session.start', () => ({ cwd: 'C:/w' }))
+  on('session.cwd', () => ({ value: 'C:/w' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  on('tool.call', { tool: 'PowerShell' }, () => ({ result: 'ran' }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  for (const command of ['rm -rf ~', 'rm -rf $HOME/', 'rm -rf /c/Users/ME', 'rm -rf /c']) expect((await $.tool.call({ tool: 'Bash', command })).deny).toContain('home directory')
+  expect((await $.tool.call({ tool: 'PowerShell', command: 'Remove-Item -Recurse $env:USERPROFILE' })).deny).toContain('home directory')
+  expect((await $.tool.call({ tool: 'PowerShell', command: 'Remove-Item -Recurse %USERPROFILE%\\tmp' })).deny).toBe(undefined)
+})
+
+test('on Windows a target holding a cmd operator is never listed, only reminded', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  let listed = 0
+  on('env.get', (_, e) => ({ value: (e as { name?: string }).name === 'OS' ? 'Windows_NT' : undefined }) as never)
+  on('session.start', () => ({ cwd: 'C:/w' }))
+  on('session.cwd', () => ({ value: 'C:/w' }))
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('process.run', () => {
+    listed++
+    return { value: { exitCode: 1, stdout: '', stderr: '' } } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  const call = { tool: 'Bash', command: 'rm -rf "x & calc"' } as const
+  expect((await $.tool.call(call)).deny).toContain('could not be made')
+  expect(listed).toBe(0)
+  expect((await $.tool.call(call)).deny).toBe(undefined)
 })

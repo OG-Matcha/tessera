@@ -61,11 +61,12 @@ test('a heredoc body is data, not commands', () => {
   expect(shellRisks(commit)).toEqual([])
   expect(discards(commit)).toEqual([])
   expect(shellRisks("cat > a.txt <<EOF\nplain\nEOF\ngit stash")).toEqual(['tree-rewrite'])
-  // Commands after a body are still commands: a << in the body, several heredocs, CRLF, no end line.
+  // Commands after a body are still commands: a << in the body, several heredocs, CRLF.
   expect(forcePushes("git commit -F - <<'EOF'\nUse << operator\nEOF\ngit push -f origin main")).toEqual(['main'])
   expect(forcePushes('cat <<A <<B\na\nA\nb\nB\ngit push -f origin main')).toEqual(['main'])
   expect(forcePushes('cat <<EOF\r\nx\r\nEOF\r\ngit push -f origin main')).toEqual(['main'])
-  expect(shellRisks('cat <<EOF\ngit stash')).toEqual([])
+  // With no end line it is not a heredoc (a << in a message), so what follows is commands.
+  expect(shellRisks('cat <<EOF\ngit stash')).toEqual(['tree-rewrite'])
   // A shift and a herestring are not heredocs.
   expect(forcePushes('echo $((1<<n))\ngit push --force origin main')).toEqual(['main'])
   expect(recursiveDeletes('echo $((1<<n))\nrm -rf foo')).toEqual(['foo'])
@@ -118,7 +119,7 @@ test('commands that throw a database away are named, and look-alikes are not', (
 
 test('Git Bash paths on Windows are the file system’s', () => {
   expect(hostPath('/c/w/x', '/home/u', true)).toBe('C:/w/x')
-  expect(hostPath('/c', undefined, true)).toBe('C:')
+  expect(hostPath('/c', undefined, true)).toBe('C:/')
   expect(hostPath('~/w', 'C:/Users/u', true)).toBe('C:/Users/u/w')
   expect(hostPath('~/w', '/home/u', false)).toBe('/home/u/w')
   expect(hostPath('/c/w', undefined, false)).toBe('/c/w')
@@ -156,7 +157,7 @@ test('recursive deletes name their targets in sh, PowerShell, cmd and git', () =
 test('plain deletes, globs and variables are not judged', () => {
   expect(recursiveDeletes('rm a.txt')).toEqual([])
   expect(recursiveDeletes('Remove-Item a.txt')).toEqual([])
-  expect(recursiveDeletes('rm -rf $TMP/x dist/*')).toEqual([])
+  expect(recursiveDeletes('rm -rf $TMP/x dist/*')).toEqual(['dist'])
 })
 
 test('CJK written as \\u escapes in prompt-like parameters is caught', () => {
@@ -186,4 +187,38 @@ test('forced pushes name their destination, or the current branch when they name
 test('main and master are the default branches', () => {
   expect(['main', 'master', 'refs/heads/main'].every(isDefaultBranch)).toBe(true)
   expect(['mainline', 'feature/main', 'dev'].some(isDefaultBranch)).toBe(false)
+})
+
+test('deletes of a Git Bash drive, joined cmd switches, a quoted cmd /c command, a sudo prefix and a trailing /* are seen', () => {
+  expect(recursiveDeletes('rm -rf /c')).toEqual(['/c'])
+  expect(recursiveDeletes('rmdir /s/q C:\\')).toEqual(['C:\\'])
+  expect(recursiveDeletes('cmd /c "rd /s /q C:\\w\\x"')).toEqual(['C:\\w\\x'])
+  expect(recursiveDeletes('cmd //c rd /s /q C:\\w\\x')).toEqual(['C:\\w\\x'])
+  expect(recursiveDeletes('sudo rm -rf /')).toEqual(['/'])
+  expect(recursiveDeletes('FOO=1 sudo -n rm -rf /var/x')).toEqual(['/var/x'])
+  expect(recursiveDeletes('rm -rf ~/*')).toEqual(['~'])
+  expect(recursiveDeletes('rm -rf /*')).toEqual(['/'])
+  expect(recursiveDeletes('rm -rf ./*')).toEqual(['.'])
+  expect(recursiveDeletes('rm -rf dist/*')).toEqual(['dist'])
+  expect(dataResets('sudo docker volume prune -f')).toEqual(['docker volume rm'])
+  expect(dataResets('./bin/rails db:drop')).toEqual(['rails db:drop'])
+})
+
+test('on Windows a root, home or working directory spelled in another case is still itself', () => {
+  expect(rootLike('c:/users/U/PROJ', 'C:/Users/u/proj', 'C:/Users/u', true)).toBe(true)
+  expect(rootLike('c:\\USERS\\U', 'C:/Users/u/proj', 'C:/Users/u', true)).toBe(true)
+  expect(rootLike('C:/Users/U', 'C:/Users/u/proj', 'C:/Users/u', false)).toBe(false)
+})
+
+test('a << in a message is not a heredoc, so the lines after it are judged; a shell fed by sudo or a path reads its body', () => {
+  expect(forcePushes('git commit -m "see << note"\ngit push -f origin main')).toEqual(['main'])
+  expect(dataResets('echo "a <<b"\ndocker volume prune')).toEqual(['docker volume rm'])
+  expect(forcePushes("sudo bash <<'EOF'\ngit push -f origin main\nEOF")).toEqual(['main'])
+  expect(forcePushes("/bin/sh <<'EOF'\ngit push -f origin main\nEOF")).toEqual(['main'])
+  expect(forcePushes("pwsh -Command - <<'EOF'\ngit push -f origin main\nEOF")).toEqual(['main'])
+  expect(forcePushes("git commit -F - <<'EOF'\ngit push -f origin main\nEOF")).toEqual([])
+})
+
+test('an Agent prompt written with CJK escapes is caught', () => {
+  expect(misEscapedCjk('Agent', { prompt: '\\u4fee\\u6b63 bug', description: 'fix' })).toBe('\\u4fee')
 })

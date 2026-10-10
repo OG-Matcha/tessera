@@ -2,13 +2,14 @@ export type Risk = 'tree-rewrite' | 'stage-all' | 'link-node-modules'
 
 // A heredoc: `<<` or `<<-`, a delimiter, quoted or not, and the body from the next line to the line that
 // is the delimiter (a trailing \r allowed). `<<<` is a herestring and `<<` inside `$(( ))` a shift, not
-// one. Several on one line take their bodies in order; a body with no end runs to the end of the text.
-// `shell` is a body fed to a local shell (bash <<'EOF'), which is commands, not data.
+// one. Several on one line take their bodies in order. A `<<word` with no line equal to word after it is
+// not one (a `<<` in a message or in prose), or the lines after it would go unjudged. `shell` is a body
+// fed to a local shell (bash <<'EOF', sudo bash, pwsh -), which is commands, not data.
 type Heredoc = { quoted: boolean; bodyStart: number; bodyEnd: number; delimiterLine: number; shell: boolean }
 
 const HEREDOC_START = /(?<![<$(])<<(?!<)(-?)\s*(["']?)([A-Za-z_][\w-]*)\2/g
 const inArithmetic = (line: string, at: number) => /\$\(\((?![\s\S]*\)\))/.test(line.slice(0, at))
-const LOCAL_SHELL = /(?:^|[;&|]\s*)(?:ba|z|da)?sh\b[^;&|]*$/
+const LOCAL_SHELL = /(?:^|[;&|]\s*)(?:sudo\s+(?:-\w+\s+)*)?(?:\S*[\\/])?(?:(?:ba|z|da)?sh|pwsh|powershell)(?:\.exe)?\b[^;&|]*$/i
 
 export function heredocs(command: string): Heredoc[] {
   const out: Heredoc[] = []
@@ -27,11 +28,11 @@ export function heredocs(command: string): Heredoc[] {
       const ends = (l: string) => (strip ? l.replace(/^\t+/, '') : l).replace(/\r$/, '') === m[3]
       let j = next
       while (j < lines.length && !ends(lines[j]!)) j++
-      const bodyEnd = j < lines.length ? offsets[j]! + lines[j]!.length : command.length
-      out.push({ quoted: m[2] !== '', bodyStart: Math.min(offsets[next] ?? command.length, command.length), bodyEnd, delimiterLine: j, shell: LOCAL_SHELL.test(line.slice(0, m.index)) })
+      if (j >= lines.length) continue
+      out.push({ quoted: m[2] !== '', bodyStart: Math.min(offsets[next] ?? command.length, command.length), bodyEnd: offsets[j]! + lines[j]!.length, delimiterLine: j, shell: LOCAL_SHELL.test(line.slice(0, m.index)) })
       next = j + 1
     }
-    if (starts.length > 0) i = next - 1
+    i = next - 1
   }
   return out
 }
@@ -44,8 +45,12 @@ const withoutHeredocs = (command: string): string => {
   return out
 }
 
+// What may stand before the command word without changing what it does: VAR=value assignments and sudo
+// with its flags (a flag's value, as in -u root, is left; a verb that is a user name matches nothing).
+const PREFIX = /^(?:[A-Za-z_]\w*=\S*\s+)*(?:sudo\s+(?:-\w+\s+)*)?(?:[A-Za-z_]\w*=\S*\s+)*/
+
 // One shell command line split at ;, &&, || and | so each git call is judged on its own.
-const pieces = (command: string) => withoutHeredocs(command).split(/;|&&|&|\|\||\||\n/).map(p => p.trim())
+const pieces = (command: string) => withoutHeredocs(command).split(/;|&&|&|\|\||\||\n/).map(p => p.trim().replace(PREFIX, ''))
 
 // git with the options that may come before its verb: the ones that take a value (-C <dir>, -c k=v,
 // --git-dir <path>) and the flags (--no-pager, -P, --no-optional-locks, --bare).
@@ -161,7 +166,7 @@ export function commandDir(command: string): string | undefined {
 // A path as Git Bash on Windows spells it (/c/w, ~/w) as the file system does: C:/w, <home>/w.
 export const hostPath = (path: string, home: string | undefined, windows: boolean): string => {
   const expanded = home !== undefined ? path.replace(/^~(?=[\\/]|$)/, home) : path
-  return windows ? expanded.replace(/^\/([a-zA-Z])(?=\/|$)/, (_, drive: string) => `${drive.toUpperCase()}:`) : expanded
+  return windows ? expanded.replace(/^\/([a-zA-Z])(?=\/|$)/, (_, drive: string) => `${drive.toUpperCase()}:`).replace(/^([A-Z]:)$/, '$1/') : expanded
 }
 
 const QUOTE = 10
@@ -186,22 +191,34 @@ export const scriptNamesModel = (script: string) => !/\bagent\s*\(/.test(script)
 
 const words = (piece: string) => [...piece.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(m => m[1] ?? m[2] ?? m[3] ?? '')
 
-// The paths a command deletes recursively: rm -r, Remove-Item -Recurse, rmdir /s, rd /s and git worktree remove.
+// The commands whose switches are written /s /q, joined as /s/q too; for rm, /c is the Git Bash C: drive.
+const CMD_STYLE = new Set(['rd', 'rmdir', 'del'])
+
+// The paths a command deletes recursively: rm -r, Remove-Item -Recurse, rmdir /s, rd /s and git worktree
+// remove, also behind cmd /c (with its command quoted as one word, or //c from Git Bash). A trailing /*
+// names the directory's contents, which for a root, home or the working directory is as good as itself.
 export function recursiveDeletes(command: string): string[] {
   const targets: string[] = []
   for (const piece of pieces(command)) {
     let [verb = '', ...args] = words(piece)
-    if (/^cmd(\.exe)?$/i.test(verb) && /^\/c$/i.test(args[0] ?? '')) [verb = '', ...args] = args.slice(1)
+    if (/^cmd(\.exe)?$/i.test(verb) && /^\/\/?c$/i.test(args[0] ?? '')) {
+      const inner = args.slice(1)
+      ;[verb = '', ...args] = inner.length === 1 && /\s/.test(inner[0]!) ? words(inner[0]!) : inner
+    }
     const name = verb.toLowerCase().replace(/\.exe$/, '')
-    const plain = args.filter(a => !a.startsWith('-') && !/^\/[a-z]$/i.test(a))
+    const cmdStyle = CMD_STYLE.has(name)
+    if (cmdStyle) args = args.flatMap(a => (/^\/[a-z](?:\/[a-z])+$/i.test(a) ? a.slice(1).split('/').map(s => `/${s}`) : [a]))
+    const plain = args.filter(a => !a.startsWith('-') && !(cmdStyle && /^\/[a-z]$/i.test(a)))
     if (name === 'rm' && args.some(a => /^-\w*r/i.test(a) || a === '--recursive' || /^-Recurse$/i.test(a))) targets.push(...plain)
-    else if ((name === 'remove-item' || name === 'ri' || name === 'rd' || name === 'rmdir' || name === 'del') && args.some(a => /^-Recurse$/i.test(a) || /^\/s$/i.test(a))) {
+    else if ((name === 'remove-item' || name === 'ri' || cmdStyle) && args.some(a => /^-Recurse$/i.test(a) || /^\/s$/i.test(a))) {
       const named = args.findIndex(a => /^-(Literal)?Path$/i.test(a))
       targets.push(...(named >= 0 && args[named + 1] ? [args[named + 1] as string] : plain))
     } else if (name === 'git' && args[0] === 'worktree' && args[1] === 'remove') targets.push(...plain.slice(2))
   }
   // The home variables are read as ~, which hostPath expands; any other variable makes a target unknowable.
-  return targets.map(t => t.replace(/^(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE)(?=[\\/]|$)/i, '~')).filter(t => t !== '' && !/[$*?`]/.test(t))
+  return targets
+    .map(t => t.replace(/^(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE)(?=[\\/]|$)/i, '~').replace(/^([\\/])\*$/, '$1').replace(/(?<=.)[\\/]\*$/, ''))
+    .filter(t => t !== '' && !/[$*?`]/.test(t))
 }
 
 // Commands that throw a database or its volumes away: the ORM and framework resets, Docker's volume
@@ -209,7 +226,7 @@ export function recursiveDeletes(command: string): string[] {
 const DATA_RESETS: [RegExp, string][] = [
   [/^(?:npx\s+|pnpm\s+(?:exec\s+)?|yarn\s+|bunx\s+)?prisma\s+(?:migrate\s+reset\b|db\s+push\b.*--force-reset)/, 'prisma migrate reset'],
   [/^(?:npx\s+)?supabase\s+db\s+reset\b/, 'supabase db reset'],
-  [/^(?:bin\/|bundle\s+exec\s+)?(?:rails|rake)\s+db:(?:drop|reset|purge)\b/, 'rails db:drop'],
+  [/^(?:\.\/)?(?:bin\/|bundle\s+exec\s+)?(?:rails|rake)\s+db:(?:drop|reset|purge)\b/, 'rails db:drop'],
   [/^(?:php\s+)?artisan\s+(?:migrate:(?:fresh|refresh)|db:wipe)\b/, 'artisan migrate:fresh'],
   [/^docker(?:-compose|\s+compose)\s+(?:\S+\s+)*down\b.*(?:\s-\w*v|\s--volumes)/, 'docker compose down -v'],
   [/^docker\s+volume\s+(?:rm|prune)\b/, 'docker volume rm'],
@@ -220,9 +237,12 @@ const DATA_RESETS: [RegExp, string][] = [
 export const dataResets = (command: string): string[] => [...new Set(pieces(command).flatMap(piece => DATA_RESETS.filter(([re]) => re.test(piece)).map(([, name]) => name)))]
 
 // A recursive delete of one of these has no good reading: the file system's root, a drive, the home
-// directory, or the directory the session works in or one above it.
-export function rootLike(path: string, cwd: string, home: string | undefined): boolean {
-  const norm = (p: string) => resolvePath('', p.replace(/^([a-zA-Z]:)$/, '$1/')).replace(/\/+$/, '')
+// directory, or the directory the session works in or one above it. Windows paths compare without case.
+export function rootLike(path: string, cwd: string, home: string | undefined, windows = false): boolean {
+  const norm = (p: string) => {
+    const resolved = resolvePath('', p.replace(/^([a-zA-Z]:)$/, '$1/')).replace(/\/+$/, '')
+    return windows ? resolved.toLowerCase() : resolved
+  }
   const target = norm(path)
   if (target === '' || /^[a-z]:$/.test(target)) return true
   if (home !== undefined && target === norm(home)) return true
@@ -269,6 +289,6 @@ export function writtenFile(tool: string, input: Record<string, unknown>): { pat
 export function misEscapedCjk(tool: string, input: Record<string, unknown>): string | undefined {
   const file = writtenFile(tool, input)
   if (file !== undefined) return file.texts.map(t => (isProse(file.path) || LITERAL_CJK.test(t) ? cjkEscape(t) : undefined)).find(Boolean)
-  if (tool === 'AskUserQuestion' || tool === 'TodoWrite' || tool === 'TaskCreate' || tool === 'TaskUpdate') return texts(input).map(cjkEscape).find(Boolean)
+  if (tool === 'AskUserQuestion' || tool === 'TodoWrite' || tool === 'TaskCreate' || tool === 'TaskUpdate' || tool === 'Agent') return texts(input).map(cjkEscape).find(Boolean)
   return undefined
 }

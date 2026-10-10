@@ -63,3 +63,9 @@ test('with the session guard off nothing is checked or noted', { options: { guar
   expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/w/a.ts', old_string: 'a', new_string: 'b' } as never)).deny).toBe(undefined)
   expect(store.edits).toEqual({ 'C:/w/a.ts': { session: 'other', at: 5 * MIN } })
 })
+
+test('the session guard runs when every other guard is off', { options: { guardGit: false, guardCjkEscapes: false, guardEncoding: false, guardData: false, guardSimplified: 'off', guardHeredoc: false, agentModel: 'off' } }, async ($, on) => {
+  sharedStore(on, { 'C:/w/a.ts': { session: 'other', at: 5 * MIN } })
+  on('clock.now', () => ({ value: 6 * MIN }) as never)
+  expect((await $.tool.call({ tool: 'Edit', file_path: 'C:/w/a.ts', old_string: 'a', new_string: 'b' } as never)).deny).toContain('another Claude Code session')
+})

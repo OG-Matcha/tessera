@@ -469,7 +469,7 @@ export const register: Register = (on, options) => {
   if (imagesOn) registerPastes(on, options)
   backgroundOn = options.backgroundWatch !== false
   if (backgroundOn) registerBackgroundWatch(on, options)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true)
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true)
     registerGuards(on, options)
   registerSetup(on, options)
   carryOn = options.carryOver !== false

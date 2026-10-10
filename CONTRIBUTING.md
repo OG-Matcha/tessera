@@ -15,7 +15,7 @@ New features ship behind an option in `.claude-plugin/plugin.json`, listed in `h
 | `hooks/register.tsx` | The hooks module: settles the session and registers each feature's hooks |
 | `hooks/*-hooks.ts` | A feature's hooks and the functions that touch `$`: `guard-hooks`, `paste-hooks`, `background-hooks`. The engine follows `$` only into functions of the same file, so a module's hooks are registered in it (`registerX(on, options)`) and `$` never crosses an import. A plugin has one `session.start` without a matcher, in `register.tsx`; a module needing one adds a matcher |
 | `hooks/session.ts` | What the session settles (language, the person's voice, the environment), read by every feature module |
-| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `encoding`, `carry`, `background`, `fold`, `update`, `platform`, `voice`, `inbox`, `peek`, `paste`, `complete`, `features`, `i18n`, `png`, `raster` |
+| `hooks/*.ts` | Pure logic, tested without the engine: `guard`, `hans`, `glossary`, `encoding`, `edits`, `carry`, `background`, `fold`, `update`, `platform`, `voice`, `inbox`, `peek`, `paste`, `complete`, `features`, `i18n`, `png`, `raster` |
 | `hooks/markdown.ts`, `render.tsx`, `theme.ts`, `presets.ts`, `mermaid.tsx`, `rtl.ts`, `help.ts`, `help-zh.ts` | Reply rendering, adapted from [prismantis](https://github.com/NahumLitvin/prismantis) |
 | `hooks/vendor/` | Generated; rebuild with the command in `.github/workflows/ci.yml`, never edit by hand |
 | `types/index.d.ts` | The `$.state` contract |

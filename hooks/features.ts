@@ -38,6 +38,7 @@ export const FEATURES: Feature[] = [
   flag('guardData', true, { en: 'Database guard', 'zh-TW': '資料庫守門' }, { en: 'Reminds once before a command that resets a database or removes its volumes (prisma migrate reset, rails db:drop, docker compose down -v)', 'zh-TW': '重置資料庫或移除其 volume 的指令（prisma migrate reset、rails db:drop、docker compose down -v）前提醒一次' }),
   flag('guardCjkEscapes', true, { en: 'CJK escape guard', 'zh-TW': '中日韓跳脫守門' }, { en: 'Refuses Korean, Chinese or Japanese written as \\u escapes in prose and prompts; reminds once in code', 'zh-TW': '文件和提示裡把中日韓文字寫成 \\u 跳脫碼時擋下，程式碼裡提醒一次' }),
   flag('guardEncoding', true, { en: 'Encoding guard', 'zh-TW': '編碼守門' }, { en: 'Reminds once before an edit to a file that is not UTF-8 (Big5, Shift-JIS, GBK, UTF-16) rewrites it with � characters', 'zh-TW': '編輯不是 UTF-8 的檔案（Big5、Shift-JIS、GBK、UTF-16）前提醒一次，免得內容被改寫成 �' }),
+  flag('guardSessions', true, { en: 'Session guard', 'zh-TW': '多 session 守門' }, { en: 'Reminds once before editing a file another Claude Code session on this machine edited in the last 30 minutes', 'zh-TW': '這台電腦上另一個 Claude Code session 30 分鐘內改過的檔案，編輯前提醒一次' }),
   {
     key: 'guardSimplified',
     isOn: v => v !== 'off',

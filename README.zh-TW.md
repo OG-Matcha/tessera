@@ -108,6 +108,7 @@ Claude Code 的選項值跟著安裝 ID 走，搬完後用 `/tessera setup` 或 
 | 丟棄前先 stash | 關 | 工作區守門提醒過的丟棄指令（`git reset --hard`、`git checkout -- <路徑>`、`git restore`）再送一次時，先把會丟掉的已追蹤改動存進 `git stash`（`stash@{0}`），`git stash pop` 就能拿回來，並以通知告知。這會寫入 repo 的 `.git`。`git clean` 沒有快照，stash 不含未追蹤檔案 |
 | 資料庫守門 | 開 | 會把資料庫或其 volume 整個丟掉的指令前提醒一次：`prisma migrate reset`、`supabase db reset`、`rails db:drop`、`artisan migrate:fresh`、`docker compose down -v`、`docker volume rm`、`dropdb` 和同類指令；再送一次就執行 |
 | 編碼守門 | 開 | 編輯既有、不是 UTF-8 的檔案（Big5、Shift-JIS、GBK、EUC-KR、UTF-16，1 MiB 以內）前提醒一次：Claude Code 以 UTF-8 讀寫檔案，內容會被改寫成 `�`（[#7134](https://github.com/anthropics/claude-code/issues/7134)）；再送一次就執行，這個 session 裡不再檢查那個檔案 |
+| 多 session 守門 | 開 | 這台電腦上另一個 Claude Code session 30 分鐘內改過的檔案，Claude 要編輯前提醒一次：對方可能還在改，先重新讀過或問你；再送一次就執行。只認得裝了 tessera 的 session，你在編輯器裡改的不算 |
 | 繁簡守門 | 自動 | 你用繁體中文時，簡體字和簡中用語寫進檔案前提醒一次，並列出繁中慣用寫法（`这→這`、`服務器→伺服器`）；zh-CN 檔案、本來就是簡體的檔案、檔案裡原本就用的詞、日文行不檢查 |
 
 Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計和複製按鈕的卡片。

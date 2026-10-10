@@ -4,6 +4,7 @@ import type { Risk } from './guard'
 import type { Discard } from './guard'
 import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
+import { asEditLog, recentEdit, remember } from './edits'
 import { commandHead } from './background'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
@@ -29,6 +30,7 @@ let guardHeredoc = true
 let guardGlossary = false
 let guardEncoding = true
 let guardData = true
+let guardSessions = true
 let stashBeforeDiscard = false
 let glossary: { root: string; terms: Term[] } | undefined
 // Calls refused by a rule that can misjudge intent, by rule and call, with when: the same call sent
@@ -206,6 +208,27 @@ async function judgeEncoding($: EngineInterface, tool: string, input: Record<str
   return reminded
 }
 
+const EDITS = 'edits'
+
+// A file another session on this machine edited in the last half hour may still be in its hands.
+async function judgeSessions($: EngineInterface, tool: string, input: Record<string, unknown>) {
+  if (!guardSessions) return undefined
+  const file = writtenFile(tool, input)
+  if (file === undefined || file.path === '') return undefined
+  const [log, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id(), $.clock.now()])
+  const other = recentEdit(asEditLog(log), file.path, sessionId, now)
+  if (other === undefined) return undefined
+  return refuseOnce($, file.path, 'other session', `another Claude Code session on this machine edited ${file.path} ${other.ago} and may still be working in it. Read the file again before changing it, keep to the lines your task needs, and if both sessions are meant to work on this file, tell the person. If the edit is still right`)
+}
+
+// Every file write is noted for the other sessions, once the tool has run.
+async function noteEdit($: EngineInterface, tool: string, input: Record<string, unknown>) {
+  const file = guardSessions ? writtenFile(tool, input) : undefined
+  if (file === undefined || file.path === '') return
+  const [log, sessionId, now] = await Promise.all([$.store.get(EDITS).catch(() => undefined), $.session.id(), $.clock.now()])
+  await $.store.set(EDITS, remember(asEditLog(log), file.path, sessionId, now)).catch(() => undefined)
+}
+
 async function judgeHans($: EngineInterface, tool: string, input: Record<string, unknown>) {
   if (guardHans === 'off' || (guardHans === 'auto' && session.voice !== 'zh-Hant')) return undefined
   const file = writtenFile(tool, input)
@@ -287,6 +310,7 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
   guardGlossary = options.guardGlossary === true
   guardEncoding = options.guardEncoding !== false
   guardData = options.guardData !== false
+  guardSessions = options.guardSessions !== false
   stashBeforeDiscard = options.stashBeforeDiscard === true
 
   on('tool.call', async ($, e, next) => {
@@ -309,7 +333,13 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
     if (hans !== undefined) return hans
     const terms = await judgeGlossary($, tool, input)
     if (terms !== undefined) return terms
-    if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
+    const sessions = await judgeSessions($, tool, input)
+    if (sessions !== undefined) return sessions
+    if (tool !== 'Bash' && tool !== 'PowerShell') {
+      const result = await next(e)
+      await noteEdit($, tool, input)
+      return result
+    }
     const command = String(input.command ?? '')
     return (tool === 'Bash' ? await judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
   }).catch((_, e, next) => next(e))

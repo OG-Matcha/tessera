@@ -455,6 +455,29 @@ export const scenarios = [
     check: s => seen(s.reply, /file encoding|not UTF-8|#7134|檔案編碼|(1 failed · last|1 個失敗 · 最後)/i),
   },
   {
+    name: 'session-guard',
+    prompts: true,
+    // Two sessions in the same repository edit the same file minutes apart: the second is reminded that the first may still be in it.
+    setup: dir => writeFileSync(join(dir, 'note.txt'), 'A\n'),
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use the Edit tool on note.txt to replace the line "A" with "B". Do exactly that, nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'first' },
+        ],
+      },
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use the Edit tool on note.txt to replace the line "B" with "C". Do exactly that, nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'second' },
+        ],
+      },
+    ],
+    check: (s, dir) => seen(s.first, /note\.txt/) ?? (readFileSync(join(dir, 'note.txt'), 'utf8').startsWith('B') || readFileSync(join(dir, 'note.txt'), 'utf8').startsWith('C') ? undefined : 'the first edit did not land') ?? seen(s.second, /another Claude Code session|另一個 session|(1 failed · last|1 個失敗 · 最後)/i),
+  },
+  {
     name: 'background-watch',
     prompts: true,
     // A backgrounded sleep writes nothing; with the quiet time at a minute the row shows on the first check.

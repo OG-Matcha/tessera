@@ -79,6 +79,7 @@ const RULES_EN = {
   'file encoding': 'file encoding',
   'root delete': 'delete of a root, home or the session directory',
   'data reset': 'database reset',
+  'other session': 'file another session edited',
 }
 
 export type Rule = keyof typeof RULES_EN
@@ -100,6 +101,7 @@ const RULES_ZH: Record<Rule, string> = {
   'file encoding': '檔案編碼',
   'root delete': '刪除根目錄、家目錄或 session 目錄',
   'data reset': '重置資料庫',
+  'other session': '另一個 session 剛改過的檔案',
 }
 
 const EN = {

@@ -407,6 +407,12 @@
       "description": "Before Claude edits an existing file of up to 1 MiB, read its bytes; when they are not UTF-8 (Big5, Shift-JIS, GBK, EUC-KR, UTF-16), remind once that Claude Code reads and writes files as UTF-8 and would rewrite the text as replacement characters, and suggest converting the file first. The same edit sent again goes through, and that file is not checked again in the session.",
       "default": true
     },
+    "guardSessions": {
+      "type": "boolean",
+      "title": "Session guard",
+      "description": "Remind once before Claude edits a file that another Claude Code session on this machine edited in the last 30 minutes and may still be working in, so Claude reads it again first or asks you; the same edit sent again goes through. The path, time and session id of each file Claude edits stay in tessera's plugin store for 30 minutes. Only sessions with tessera count: edits made in your editor are not seen.",
+      "default": true
+    },
     "guardSimplified": {
       "type": "string",
       "title": "Guard Traditional Chinese",

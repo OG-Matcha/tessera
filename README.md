@@ -65,6 +65,34 @@ Claude Code keeps a plugin's option values with its install ID, so pick yours ag
 > [!IMPORTANT]
 > tessera includes the reply rendering of [prismantis](https://github.com/NahumLitvin/prismantis) and the paste preview idea of [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view). Uninstall those two first; two mods drawing the same part of the screen fight over it.
 
+### For a team or an organization
+
+To give every contributor of one repository tessera, put these two keys in the repository's `.claude/settings.json`. Claude Code registers the marketplace once a contributor trusts the folder, and because tessera's marketplace lists it by a relative path, it loads from the marketplace copy from the next session on, with no install step:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "og-matcha": { "source": { "source": "github", "repo": "OG-Matcha/tessera" } }
+  },
+  "enabledPlugins": { "tessera@og-matcha": true }
+}
+```
+
+Option values can go beside them, under `pluginConfigs`, so the team shares one setup:
+
+```json
+{
+  "pluginConfigs": { "tessera@og-matcha": { "options": { "guardGlossary": true, "language": "zh-TW" } } }
+}
+```
+
+For a whole organization, the same `extraKnownMarketplaces` and `enabledPlugins` keys go into [managed settings](https://code.claude.com/docs/en/plugins/org), with `"autoUpdate": true` on the marketplace entry if you want releases to reach every machine. Two things to know before you do:
+
+- An organization that sets `allowManagedModsOnly` refuses every mod installed from GitHub, tessera included. To run it as the organization's own, copy a release of this repository to an administrator-only directory on each machine and register that directory as the marketplace (`"source": { "source": "directory", "path": "/opt/claude-plugins/tessera" }`); tessera's marketplace lists it by a relative path, which is what makes it count as yours.
+- tessera's guards remind; they are not enforcement. A reminder lets the same call through when it is sent again, and a mod can be turned off by whoever installed it. For a rule nobody can pass, use a `PreToolUse` hook in managed settings.
+
+Before rolling it out, `claude plugin validate .` in a checkout lists every event tessera handles and every file, process, environment and settings call it makes, which [SECURITY.md](SECURITY.md) explains line by line.
+
 ## Features
 
 | Feature | Default | What it does |
@@ -126,6 +154,20 @@ Type `/tessera ` and a letter for suggestions with descriptions.
 | WSL | cell art | Windows viewer through `\\wsl.localhost` |
 
 If detection is wrong, set `imageMode` to `pixels` or `cells` in `/config`. Orca can draw kitty graphics but not yet the Unicode placeholders Claude Code uses ([stablyai/orca#23615](https://github.com/stablyai/orca/issues/23615)).
+
+## Where it runs
+
+A mod's hooks run in every kind of session that loads the plugin; what it draws appears only where Claude Code draws mods. [The table](https://code.claude.com/docs/en/plugins/mods/overview#where-mods-run) is Claude Code's; this is what it means for tessera:
+
+| Where you run Claude Code | Guards, options, carry-over, background watch | Previews, themed replies, folded diffs, the bands above the prompt |
+| --- | --- | --- |
+| A terminal, including an editor's integrated terminal and the JetBrains plugin | yes | yes; this is where tessera is tested |
+| The Code tab of the Desktop app | yes | the Desktop app draws them with its own elements; the copy buttons there are not tested |
+| A WSL session in the Desktop app | no, plugins are not available there | no |
+| The VS Code extension's chat panel | yes | no, nothing a mod draws appears there |
+| `claude -p` and the Agent SDK | yes | no |
+| Remote Control from claude.ai or the phone | yes, in the session on your machine | in the terminal on your machine |
+| A cloud session | only when the plugin reaches that session | no |
 
 ## What it does on your machine
 

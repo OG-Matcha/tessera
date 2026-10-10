@@ -65,6 +65,34 @@ Claude Code 的選項值跟著安裝 ID 走，搬完後用 `/tessera setup` 或 
 > [!IMPORTANT]
 > tessera 已經包含 [prismantis](https://github.com/NahumLitvin/prismantis) 的回覆美化，以及 [cc-mod-image-view](https://github.com/GGGODLIN/cc-mod-image-view) 的貼圖預覽概念。請先移除這兩個 mod，兩個 mod 畫同一塊畫面會互相衝突。
 
+### 團隊或組織使用
+
+要讓一個 repo 的每位協作者都有 tessera，把這兩個 key 放進 repo 的 `.claude/settings.json`。協作者信任這個資料夾後，Claude Code 會登記 marketplace；tessera 的 marketplace 以相對路徑列出它，所以下一個 session 起就直接從 marketplace 的副本載入，不用另外安裝：
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "og-matcha": { "source": { "source": "github", "repo": "OG-Matcha/tessera" } }
+  },
+  "enabledPlugins": { "tessera@og-matcha": true }
+}
+```
+
+選項值可以放在旁邊的 `pluginConfigs`，整個團隊共用一套設定：
+
+```json
+{
+  "pluginConfigs": { "tessera@og-matcha": { "options": { "guardGlossary": true, "language": "zh-TW" } } }
+}
+```
+
+整個組織要用，同樣的 `extraKnownMarketplaces` 和 `enabledPlugins` 放進[受管設定](https://code.claude.com/docs/en/plugins/org)；要讓新版自動到每台機器，在 marketplace 項目加 `"autoUpdate": true`。動手前有兩件事要知道：
+
+- 設了 `allowManagedModsOnly` 的組織會拒絕所有從 GitHub 安裝的 mod，tessera 也不例外。要讓它算是組織自己的 mod，把本 repo 的某個版本複製到每台機器上只有管理員能寫的目錄，再把那個目錄登記成 marketplace（`"source": { "source": "directory", "path": "/opt/claude-plugins/tessera" }`）；tessera 的 marketplace 以相對路徑列出它，正是這一點讓它算是你們的。
+- tessera 的守門是提醒，不是強制。提醒過的呼叫再送一次就會放行，裝的人也隨時能把 mod 關掉。要一條誰都過不了的規則，用受管設定裡的 `PreToolUse` hook。
+
+部署前，在 checkout 裡執行 `claude plugin validate .`，會列出 tessera 處理的每個事件，以及它對檔案、程序、環境變數、設定的每一種呼叫；[SECURITY.md](SECURITY.md) 逐條說明。
+
 ## 功能
 
 | 功能 | 預設 | 說明 |
@@ -126,6 +154,20 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | WSL | 色塊 | 透過 `\\wsl.localhost` 用 Windows 檢視器 |
 
 偵測不準時，在 `/config` 把 `imageMode` 設成 `pixels` 或 `cells`。Orca 能畫 kitty 圖片，但還不支援 Claude Code 使用的 Unicode 佔位字元（[stablyai/orca#23615](https://github.com/stablyai/orca/issues/23615)）。
+
+## 在哪些地方能用
+
+mod 的 hook 在每一種載入 plugin 的 session 都會跑；畫出來的東西只在 Claude Code 會畫 mod 的地方出現。[這張表](https://code.claude.com/docs/en/plugins/mods/overview#where-mods-run)是 Claude Code 官方的，對 tessera 來說是這樣：
+
+| 你在哪裡跑 Claude Code | 守門、選項、接續未完成、監看背景工作 | 預覽、回覆美化、摺疊 diff、輸入框上方的列 |
+| --- | --- | --- |
+| 終端機，包括編輯器內建的終端機和 JetBrains 外掛 | 有 | 有；tessera 在這裡測試 |
+| Desktop app 的 Code 分頁 | 有 | Desktop app 用自己的元件畫；那裡的複製按鈕沒測過 |
+| Desktop app 裡的 WSL session | 沒有，那裡不支援 plugin | 沒有 |
+| VS Code 擴充的對話面板 | 有 | 沒有，mod 畫的東西那裡都不出現 |
+| `claude -p` 和 Agent SDK | 有 | 沒有 |
+| 從 claude.ai 或手機遠端控制 | 有，在你電腦上的那個 session | 畫在你電腦的終端機 |
+| 雲端 session | 只在 plugin 有帶到那個 session 時 | 沒有 |
 
 ## 在你電腦上做了什麼
 

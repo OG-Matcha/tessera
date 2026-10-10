@@ -85,6 +85,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 | 功能 | 預設 | 說明 |
 | --- | --- | --- |
+| Python 用 UTF-8 | 開 | Windows 上替 session 設 `PYTHONUTF8=1`，Claude 執行的 Python 改用 UTF-8 讀寫，不再卡在系統 code page（中日韓文字出現 `UnicodeEncodeError` 或印成 `?`）；你自己設過這個變數就不動，其他系統上沒有作用 |
 | 工作區守門 | 開 | 擋下穿過連結的遞迴刪除、連到 `node_modules` 的連結；強制推送到 `main` 或 `master` 前，以及 `git reset --hard`、`git checkout -- <路徑>`、`git restore`、`git clean -f` 會丟掉未提交的改動前，列出檔案提醒一次；agent 執行時擋下改寫主樹和 `git add -A` |
 | heredoc 守門 | 開 | Bash 的 heredoc 分隔符號沒加引號（`<<EOF`），內文又會被 shell 改掉時提醒一次：`${x}`、`$(cmd)`、反引號被展開，`\\` 變成 `\`；再送一次就執行 |
 | agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定 |
@@ -128,7 +129,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 ## 在你電腦上做了什麼
 
-自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`（你自己設過就不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
+自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），以及 Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 

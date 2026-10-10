@@ -3,6 +3,7 @@ import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude
 
 import type { CarryOver, UpdateOffer } from '../types'
 import type { Env } from './platform'
+import { platformOf } from './platform'
 import type { InboxItem } from './inbox'
 import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 
@@ -80,6 +81,7 @@ async function replyDrifted($: EngineInterface, wanted: Voice): Promise<boolean>
 // Carry-over: what this session's task lists leave open is kept per repository, and the next session
 // there offers it back above the prompt.
 let carryOn = true
+let pythonUtf8 = true
 const taskLog: TaskLog = { tasks: new Map(), todos: [] }
 
 async function carryKey($: EngineInterface): Promise<string> {
@@ -380,6 +382,7 @@ const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['
 
 export const register: Register = (on, options) => {
   const isDrawing = options.enabled !== false
+  pythonUtf8 = options.pythonUtf8 !== false
   const style = resolveStyle(options)
 
   session.lang = pickLang(options.language, [])
@@ -393,8 +396,9 @@ export const register: Register = (on, options) => {
     // Claude 5.x gets no task tools unless asked, and carry-over has nothing to keep without them; a
     // value the person set, on or off, stands.
     // Everything read before the session starts is read at once: each read is a round trip to the engine.
-    const [todoTools, readsEnv, settings, wroteLang, lcAll, langVar, setupSeen, sessionCwd] = await Promise.all([
+    const [todoTools, pyUtf8, readsEnv, settings, wroteLang, lcAll, langVar, setupSeen, sessionCwd] = await Promise.all([
       $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS'),
+      $.env.get('PYTHONUTF8'),
       readEnv($),
       $.settings.read({}).catch(() => ({}) as Record<string, unknown>),
       $.store.get('wroteLang').catch(() => undefined),
@@ -405,6 +409,8 @@ export const register: Register = (on, options) => {
     ])
     workDir = sessionCwd
     if (carryOn && todoTools === undefined) await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1').catch(() => undefined)
+    // Python on Windows reads and writes the system code page by default (until 3.15), where CJK fails.
+    if (pythonUtf8 && pyUtf8 === undefined && platformOf(readsEnv) === 'windows') await $.env.set('PYTHONUTF8', '1').catch(() => undefined)
     session.env = readsEnv
     const hints = [
       typeof settings.language === 'string' ? settings.language : undefined,

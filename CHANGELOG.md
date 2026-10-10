@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Python in UTF-8 (`pythonUtf8`, on): on Windows, tessera sets `PYTHONUTF8=1` for the session unless you set it yourself, so the Python that Claude runs reads and writes files and the console in UTF-8 rather than the system code page, where Chinese, Japanese or Korean text fails with `UnicodeEncodeError` or prints as `?`. Python itself switches to this default in 3.15 (PEP 686).
+
 ### Changed
 
 - The marketplace is named `og-matcha`, so the install is `tessera@og-matcha`. Another Claude Code plugin is also called tessera with a marketplace of the same name, and Claude Code keeps one marketplace per name, so the two could not be added side by side. An install made as `tessera@tessera` keeps running but no longer updates; the README says how to move it, and tessera says so once above the prompt. Option values stay with the install ID, so they are picked again after the move.

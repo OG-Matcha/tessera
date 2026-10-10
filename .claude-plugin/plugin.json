@@ -418,6 +418,12 @@
       "description": "Keep what the session's task list (TaskCreate, TaskUpdate, TodoWrite) leaves open, per repository, and offer it above the prompt in the next session there, or in the conversation a /clear starts: continue puts the items in the prompt box, dismiss forgets them. Only items made with Claude's task tools count; Claude Code leaves those off for Claude 5.x, so while this is on tessera sets CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session unless you set that variable yourself.",
       "default": true
     },
+    "pythonUtf8": {
+      "type": "boolean",
+      "title": "Python in UTF-8",
+      "description": "On Windows, set PYTHONUTF8=1 for the Claude Code process, so the Python that Claude runs reads and writes files and the console in UTF-8 instead of the system code page (cp950, cp932, cp936, cp949), where CJK text fails with UnicodeEncodeError or shows as ?. Nothing is set when you set the variable yourself; no effect elsewhere.",
+      "default": true
+    },
     "resumeAfterLimit": {
       "type": "boolean",
       "title": "Resume after limits",

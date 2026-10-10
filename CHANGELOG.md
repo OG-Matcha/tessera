@@ -39,6 +39,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - A guard's refusal still goes out when its toast fails; the toast for a reminder says tessera asked Claude to confirm, and only a hard refusal says blocked.
 - Feature descriptions say which guards remind once and which refuse; the diagram hint is described as about 300 tokens once per context, as the README measures it; the `/tessera` command description names setup and peek; the help screen says `/reload-plugins`.
 - On Linux and macOS, paste previews no longer stop at startup when `id -u` cannot run; they stay off for that session.
+- At exit, the session was marked as over only after a git lookup, inside the short time Claude Code gives `session.end`, so on a busy machine the mark was lost and the next session in that repository was offered nothing. The repository key is kept from the start, and the end only writes.
 
 ## [0.7.0] - 2026-10-09
 

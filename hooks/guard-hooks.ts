@@ -2,7 +2,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { Risk } from './guard'
 import type { Discard } from './guard'
-import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, dataResets, deleteSites, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
 import { EDITS, asEditLog, prune, recentEdit, remember } from './edits'
 import { commandHead } from './background'
@@ -54,9 +54,13 @@ const homeDir = () => session.env.HOME ?? session.env.USERPROFILE
 const onWindows = () => platformOf(session.env) === 'windows'
 
 async function resolveIn($: EngineInterface, command: string, path?: string): Promise<string> {
+  return resolveAt($, commandDir(command), path)
+}
+
+// A path as it stands from `named` (a cd or git -C of the command's, else the session's directory).
+async function resolveAt($: EngineInterface, named: string | undefined, path?: string): Promise<string> {
   const cwd = await $.session.cwd()
   const host = (p: string) => hostPath(p, homeDir(), onWindows())
-  const named = commandDir(command)
   const dir = named === undefined ? cwd : isAbsolute(host(named)) ? host(named) : `${cwd}/${named}`
   return path === undefined ? dir : isAbsolute(host(path)) ? host(path) : `${dir}/${path}`
 }
@@ -147,8 +151,8 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
     const risks = shellRisks(command)
     if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
     const deletes: { target: string; linked: 'yes' | 'no' | 'unknown' }[] = []
-    for (const target of recursiveDeletes(command)) {
-      const path = await resolveIn($, command, target)
+    for (const { target, dir } of deleteSites(command)) {
+      const path = await resolveAt($, dir, target)
       if (rootLike(path, await $.session.cwd(), homeDir(), onWindows()))
         return refuse($, 'root delete', `it deletes ${target} recursively, and that is the root, a drive, your home directory, or the directory this session works in or one above it. Name the directory meant`)
       deletes.push({ target, linked: await holdsLink($, path) })

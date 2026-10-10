@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, dataResets, deleteSites, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('one place spelled two ways resolves to one path', () => {
   expect(resolvePath('I:/w/pkg/sub', '../.git')).toBe('i:/w/pkg/.git')
@@ -230,4 +230,13 @@ test('a discard of a quoted path with a space is seen, a bare lower-case drive i
   expect(rootLike(hostPath('d:', undefined, true), 'C:/w', 'C:/Users/u', true)).toBe(true)
   expect(recursiveDeletes('Remove-Item -Recurse ${env:USERPROFILE}\\x')).toEqual(['~\\x'])
   expect(recursiveDeletes('rmdir /s /q %HOMEDRIVE%%HOMEPATH%')).toEqual(['~'])
+})
+
+test('a delete is placed where the cd chain before it leads, or at its own git -C', () => {
+  expect(deleteSites('make && cd .. && rm -rf repo')).toEqual([{ target: 'repo', dir: '..' }])
+  expect(deleteSites('cd build; cd out; rm -rf dist')).toEqual([{ target: 'dist', dir: 'build/out' }])
+  expect(deleteSites('cd /tmp && cd x && rm -rf y')).toEqual([{ target: 'y', dir: '/tmp/x' }])
+  expect(deleteSites('rm -rf a && cd b && rm -rf c')).toEqual([{ target: 'a' }, { target: 'c', dir: 'b' }])
+  expect(deleteSites('git -C ../wt worktree remove --force x')).toEqual([{ target: 'x', dir: '../wt' }])
+  expect(deleteSites('cd ~/src && rm -rf app')).toEqual([{ target: 'app', dir: '~/src' }])
 })

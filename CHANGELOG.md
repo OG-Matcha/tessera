@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - The carry-over store kept a record for every repository a session ever ran in, read whole at every access; a machine that runs the e2e made eighty of them in a day. Only the newest thirty repositories are kept, pruned when a session starts; the one in use always stays.
+- The tree guard placed a recursive delete from a `cd` only at the very start of the command, so `make && cd .. && rm -rf repo` was judged inside the session directory and passed, though it deletes the session directory itself; a delete is now placed where every `cd`, `pushd` or `Set-Location` before it in the chain leads, or at its own `git -C`.
 
 ## [0.8.2] - 2026-10-11
 

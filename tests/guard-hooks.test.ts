@@ -447,3 +447,13 @@ test('on Windows a target holding a cmd operator is never listed, only reminded'
   expect(listed).toBe(0)
   expect((await $.tool.call(call)).deny).toBe(undefined)
 })
+
+test('a cd after another command still places the delete: cd .. && rm -rf <the session directory> is refused', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('session.cwd', () => ({ value: 'C:/w/repo' }))
+  on('fs.stat', () => ({ value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  expect((await $.tool.call({ tool: 'Bash', command: 'make && cd .. && rm -rf repo' })).deny).toContain('Name the directory meant')
+  expect((await $.tool.call({ tool: 'Bash', command: 'make && cd .. && rm -rf other' })).deny).toBe(undefined)
+})

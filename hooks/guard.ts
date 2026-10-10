@@ -155,9 +155,11 @@ export function expandedHeredoc(command: string): string | undefined {
 // The git -C directory, after any other option before the verb; -c is a config value, so the case counts.
 const GIT_DASH_C = new RegExp(String.raw`\b[gG]it(?:\.exe)?\s+(?:${GIT_OPTIONS.replace('-[Cc]', '-c')})*-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)`)
 
+const unquote = (s: string) => s.replace(/^["']|["']$/g, '')
+const CD = /^\s*(?:cd|Set-Location|sl|pushd)\s+(?:\/d\s+)?("[^"]+"|'[^']+'|[^\s;&|]+)/i
+
 export function commandDir(command: string): string | undefined {
-  const unquote = (s: string) => s.replace(/^["']|["']$/g, '')
-  const cd = /^\s*(?:cd|Set-Location|sl|pushd)\s+(?:\/d\s+)?("[^"]+"|'[^']+'|[^\s;&|]+)/i.exec(command)
+  const cd = CD.exec(command)
   if (cd?.[1]) return unquote(cd[1])
   const dashC = GIT_DASH_C.exec(command)
   return dashC?.[1] ? unquote(dashC[1]) : undefined
@@ -200,14 +202,41 @@ const CMD_STYLE = new Set(['rd', 'rmdir', 'del'])
 // remove, also behind cmd /c (with its command quoted as one word, or //c from Git Bash). A trailing /*
 // names the directory's contents, which for a root, home or the working directory is as good as itself.
 export function recursiveDeletes(command: string): string[] {
-  const targets: string[] = []
+  return deleteSites(command).map(s => s.target)
+}
+
+// A recursive delete and the directory the command has moved to by then: each cd, pushd or Set-Location
+// before it in the chain (relative ones stacked), or a git -C of its own. `make && cd .. && rm -rf repo`
+// deletes repo beside the session directory, not inside it.
+export type DeleteSite = { target: string; dir?: string }
+
+export function deleteSites(command: string): DeleteSite[] {
+  const sites: DeleteSite[] = []
+  let dir: string | undefined
   for (const piece of pieces(command)) {
+    const cd = CD.exec(piece)
+    if (cd?.[1]) {
+      const to = unquote(cd[1])
+      dir = dir === undefined || isAbsolute(to) || /^~/.test(to) ? to : `${dir}/${to}`
+      continue
+    }
+    const dashC = GIT_DASH_C.exec(piece)?.[1]
+    for (const target of deletesIn(piece)) sites.push({ target, ...(dashC !== undefined ? { dir: unquote(dashC) } : dir !== undefined ? { dir } : {}) })
+  }
+  return sites
+}
+
+function deletesIn(piece: string): string[] {
+  const targets: string[] = []
+  {
     let [verb = '', ...args] = words(piece)
     if (/^cmd(\.exe)?$/i.test(verb) && /^\/\/?c$/i.test(args[0] ?? '')) {
       const inner = args.slice(1)
       ;[verb = '', ...args] = inner.length === 1 && /\s/.test(inner[0]!) ? words(inner[0]!) : inner
     }
     const name = verb.toLowerCase().replace(/\.exe$/, '')
+    // git takes options before its verb (-C <dir>, -c k=v, --no-pager); the verb comes after them.
+    if (name === 'git') while (args[0]?.startsWith('-')) args.splice(0, /^(?:-[Cc]|--git-dir|--work-tree)$/.test(args[0]) ? 2 : 1)
     const cmdStyle = CMD_STYLE.has(name)
     if (cmdStyle) args = args.flatMap(a => (/^\/[a-z](?:\/[a-z])+$/i.test(a) ? a.slice(1).split('/').map(s => `/${s}`) : [a]))
     const plain = args.filter(a => !a.startsWith('-') && !(cmdStyle && /^\/[a-z]$/i.test(a)))

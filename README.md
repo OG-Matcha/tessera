@@ -28,7 +28,7 @@
 | A pasted image shows as `[Image #1]` in most terminals | | Thumbnails above the prompt: real pixels in kitty and Ghostty, cell art everywhere else |
 | Pasted text collapses to `[Pasted text #1 +40 lines]` before you send it | [#23134](https://github.com/anthropics/claude-code/issues/23134) | Its first lines shown above the prompt |
 | Korean, Chinese or Japanese written as `\uXXXX` comes out as wrong characters | [#83033](https://github.com/anthropics/claude-code/issues/83033) | Such tool calls are refused before they write; in code, where an escape can be meant, reminded once |
-| An edit to a Big5, Shift-JIS or GBK file rewrites it with `�` where its text was | [#7134](https://github.com/anthropics/claude-code/issues/7134) | A reminder once before the edit, with the file's encoding named |
+| An edit to a Big5, Shift-JIS or GBK file rewrites it with `�` where its text was | [#7134](https://github.com/anthropics/claude-code/issues/7134) | A reminder once before the edit, saying whether the file is UTF-16 or a legacy code page (Big5, Shift-JIS, GBK, EUC-KR) |
 | A command Claude moved to the background hangs, and nothing says so until you ask | | A row above the prompt after ten quiet minutes, with a button that asks Claude to look |
 | Claude answers a Chinese question in English because the pasted log was English | | Replies follow the language of your own words |
 | Claude writes Simplified characters or zh-CN terms into a Traditional Chinese project | | The write is refused once, with the zh-TW forms |
@@ -168,7 +168,7 @@ A mod's hooks run in every kind of session that loads the plugin; what it draws 
 | Where you run Claude Code | Guards, options, carry-over, background watch | Previews, themed replies, folded diffs, the bands above the prompt |
 | --- | --- | --- |
 | A terminal, including an editor's integrated terminal and the JetBrains plugin | yes | yes; this is where tessera is tested |
-| The Code tab of the Desktop app | yes | the Desktop app draws them with its own elements; the copy buttons there are not tested |
+| The Code tab of the Desktop app | yes | themed replies and folded diffs, drawn with the Desktop app's own elements; the previews and the bands above the prompt are terminal-only; nothing there is tested |
 | A WSL session in the Desktop app | no, plugins are not available there | no |
 | The VS Code extension's chat panel | yes | no, nothing a mod draws appears there |
 | `claude -p` and the Agent SDK | yes | no |
@@ -177,7 +177,7 @@ A mod's hooks run in every kind of session that loads the plugin; what it draws 
 
 ## What it does on your machine
 
-No network requests of its own: the one model call, a short Haiku classification per Agent call that names no model (`agentModel: auto`, the default), goes through your Claude Code session. It reads your Claude Code settings (the `language` setting and whether tessera's marketplace auto-updates), Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, the repository's `CLAUDE.md` for a glossary table, a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into, and the bytes of a file Claude is about to edit, to tell its encoding; it runs `git rev-parse`, on Windows a junction listing before a recursive delete, `git status`, `git diff` or `git clean -n` before a git command that discards changes, a clipboard read once per collapsed text paste, and your platform's viewer when you ask for an original; while a command Claude moved to the background runs, it reads the size of that command's output file once a minute; while carry-over is on it sets `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` for the session, and on Windows `PYTHONUTF8=1` while Python in UTF-8 is on, each unless you set it yourself, and writes nothing to your settings. Details in [SECURITY.md](SECURITY.md).
+No network requests of its own: the one model call, a short Haiku classification per Agent call that names no model (`agentModel: auto`, the default), goes through your Claude Code session. It reads your Claude Code settings (the `language` setting and whether tessera's marketplace auto-updates), Claude Code's paste cache, Workflow scripts when one starts, files you `peek`, the repository's `CLAUDE.md` for a glossary table, a file Claude is about to write Simplified characters, zh-CN terms or avoided glossary wordings into, and the bytes of a file Claude is about to edit, to tell its encoding; it runs `git rev-parse`, on Windows a junction listing before a recursive delete, `git status`, `git diff` or `git clean -n` before a git command that discards changes, with stash-before-discard on `git stash create` and `git stash store` before an answered discard runs, a clipboard read once per collapsed text paste, and your platform's viewer when you ask for an original; while a command Claude moved to the background runs, it reads the size of that command's output file once a minute; while carry-over is on it sets `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` for the session, and on Windows `PYTHONUTF8=1` while Python in UTF-8 is on, each unless you set it yourself, and writes nothing to your settings. Details in [SECURITY.md](SECURITY.md).
 
 ## FAQ
 

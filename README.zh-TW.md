@@ -177,7 +177,7 @@ mod 的 hook 在每一種載入 plugin 的 session 都會跑；畫出來的東�
 
 ## 在你電腦上做了什麼
 
-自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案，以及 Claude 要編輯的檔案的位元組（判斷編碼）；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、「丟棄前先 stash」開著時在確認過的丟棄指令前的 `git stash create` 和 `git stash store`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
+自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案，Claude 要編輯的檔案的位元組（判斷編碼），以及啟動時讀一次 Claude Code 自己的執行中 session 清單（判斷留下待辦的那個 session 是否還在跑）；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、「丟棄前先 stash」開著時在確認過的丟棄指令前的 `git stash create` 和 `git stash store`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 

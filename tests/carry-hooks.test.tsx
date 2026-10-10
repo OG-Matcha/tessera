@@ -163,3 +163,28 @@ test('a task tool runs once and keeps its result when recording it fails', async
   expect(runs).toBe(1)
   expect((out.result as { task?: { id: string } }).task?.id).toBe('1')
 })
+
+// /exit seldom lets a mod write its ended mark, so a session that left tasks open is told over by Claude
+// Code's registry of running sessions, which it writes at start and sweeps at exit.
+test('a session gone from the running-session registry is offered though it never marked itself ended', { options: { language: 'en' } }, async ($, on) => {
+  const registry: Record<string, string> = { 'C:/Users/u/.claude/sessions/100.json': '{"pid":100,"sessionId":"now"}', 'C:/Users/u/.claude/sessions/101.json': '{"pid":101,"sessionId":"busy"}' }
+  const store = { gone: { at: 1, open: ['ship it'] }, busy: { at: 2, open: ['still mine'] }, now: { at: 3, open: [] } }
+  on('session.repo', () => ({ value: { root: 'C:/p' } }) as never)
+  on('session.id', () => ({ value: 'now' }) as never)
+  on('clock.now', () => ({ value: 4 }) as never)
+  on('env.get', (_, e) => ({ value: { USERPROFILE: 'C:\\Users\\u', OS: 'Windows_NT' }[(e as { name?: string }).name ?? ''] }) as never)
+  on('fs.list', (_, e) => (String((e as { path: string }).path).replace(/\\/g, '/').endsWith('/.claude/sessions') ? { value: [{ name: '100.json', kind: 'file' }, { name: '101.json', kind: 'file' }, { name: '100.key', kind: 'file' }] } : Promise.reject(new Error('ENOENT'))) as never)
+  on('fs.read', (_, e) => ({ value: registry[String((e as { path: string }).path).replace(/\\/g, '/')] ?? '' }) as never)
+  on('store.get', (_, e) => ({ value: String((e as { key?: string }).key).startsWith('carry:') ? store : undefined }) as never)
+  on('store.set', () => ({ value: undefined }) as never)
+  on('session.start', () => ({ cwd: 'C:/p' }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: 'C:/p', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 80, rows: 20 } } as never)
+  expect(await ui.find({ type: 'Text', text: '1 unfinished from your last session here' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '· ship it' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '· still mine' })).toBe(undefined)
+})

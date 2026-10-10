@@ -11,6 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - An edit the tool reported as failed (old string not found, a refused permission) was noted as made for the session guard.
 - A discard of a quoted path with a space (`git checkout -- "my file.ts"`) was never reminded about and never stashed. A bare lower-case drive (`Remove-Item -Recurse d:`) is a drive root like `D:`. `${env:USERPROFILE}` and `%HOMEDRIVE%%HOMEPATH%` are the home directory. A CRLF command's first line no longer carries its carriage return into the background-watch row and the stash message.
 - The carry-over key is looked up per call again, so a session that changes directory records its tasks under the new repository; `session.end` still uses the last value, inside its short bound.
+- Carry-over missed the previous session's open tasks whenever `/exit` ended it: Claude Code seldom delivers `session.end` to a mod at exit (its debug log shows the exit with no dispatch), so the ended mark tessera writes there was mostly never written, and the next session in the repository took the record for a live sibling's. Whether a session is still running is now read from Claude Code's own registry of running sessions (`~/.claude/sessions/*.json`, written at start and swept at exit), once at start; the ended mark and the two-hour stale limit remain the fallback when it cannot be read.
 
 ## [0.8.1] - 2026-10-11
 

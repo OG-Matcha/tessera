@@ -31,13 +31,17 @@ export function endSession(store: CarryStore, sessionId: string, at: number): Ca
   return entry === undefined ? store : { ...store, [sessionId]: { ...entry, at, ended: true } }
 }
 
-// A session that never said it ended (the process was killed) counts as over after this long.
+// A session that never said it ended counts as over after this long, when the registry of running
+// sessions could not be read.
 const STALE_MS = 2 * 60 * 60_000
 
-// The latest other session in this repository that is over, when it stopped with items still open.
-export function carriedFrom(store: CarryStore, sessionId: string, now: number): { from: string; items: string[] } | undefined {
+// The latest other session in this repository that is over, when it stopped with items still open. `live`
+// is the set of session ids Claude Code's registry lists as running (~/.claude/sessions): a session not in
+// it is over, whatever its record says, since /exit seldom lets a mod write its ended mark.
+export function carriedFrom(store: CarryStore, sessionId: string, now: number, live?: ReadonlySet<string>): { from: string; items: string[] } | undefined {
+  const over = (id: string, s: CarryStore[string]) => s.ended === true || (live !== undefined && !live.has(id)) || now - s.at > STALE_MS
   const [from, latest] = Object.entries(store)
-    .filter(([id, s]) => id !== sessionId && (s.ended === true || now - s.at > STALE_MS))
+    .filter(([id, s]) => id !== sessionId && over(id, s))
     .sort(([, a], [, b]) => b.at - a.at)[0] ?? []
   return from !== undefined && latest !== undefined && latest.open.length > 0 ? { from, items: latest.open } : undefined
 }

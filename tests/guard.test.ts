@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, discards, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('one place spelled two ways resolves to one path', () => {
   expect(resolvePath('I:/w/pkg/sub', '../.git')).toBe('i:/w/pkg/.git')
@@ -46,7 +46,28 @@ test('the directory comes from a leading cd or git -C', () => {
   expect(commandDir('cd "I:/接案/repo" && git stash')).toBe('I:/接案/repo')
   expect(commandDir('Set-Location C:\\w; git reset')).toBe('C:\\w')
   expect(commandDir('git -C ../wt checkout main')).toBe('../wt')
+  expect(commandDir('git -c core.quotepath=false stash')).toBe(undefined)
   expect(commandDir('git reset')).toBe(undefined)
+})
+
+test('git options before the verb do not hide it', () => {
+  expect(shellRisks('git -c core.quotepath=false stash')).toEqual(['tree-rewrite'])
+  expect(shellRisks('git --no-pager -C wt reset --hard')).toEqual(['tree-rewrite'])
+  expect(discards('git -c user.name=me reset --hard')).toEqual([{ verb: 'reset', args: [] }])
+})
+
+test('a heredoc body is data, not commands', () => {
+  const commit = "git commit -F - <<'EOF'\nfix: stop the reset\n\nBefore, `git reset --hard && git clean -fd` ran.\nEOF\ngit push"
+  expect(shellRisks(commit)).toEqual([])
+  expect(discards(commit)).toEqual([])
+  expect(shellRisks("cat > a.txt <<EOF\nplain\nEOF\ngit stash")).toEqual(['tree-rewrite'])
+})
+
+test('only commit -a or --all stages everything', () => {
+  expect(shellRisks('git commit -am "wip"')).toEqual(['stage-all'])
+  expect(shellRisks('git commit --all -m x')).toEqual(['stage-all'])
+  expect(shellRisks('git commit -m "add a test"')).toEqual([])
+  expect(shellRisks('git commit --amend --no-edit')).toEqual([])
 })
 
 test('a script quotes the user when ten of their characters appear verbatim', () => {

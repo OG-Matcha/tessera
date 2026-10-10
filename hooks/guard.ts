@@ -1,9 +1,25 @@
 export type Risk = 'tree-rewrite' | 'stage-all' | 'link-node-modules'
 
-// One shell command line split at ;, &&, || and | so each git call is judged on its own.
-const pieces = (command: string) => command.split(/;|&&|&|\|\||\||\n/).map(p => p.trim())
+// A heredoc's body is data (a commit message, a file), not commands, so it is left out before a line is
+// split; the `<<` line itself stays.
+const withoutHeredocs = (command: string): string => {
+  let out = command
+  for (const m of [...command.matchAll(HEREDOC)].reverse()) {
+    const start = command.indexOf('\n', m.index)
+    if (start === -1) continue
+    const lines = command.slice(start + 1).split('\n')
+    const end = lines.findIndex(l => (m[1] === '-' ? l.replace(/^\t+/, '') : l) === m[3])
+    const body = lines.slice(0, end === -1 ? lines.length : end + 1).join('\n')
+    out = `${out.slice(0, start)}${out.slice(start + body.length + 1)}`
+  }
+  return out
+}
 
-const GIT = /^(?:git|git\.exe)\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(\S+)(.*)$/i
+// One shell command line split at ;, &&, || and | so each git call is judged on its own.
+const pieces = (command: string) => withoutHeredocs(command).split(/;|&&|&|\|\||\||\n/).map(p => p.trim())
+
+// git with the options that may come before its verb: -C <dir>, -c key=value, --no-pager, --git-dir=.
+const GIT = /^(?:git|git\.exe)\s+(?:(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)|-c\s+\S+|--no-pager|--git-dir=\S+|--work-tree=\S+)\s+)*(\S+)(.*)$/i
 
 export function shellRisks(command: string): Risk[] {
   const risks = new Set<Risk>()
@@ -16,7 +32,7 @@ export function shellRisks(command: string): Risk[] {
       if (verb === 'stash' && !/^\s+(list|show)\b/.test(rest)) risks.add('tree-rewrite')
       if (verb === 'clean' && /\s-\w*f/.test(rest)) risks.add('tree-rewrite')
       if (verb === 'add' && /\s(-A|--all|\.)(\s|$)/.test(rest)) risks.add('stage-all')
-      if (verb === 'commit' && /\s-\w*a/.test(rest)) risks.add('stage-all')
+      if (verb === 'commit' && rest.split(/\s+/).some(w => w === '--all' || /^-[a-zA-Z]*a[a-zA-Z]*$/.test(w))) risks.add('stage-all')
     }
     const links = /\bmklink\s+\/[JD]\b|\bNew-Item\b.*-ItemType\s+['"]?(Junction|SymbolicLink)|\bln\s+-\w*s/i.test(piece)
     if (links && /node_modules/i.test(piece)) risks.add('link-node-modules')
@@ -107,7 +123,8 @@ export function commandDir(command: string): string | undefined {
   const unquote = (s: string) => s.replace(/^["']|["']$/g, '')
   const cd = /^\s*(?:cd|Set-Location|sl|pushd)\s+(?:\/d\s+)?("[^"]+"|'[^']+'|[^\s;&|]+)/i.exec(command)
   if (cd?.[1]) return unquote(cd[1])
-  const dashC = /\bgit\s+-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)/i.exec(command)
+  // -C is a directory; -c is a config value, so the case counts.
+  const dashC = /\b[gG]it\s+-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)/.exec(command)
   return dashC?.[1] ? unquote(dashC[1]) : undefined
 }
 

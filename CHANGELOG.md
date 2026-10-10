@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.2] - 2026-10-11
 
 ### Fixed
 
@@ -206,7 +206,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/OG-Matcha/tessera/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/OG-Matcha/tessera/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/OG-Matcha/tessera/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/OG-Matcha/tessera/compare/v0.6.3...v0.7.0

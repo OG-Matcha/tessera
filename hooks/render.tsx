@@ -33,26 +33,58 @@ export const breakUnits = (text: string): string[] => {
   return starts.map((start, i) => text.slice(start, starts[i + 1] ?? text.length))
 }
 
-const wrapRanges = (text: string, w: number): [number, number][] => {
-  if (width(text) <= w) return [[0, text.length]]
+// The text measured once: the width up to each grapheme boundary, so a slice's width is a subtraction.
+// A Chinese paragraph breaks between every two characters, and measuring each candidate line from its
+// start made wrapping quadratic: 2,880 characters took 150 ms, on every streamed delta.
+type Measured = { ends: number[]; widths: number[]; boundary: Int32Array }
+
+const measure = (text: string): Measured => {
+  const ends = [0]
+  const widths = [0]
+  const boundary = new Int32Array(text.length + 1).fill(-1)
+  let at = 0
+  let w = 0
+  boundary[0] = 0
+  for (const g of graphemes(text)) {
+    at += g.length
+    w += /^\p{M}+$/u.test(g) ? 0 : WIDE.test(g) ? 2 : 1
+    boundary[at] = ends.length
+    ends.push(at)
+    widths.push(w)
+  }
+  return { ends, widths, boundary }
+}
+
+// The grapheme boundary at or before an offset: a break unit can start inside a cluster (a variation
+// selector after a character), and then the cluster's start stands for it.
+const boundaryAt = (m: Measured, offset: number): number => {
+  let i = m.boundary[offset] ?? -1
+  for (let o = offset; i === -1 && o > 0; ) i = m.boundary[--o] ?? -1
+  return Math.max(i, 0)
+}
+
+export const wrapRanges = (text: string, w: number): [number, number][] => {
+  const m = measure(text)
+  const between = (a: number, b: number) => m.widths[boundaryAt(m, b)]! - m.widths[boundaryAt(m, a)]!
+  if (between(0, text.length) <= w) return [[0, text.length]]
   const out: [number, number][] = []
   let line: [number, number] | undefined
   for (const word of text.matchAll(BREAKS)) {
     let start = word.index
     const end = start + word[0].length
-    while (width(text.slice(start, end)) > w) {
+    while (between(start, end) > w) {
       if (line) out.push(line)
       line = undefined
-      let cut = start
-      for (const g of graphemes(text.slice(start, end))) {
-        if (cut > start && width(text.slice(start, cut + g.length)) > w) break
-        cut += g.length
-      }
+      // The longest run of whole graphemes from start that fits, at least one.
+      const from = boundaryAt(m, start)
+      let i = from + 1
+      while (i + 1 < m.ends.length && m.ends[i + 1]! <= end && m.widths[i + 1]! - m.widths[from]! <= w) i++
+      const cut = Math.min(m.ends[i]!, end)
       out.push([start, cut])
       start = cut
     }
     if (start === end) continue
-    if (line && width(text.slice(line[0], end)) <= w) line = [line[0], end]
+    if (line && between(line[0], end) <= w) line = [line[0], end]
     else {
       if (line) out.push(line)
       line = [start, end]
@@ -83,7 +115,8 @@ const mostLines = (text: string, w: number): number => (text.match(/\S+/g)?.leng
 
 const wrapInline = (nodes: Inline[], w: number): Inline[][] => {
   const text = inlineText(nodes)
-  return width(text) <= w ? [nodes] : wrapRanges(text, w).map(([a, b]) => sliceInline(nodes, a, b))
+  const ranges = wrapRanges(text, w)
+  return ranges.length === 1 && ranges[0]![1] === text.length ? [nodes] : ranges.map(([a, b]) => sliceInline(nodes, a, b))
 }
 
 const flowOf = (style: Style, nodes: Inline[], columns: number) => (style.reorder ? flow(nodes, columns, width, style.shape) : null)

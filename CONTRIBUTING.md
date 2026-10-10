@@ -54,6 +54,12 @@ It needs a signed-in `claude` with tessera installed from this working tree, spe
 - Every change comes with a test. Anything visual also needs a screenshot in the PR, with the terminal named.
 - Add a line under `## [Unreleased]` in `CHANGELOG.md`.
 
+## Branches and pull requests
+
+`master` is protected: nothing is pushed to it directly, and a pull request merges only once every CI job has passed on the branch with the current `master` underneath it. Work on a branch named `feat/…`, `fix/…`, `docs/…` or `chore/…`, open a pull request, and when the checks are green merge it with a rebase (`gh pr merge --rebase --delete-branch`): history stays linear, and the branch goes away. Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Open an issue for what others can act on or weigh in on: a bug, a design decision, a request. A small change needs no issue, only the pull request.
+
+In the maintainer's own setup the working tree at `master` is the installed copy, so a branch lives in a separate `git worktree` and `master` moves only by `git pull --ff-only` after a merge; the e2e then runs from it against the installed copy, and a failure goes back through a pull request.
+
 ## Releases
 
 Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a release with new features or changed options bumps the minor version (0.2.0) and a release with fixes only bumps the patch (0.1.2). Changes collect under `## [Unreleased]` and ship together: a release is cut when a set of features is done, or sooner for a fix that blocks people. Existing installs update only when the `version` in `plugin.json` changes, but a new install takes whatever is on `master`, so `master` must always be releasable.
@@ -66,4 +72,4 @@ Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a releas
 - The GitHub topics still fit.
 - The token table in both READMEs still holds: re-measure with the `cost-*` scenarios in `scripts/e2e/scenarios.mjs` when a feature adds to the context.
 
-Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, turn `[Unreleased]` into the new version in `CHANGELOG.md`, then push a `vX.Y.Z` tag. The release workflow checks the versions agree and publishes the notes.
+Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` and turn `[Unreleased]` into the new version in `CHANGELOG.md` in a pull request; once it is merged, push a `vX.Y.Z` tag at the merged commit. The release workflow checks the versions agree and publishes the notes.

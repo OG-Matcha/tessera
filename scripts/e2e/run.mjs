@@ -1,5 +1,6 @@
 // Live check of tessera in real Claude Code sessions: `node e2e/run.mjs [name ...]` from scripts/.
-// Needs a signed-in `claude` with tessera installed from this working tree; it spends a few Haiku turns.
+// Needs a signed-in `claude` with tessera installed from this working tree, or E2E_PLUGIN_DIR naming the
+// checkout to drive instead (the installed copy is disabled for those sessions); it spends a few Haiku turns.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
@@ -12,7 +13,8 @@ import { scenarios } from './scenarios.mjs'
 const repo = fileURLToPath(new URL('../..', import.meta.url))
 const only = process.argv.slice(2)
 // Manual scenarios measure rather than check, and run only when named.
-const picked = scenarios.filter(s => (only.length === 0 ? !s.manual : only.includes(s.name)))
+// Scenarios of the installed copy's own offers do not apply to a checkout driven through --plugin-dir.
+const picked = scenarios.filter(s => (only.length === 0 ? !s.manual : only.includes(s.name))).filter(s => !(process.env.E2E_PLUGIN_DIR && s.installed))
 const results = []
 const leftover = []
 

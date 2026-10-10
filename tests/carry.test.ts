@@ -43,3 +43,10 @@ test('a reloaded module gets the session task list back with its ids', () => {
   expect(restoredTasks(store, 'now').get('4')).toEqual({ subject: 'ship it', status: 'in_progress' })
   expect(restoredTasks(store, 'other').size).toBe(0)
 })
+
+test('with the registry of running sessions, a session not in it is over whatever its record says, and one in it is not', () => {
+  const store = { other: { at: 10, open: ['in progress'] }, now: { at: 10, open: [] } }
+  expect(carriedFrom(store, 'now', 11, new Set(['now']))).toEqual({ from: 'other', items: ['in progress'] })
+  expect(carriedFrom(store, 'now', 11, new Set(['now', 'other']))).toBe(undefined)
+  expect(carriedFrom(store, 'now', 11, new Set())).toEqual({ from: 'other', items: ['in progress'] })
+})

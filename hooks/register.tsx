@@ -56,12 +56,13 @@ let workDir: string | undefined
 // Every variable the platform decisions read, each named literally so the engine can list them, read
 // at once: each is a round trip to the engine.
 async function readEnv($: EngineInterface): Promise<Env> {
-  const [OS, TEMP, HOME, USERPROFILE, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME] = await Promise.all([
+  const [OS, TEMP, HOME, USERPROFILE, CLAUDE_CODE_TMPDIR, CLAUDE_CONFIG_DIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME] = await Promise.all([
     $.env.get('OS'),
     $.env.get('TEMP'),
     $.env.get('HOME'),
     $.env.get('USERPROFILE'),
     $.env.get('CLAUDE_CODE_TMPDIR'),
+    $.env.get('CLAUDE_CONFIG_DIR'),
     $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES'),
     $.env.get('TERM'),
     $.env.get('TERM_PROGRAM'),
@@ -70,7 +71,30 @@ async function readEnv($: EngineInterface): Promise<Env> {
     $.env.get('STY'),
     $.env.get('WSL_DISTRO_NAME'),
   ])
-  return { OS, TEMP, HOME, USERPROFILE, CLAUDE_CODE_TMPDIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME }
+  return { OS, TEMP, HOME, USERPROFILE, CLAUDE_CODE_TMPDIR, CLAUDE_CONFIG_DIR, CLAUDE_CODE_FORCE_TERMINAL_IMAGES, TERM, TERM_PROGRAM, KITTY_WINDOW_ID, TMUX, STY, WSL_DISTRO_NAME }
+}
+
+// The sessions Claude Code's registry lists as running: <config dir>/sessions/<pid>.json, each naming its
+// sessionId, written at start and swept when the session exits. Undefined when it cannot be read, and the
+// carry-over then falls back to the ended mark and the stale limit.
+async function liveSessions($: EngineInterface): Promise<Set<string> | undefined> {
+  const home = session.env.HOME ?? session.env.USERPROFILE
+  const dir = session.env.CLAUDE_CONFIG_DIR ?? (home === undefined ? undefined : `${home}/.claude`)
+  if (dir === undefined) return undefined
+  const entries = await $.fs.list(`${dir.replace(/\\/g, '/')}/sessions`).catch(() => undefined)
+  if (entries === undefined) return undefined
+  const ids = new Set<string>()
+  for (const entry of entries) {
+    if (entry.kind !== 'file' || !entry.name.endsWith('.json')) continue
+    const text = await $.fs.read(`${dir.replace(/\\/g, '/')}/sessions/${entry.name}`).catch(() => undefined)
+    try {
+      const id = (JSON.parse(String(text)) as { sessionId?: unknown }).sessionId
+      if (typeof id === 'string') ids.add(id)
+    } catch {
+      /* a file mid-write names nobody */
+    }
+  }
+  return ids
 }
 
 // The reply note sits far back in a long context and stops holding; a last reply in another language
@@ -436,7 +460,7 @@ export const register: Register = (on, options) => {
       }
       // A reload starts the module over within the same session: pick its task list back up.
       if (taskLog.tasks.size === 0) taskLog.tasks = restoredTasks(store, sessionId)
-      const offer = e.isInteractive ? carriedFrom(store, sessionId, now) : undefined
+      const offer = e.isInteractive ? carriedFrom(store, sessionId, now, await liveSessions($)) : undefined
       if (offer !== undefined) await update($, carryOver, () => offer)
     }
     // Asked once, from the second session on, so the first one only shows the setup hint. An install

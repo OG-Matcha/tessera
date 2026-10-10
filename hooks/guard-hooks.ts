@@ -46,9 +46,13 @@ const RISK_REASONS: Record<Risk, string> = {
 }
 
 // A path as the command would see it: absolute as given, else under the command's cd / git -C, else the session's directory.
+// Windows sets USERPROFILE and, outside Git Bash, no HOME.
+const homeDir = () => session.env.HOME ?? session.env.USERPROFILE
+const onWindows = () => platformOf(session.env) === 'windows'
+
 async function resolveIn($: EngineInterface, command: string, path?: string): Promise<string> {
   const cwd = await $.session.cwd()
-  const host = (p: string) => hostPath(p, session.env.HOME, platformOf(session.env) === 'windows')
+  const host = (p: string) => hostPath(p, homeDir(), onWindows())
   const named = commandDir(command)
   const dir = named === undefined ? cwd : isAbsolute(host(named)) ? host(named) : `${cwd}/${named}`
   return path === undefined ? dir : isAbsolute(host(path)) ? host(path) : `${dir}/${path}`
@@ -61,7 +65,10 @@ async function holdsLink($: EngineInterface, path: string): Promise<'yes' | 'no'
   const stat = await $.fs.stat(path).catch(() => undefined)
   if (stat === undefined) return 'no'
   if (stat.isLink) return 'yes'
-  if (stat.kind !== 'dir' || platformOf(session.env) !== 'windows') return 'no'
+  if (stat.kind !== 'dir' || !onWindows()) return 'no'
+  // cmd reads its whole line again, so a path holding its operators would run them before the call is
+  // even approved; such a path is left unlisted.
+  if (/[&|<>^%!"]/.test(path)) return 'unknown'
   const run = await $.process.run(['cmd', '/c', 'dir', '/AL', '/S', '/B', path.replace(/\//g, '\\')], { timeoutMs: 8_000 }).catch(() => undefined)
   // dir exits 1 with nothing listed when there is no link (its message is in the system's language); a
   // timeout rejects, so it never gets here.
@@ -93,7 +100,8 @@ async function lostFiles($: EngineInterface, command: string, discard: Discard):
     discard.verb === 'reset'
       ? ['status', '--porcelain', '--untracked-files=no']
       : discard.verb === 'clean'
-        ? ['clean', '-n', ...discard.args.map(f => f.replace(/^--force$/, '').replace(/^(-\w*?)f/, '$1')).filter(f => f !== '' && f !== '-')]
+        ? // -n last, so a --no-dry-run among the arguments cannot turn the preview into the delete.
+          ['clean', ...discard.args.map(f => f.replace(/^--force$/, '').replace(/^(-\w*?)f/, '$1')).filter(f => f !== '' && f !== '-'), '-n']
         : ['diff', '--name-only', '--', ...discard.args]
   const run = await $.process.run(['git', '-C', dir, ...argv], { timeoutMs: 5_000 }).catch(() => undefined)
   if (run?.exitCode !== 0) return []
@@ -122,58 +130,59 @@ async function refuseOnce($: EngineInterface, key: string, rule: Rule, reason: s
   return refuse($, rule, `${reason}, send the same call again unchanged and it goes through`, true)
 }
 
+// The tree guard's refusals come first, so a reminder that was answered cannot let one through. Then
+// every reminder the command earns is gathered into one, answered by one resend: given one at a time,
+// two hits of one rule in a command (two discards) would be refused forever, and hits of several rules
+// would take a resend each.
 async function judgeShell($: EngineInterface, command: string, agentId: string | undefined) {
-  if (!guardGit) return undefined
-  const risks = shellRisks(command)
-  if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
-  // The refusals come first, so a reminder that was answered cannot let one through.
-  const deletes: { target: string; linked: 'yes' | 'no' | 'unknown' }[] = []
-  for (const target of recursiveDeletes(command)) {
-    const path = await resolveIn($, command, target)
-    if (rootLike(path, await $.session.cwd(), session.env.HOME ?? session.env.USERPROFILE))
-      return refuse($, 'root delete', `it deletes ${target} recursively, and that is the root, a drive, your home directory, or the directory this session works in or one above it. Name the directory meant`)
-    deletes.push({ target, linked: await holdsLink($, path) })
-  }
-  const through = deletes.find(d => d.linked === 'yes')
-  if (through !== undefined)
-    return refuse($, 'delete through a link', `it deletes ${through.target} recursively and ${through.target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
-  const shared = risks.filter(r => r !== 'link-node-modules')
-  const agentsRunning = shared.length > 0 && (agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS)
-  if (agentsRunning && (await isMainTree($, command))) {
-    const risk = shared[0] as Risk
-    return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
-  }
-  // Reminders, each answered once: a call sent again passes the one it answered and meets the next.
-  for (const { target } of deletes.filter(d => d.linked === 'unknown')) {
-    const reminded = await refuseOnce($, command, 'delete through a link', `it deletes ${target} recursively and the check for junctions inside it (dir /AL /S /B) did not finish, so a junction there could carry the delete into another tree. Check it yourself, or`)
-    if (reminded !== undefined) return reminded
-  }
-  // Sometimes intended, such as cleaning up a fresh repository.
-  for (const branch of forcePushes(command)) {
-    const target = branch ?? (await currentBranch($, command))
-    if (target === undefined || !isDefaultBranch(target)) continue
-    const reminded = await refuseOnce($, command, 'force push', `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended`)
-    if (reminded !== undefined) return reminded
+  if (!guardGit && !guardData) return undefined
+  const reminders: { rule: Rule; reason: string }[] = []
+  let discarded = false
+  if (guardGit) {
+    const risks = shellRisks(command)
+    if (risks.includes('link-node-modules')) return refuse($, 'node_modules link', RISK_REASONS['link-node-modules'])
+    const deletes: { target: string; linked: 'yes' | 'no' | 'unknown' }[] = []
+    for (const target of recursiveDeletes(command)) {
+      const path = await resolveIn($, command, target)
+      if (rootLike(path, await $.session.cwd(), homeDir(), onWindows()))
+        return refuse($, 'root delete', `it deletes ${target} recursively, and that is the root, a drive, your home directory, or the directory this session works in or one above it. Name the directory meant`)
+      deletes.push({ target, linked: await holdsLink($, path) })
+    }
+    const through = deletes.find(d => d.linked === 'yes')
+    if (through !== undefined)
+      return refuse($, 'delete through a link', `it deletes ${through.target} recursively and ${through.target} is or holds a junction or symlink, so the delete can follow it into another tree (git worktree remove and rm -rf both do). List the links (dir /AL /S /B on Windows, find -type l elsewhere), remove each link itself first (rmdir <link> on Windows, rm <link> elsewhere, no recursion), then delete`)
+    const shared = risks.filter(r => r !== 'link-node-modules')
+    const agentsRunning = shared.length > 0 && (agentId !== undefined || (await $.clock.now()) - lastAgentCall < AGENTS_QUIET_MS)
+    if (agentsRunning && (await isMainTree($, command))) {
+      const risk = shared[0] as Risk
+      return refuse($, risk === 'stage-all' ? 'git add -A' : 'git tree rewrite', RISK_REASONS[risk])
+    }
+    for (const { target } of deletes.filter(d => d.linked === 'unknown'))
+      reminders.push({ rule: 'delete through a link', reason: `it deletes ${target} recursively and the check for junctions inside it (dir /AL /S /B) could not be made, so a junction there could carry the delete into another tree. Check it yourself, or` })
+    // Sometimes intended, such as cleaning up a fresh repository.
+    for (const branch of forcePushes(command)) {
+      const target = branch ?? (await currentBranch($, command))
+      if (target !== undefined && isDefaultBranch(target))
+        reminders.push({ rule: 'force push', reason: `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended` })
+    }
+    // Discarding is often what the person asked for, so the reminder names what goes.
+    for (const discard of discards(command)) {
+      const lost = await lostFiles($, command, discard)
+      if (lost.length === 0) continue
+      discarded ||= discard.verb !== 'clean'
+      const named = `${lost.slice(0, 8).join(', ')}${lost.length > 8 ? ` and ${lost.length - 8} more` : ''}`
+      reminders.push({ rule: 'discard changes', reason: `it throws away uncommitted work that git cannot bring back: ${discard.verb === 'clean' ? 'untracked files' : 'changes to'} ${named}. Commit or \`git stash\` them first, or narrow the command to the files meant. If discarding them is intended` })
+    }
   }
   // A database reset is routine on a development machine and a loss anywhere else; the person knows which.
   if (guardData)
-    for (const reset of dataResets(command)) {
-      const reminded = await refuseOnce($, command, 'data reset', `it runs ${reset}, which throws away a database or its volumes and everything in them. For a development database meant to be reset, go ahead; for anything shared or holding real data, ask the person first. If resetting it is intended`)
-      if (reminded !== undefined) return reminded
-    }
-  // Discarding is often what the person asked for, so the reminder names what goes.
-  let snapshot = stashBeforeDiscard
-  for (const discard of discards(command)) {
-    const lost = await lostFiles($, command, discard)
-    if (lost.length === 0) continue
-    const named = `${lost.slice(0, 8).join(', ')}${lost.length > 8 ? ` and ${lost.length - 8} more` : ''}`
-    const reminded = await refuseOnce($, command, 'discard changes', `it throws away uncommitted work that git cannot bring back: ${discard.verb === 'clean' ? 'untracked files' : 'changes to'} ${named}. Commit or \`git stash\` them first, or narrow the command to the files meant. If discarding them is intended`)
-    if (reminded !== undefined) return reminded
-    if (snapshot && discard.verb !== 'clean') {
-      snapshot = false
-      await stashSnapshot($, command)
-    }
-  }
+    for (const reset of dataResets(command))
+      reminders.push({ rule: 'data reset', reason: `it runs ${reset}, which throws away a database or its volumes and everything in them. For a development database meant to be reset, go ahead; for anything shared or holding real data, ask the person first. If resetting it is intended` })
+  const first = reminders[0]
+  if (first === undefined) return undefined
+  const reminded = await refuseOnce($, `${reminders.map(r => r.rule).join('+')}\n${command}`, first.rule, reminders.map(r => r.reason).join('; and '))
+  if (reminded !== undefined) return reminded
+  if (stashBeforeDiscard && discarded) await stashSnapshot($, command)
   return undefined
 }
 

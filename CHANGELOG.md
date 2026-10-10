@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- On Windows outside Git Bash, where `HOME` is unset, a recursive delete of `~`, `$HOME`, `%USERPROFILE%` or `$env:USERPROFILE` was looked up under the working directory and passed; the home directory is read from `USERPROFILE` too. `rm -rf /c` (the C: drive as Git Bash spells it) was taken for a cmd switch and never checked, and a root, home or working directory spelled in another case was not itself; Windows paths now compare without case.
+- A delete behind `cmd /c "..."` with its command quoted as one word, `cmd //c` from Git Bash, `rmdir /s/q` with its switches joined, `sudo` or `VAR=value` before the command, and a trailing `/*` (`rm -rf ~/*`, `rm -rf /*`) were not seen by the tree guard.
+- A `<<` in a message (`git commit -m "see << note"`) was read as a heredoc with no end, so every line after it went unjudged by all the shell guards; a `<<word` with no line equal to word after it is not a heredoc. A body fed to `sudo bash`, `/bin/sh`, `pwsh -` or `powershell` is read as commands, as one fed to `bash` already was.
+- Two hits of one rule in a command (`git reset --hard && git checkout -- a.ts`, two database resets) could never be answered: each resend met the next hit, and with stash-before-discard on, stored a stash each time. Hits of several rules took a resend each. Every reminder a command earns is now one reminder, answered by one resend.
+- The database guard did nothing while the tree guard was off, and the session guard did nothing when it was the only guard on.
+- On Windows the junction listing before a recursive delete ran `cmd /c dir ... <path>`, which reads its line again, so a path holding `&` or `|` would have run what follows it before the call was approved; such a path is left unlisted and reminded about instead. The preview before `git clean` puts `-n` last, so a `--no-dry-run` among the arguments cannot turn it into the delete.
+- An `Agent` prompt written with CJK `\u` escapes is refused like a task or question; the docs said prompts were covered. `./bin/rails db:drop` counts as a database reset.
+
 ## [0.8.0] - 2026-10-10
 
 ### Added

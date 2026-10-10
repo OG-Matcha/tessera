@@ -103,3 +103,42 @@ test('guardGit off lets a discard through', { options: { guardGit: false } }, as
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'reset' }) as never)
   expect((await $.tool.call({ tool: 'Bash', command: 'git reset --hard' })).deny).toBe(undefined)
 })
+
+test('two discards in one command are one reminder naming both, and the command sent again goes through', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', (_, e) => {
+    const argv = (e as { argv: string[] }).argv
+    const out: Record<string, string> = { status: ' M src/a.ts\n', diff: 'src/b.ts\n' }
+    return { value: { exitCode: 0, stdout: out[argv[3] ?? ''] ?? '', stderr: '' } } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const call = { tool: 'Bash', command: 'git reset --hard && git checkout -- src/b.ts' } as const
+  const first = (await $.tool.call(call)).deny
+  expect(first).toContain('src/a.ts')
+  expect(first).toContain('src/b.ts')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('a discard and a database reset in one command are answered by one resend', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', git({ status: ' M a.ts\n' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const call = { tool: 'Bash', command: 'git reset --hard; docker compose down -v' } as const
+  const first = (await $.tool.call(call)).deny
+  expect(first).toContain('a.ts')
+  expect(first).toContain('docker compose down -v')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('the database guard works with the tree guard off', { options: { guardGit: false } }, async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const call = { tool: 'Bash', command: 'npx prisma migrate reset' } as const
+  expect((await $.tool.call(call)).deny).toContain('prisma migrate reset')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})

@@ -51,7 +51,8 @@ test('a quiet background command is announced, growth takes the row down, and it
   expect(toasts).toEqual([])
   await clock.advance(MINUTE)
   expect(toasts).toEqual(['tessera: no output for 2 min from npm run build'])
-  expect(slashed(stats[0]!)).toBe('C:/tmp/claude/C--w/s1/tasks/bg1.output')
+  // A POSIX engine roots C:/… under its working directory, so the tail is what counts.
+  expect(slashed(stats[0]!).endsWith('C:/tmp/claude/C--w/s1/tasks/bg1.output')).toBe(true)
   let ui = await mountBand($)
   expect(await ui.find({ type: 'Text', text: 'A background command has written nothing for 2 min' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: 'bg1: npm run build' })).toBeDefined()

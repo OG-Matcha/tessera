@@ -28,7 +28,7 @@
 | 在多數終端機裡，貼上的圖只顯示 `[Image #1]` | | 輸入框上方顯示縮圖：kitty、Ghostty 顯示原圖，其他終端機用色塊 |
 | 貼上的文字送出前就被摺疊成 `[Pasted text #1 +40 lines]` | [#23134](https://github.com/anthropics/claude-code/issues/23134) | 在輸入框上方顯示前幾行 |
 | 韓文、中文、日文被寫成 `\uXXXX`，結果變成錯字 | [#83033](https://github.com/anthropics/claude-code/issues/83033) | 寫入前就擋下；程式碼裡可能是刻意的跳脫，提醒一次 |
-| 編輯 Big5、Shift-JIS、GBK 檔案，內容被改寫成 `�` | [#7134](https://github.com/anthropics/claude-code/issues/7134) | 編輯前提醒一次，並說出檔案的編碼 |
+| 編輯 Big5、Shift-JIS、GBK 檔案，內容被改寫成 `�` | [#7134](https://github.com/anthropics/claude-code/issues/7134) | 編輯前提醒一次，並說明是 UTF-16 還是舊式編碼（Big5、Shift-JIS、GBK、EUC-KR） |
 | Claude 丟到背景的指令卡住了，沒人說，要等你去問 | | 安靜十分鐘後輸入框上方多一列，按鈕請 Claude 去看 |
 | 用中文問問題，因為貼的 log 是英文，Claude 就用英文回答 | | 依你自己打的字的語言回覆 |
 | 寫繁中專案時，Claude 寫進簡體字或簡中用語 | | 擋下一次，並列出 zh-TW 寫法 |
@@ -168,7 +168,7 @@ mod 的 hook 在每一種載入 plugin 的 session 都會跑；畫出來的東�
 | 你在哪裡跑 Claude Code | 守門、選項、接續未完成、監看背景工作 | 預覽、回覆美化、摺疊 diff、輸入框上方的列 |
 | --- | --- | --- |
 | 終端機，包括編輯器內建的終端機和 JetBrains 外掛 | 有 | 有；tessera 在這裡測試 |
-| Desktop app 的 Code 分頁 | 有 | Desktop app 用自己的元件畫；那裡的複製按鈕沒測過 |
+| Desktop app 的 Code 分頁 | 有 | 回覆美化和摺疊 diff，由 Desktop app 用自己的元件畫；預覽和輸入框上方的列只在終端機；那裡沒測過 |
 | Desktop app 裡的 WSL session | 沒有，那裡不支援 plugin | 沒有 |
 | VS Code 擴充的對話面板 | 有 | 沒有，mod 畫的東西那裡都不出現 |
 | `claude -p` 和 Agent SDK | 有 | 沒有 |
@@ -177,7 +177,7 @@ mod 的 hook 在每一種載入 plugin 的 session 都會跑；畫出來的東�
 
 ## 在你電腦上做了什麼
 
-自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案，以及 Claude 要編輯的檔案的位元組（判斷編碼）；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
+自己不連網：唯一的模型呼叫，是沒指定模型的 Agent 呼叫各做一次簡短的 Haiku 判斷（`agentModel: auto`，預設開啟），走你自己的 Claude Code session。會讀你的 Claude Code 設定（`language`，以及 tessera 的 marketplace 有沒有開自動更新）、Claude Code 的貼圖快取、Workflow 啟動時的腳本、你用 `peek` 指定的檔案、repo 的 `CLAUDE.md`（找用語表），Claude 要寫入簡體字、簡中用語或用語表避免寫法的那個檔案，以及 Claude 要編輯的檔案的位元組（判斷編碼）；會執行 `git rev-parse`、遞迴刪除前的連結檢查、會丟掉改動的 git 指令前的 `git status`、`git diff` 或 `git clean -n`、「丟棄前先 stash」開著時在確認過的丟棄指令前的 `git stash create` 和 `git stash store`、每次貼上被摺疊的文字時讀一次剪貼簿，以及你按「原圖」時對應平台的檢視器；Claude 丟到背景的指令跑著時，每分鐘讀一次它輸出檔的大小；「接續未完成」開著時，會在 session 裡設定 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`，Windows 上「Python 用 UTF-8」開著時設定 `PYTHONUTF8=1`（你自己設過的都不動），不會寫入你的設定檔。細節見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 

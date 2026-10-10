@@ -18,6 +18,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - The variables tessera set (`CLAUDE_CODE_ENABLE_TODO_TOOLS`, `PYTHONUTF8`) were noted across processes, so a later session with the option off unset a value the person had set themselves. The note carries the session id, and only that session reads it.
 - The marketplace is recognised under `ssh://git@github.com/...`, a `#ref` suffix and the raw `marketplace.json` URL too, so the update and move offers are not lost for those installs.
 - After a discard of some files (`git checkout -- <path>`, `git restore <path>`), `git stash pop` refuses while the other changes are still in the tree; the toast and the docs say to use `git checkout stash@{0} -- <file>` then.
+- The README said the Desktop app draws the previews and the bands above the prompt; those are terminal-only, and the Desktop app draws the themed replies and folded diffs with its own elements. It also said the encoding reminder names the file's encoding, where it names UTF-16 or a legacy code page, and left `git stash create` and `git stash store` out of the commands tessera runs.
 
 ## [0.8.0] - 2026-10-10
 

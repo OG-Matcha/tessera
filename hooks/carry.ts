@@ -23,6 +23,21 @@ export function recordSession(store: CarryStore, sessionId: string, at: number, 
   return Object.fromEntries(Object.entries(next).sort(([, a], [, b]) => b.at - a.at).slice(0, KEEP))
 }
 
+// Repositories are kept while they are among the newest this many; the store is read whole at every
+// access, and a machine running tests makes a repository per run.
+export const REPOSITORIES_KEPT = 30
+
+// The carry keys to drop so that only the newest REPOSITORIES_KEPT repositories stay, the age of a
+// repository being its latest session's; `own` is never dropped.
+export function staleCarryKeys(records: Record<string, CarryStore>, own: string): string[] {
+  const latest = (store: CarryStore) => Math.max(0, ...Object.values(store).map(s => s.at))
+  return Object.entries(records)
+    .filter(([key]) => key !== own)
+    .sort(([, a], [, b]) => latest(b) - latest(a))
+    .slice(Math.max(0, REPOSITORIES_KEPT - 1))
+    .map(([key]) => key)
+}
+
 // The task list this session kept before the module was reloaded.
 export const restoredTasks = (store: CarryStore, sessionId: string): TaskLog['tasks'] => new Map(Object.entries(store[sessionId]?.tasks ?? {}))
 

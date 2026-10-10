@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- The carry-over store kept a record for every repository a session ever ran in, read whole at every access; a machine that runs the e2e made eighty of them in a day. Only the newest thirty repositories are kept, pruned when a session starts; the one in use always stays.
+
 ## [0.8.2] - 2026-10-11
 
 ### Fixed

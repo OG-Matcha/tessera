@@ -28,6 +28,8 @@
 | A pasted image shows as `[Image #1]` in most terminals | | Thumbnails above the prompt: real pixels in kitty and Ghostty, cell art everywhere else |
 | Pasted text collapses to `[Pasted text #1 +40 lines]` before you send it | [#23134](https://github.com/anthropics/claude-code/issues/23134) | Its first lines shown above the prompt |
 | Korean, Chinese or Japanese written as `\uXXXX` comes out as wrong characters | [#83033](https://github.com/anthropics/claude-code/issues/83033) | Such tool calls are refused before they write; in code, where an escape can be meant, reminded once |
+| An edit to a Big5, Shift-JIS or GBK file rewrites it with `�` where its text was | [#7134](https://github.com/anthropics/claude-code/issues/7134) | A reminder once before the edit, with the file's encoding named |
+| A command Claude moved to the background hangs, and nothing says so until you ask | | A row above the prompt after ten quiet minutes, with a button that asks Claude to look |
 | Claude answers a Chinese question in English because the pasted log was English | | Replies follow the language of your own words |
 | Claude writes Simplified characters or zh-CN terms into a Traditional Chinese project | | The write is refused once, with the zh-TW forms |
 | A new session or `/clear` loses track of what was left to do | | The unfinished tasks are offered back above the prompt |

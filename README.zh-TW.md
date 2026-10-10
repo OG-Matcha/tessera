@@ -28,6 +28,8 @@
 | 在多數終端機裡，貼上的圖只顯示 `[Image #1]` | | 輸入框上方顯示縮圖：kitty、Ghostty 顯示原圖，其他終端機用色塊 |
 | 貼上的文字送出前就被摺疊成 `[Pasted text #1 +40 lines]` | [#23134](https://github.com/anthropics/claude-code/issues/23134) | 在輸入框上方顯示前幾行 |
 | 韓文、中文、日文被寫成 `\uXXXX`，結果變成錯字 | [#83033](https://github.com/anthropics/claude-code/issues/83033) | 寫入前就擋下；程式碼裡可能是刻意的跳脫，提醒一次 |
+| 編輯 Big5、Shift-JIS、GBK 檔案，內容被改寫成 `�` | [#7134](https://github.com/anthropics/claude-code/issues/7134) | 編輯前提醒一次，並說出檔案的編碼 |
+| Claude 丟到背景的指令卡住了，沒人說，要等你去問 | | 安靜十分鐘後輸入框上方多一列，按鈕請 Claude 去看 |
 | 用中文問問題，因為貼的 log 是英文，Claude 就用英文回答 | | 依你自己打的字的語言回覆 |
 | 寫繁中專案時，Claude 寫進簡體字或簡中用語 | | 擋下一次，並列出 zh-TW 寫法 |
 | 開新 session 或 `/clear` 之後，忘了上次還有什麼沒做 | | 輸入框上方提示沒做完的待辦 |

@@ -113,3 +113,55 @@ test("a foreground command, and a subagent's command that ends with its answer, 
   await clock.advance(5 * MINUTE)
   expect(stats).toBe(0)
 })
+
+test('a command Claude Code moved to the background itself is watched, with no run_in_background flag', { options: { language: 'en', backgroundQuietMinutes: 1, carryOver: false, pastePreview: false } }, async ($, on) => {
+  const toasts: string[] = []
+  const clock = mock.clock(on)
+  sessionDirs(on)
+  on('fs.stat', () => ({ value: { kind: 'file', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: started('bg7') }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'npm run build' })
+  await clock.advance(MINUTE)
+  expect(toasts).toEqual(['tessera: no output for 1 min from npm run build'])
+})
+
+test('a stopped task is forgotten: no quiet row for it later', { options: { language: 'en', backgroundQuietMinutes: 1, carryOver: false, pastePreview: false } }, async ($, on) => {
+  const toasts: string[] = []
+  const clock = mock.clock(on)
+  sessionDirs(on)
+  on('fs.stat', () => ({ value: { kind: 'file', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: started('bg8') }) as never)
+  on('tool.call', { tool: 'TaskStop' as 'Bash' }, () => ({ result: 'stopped' }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'npm run build', run_in_background: true })
+  await $.tool.call({ tool: 'TaskStop', task_id: 'bg8' } as never)
+  await clock.advance(2 * MINUTE)
+  expect(toasts).toEqual([])
+})
+
+test('a /clear with carry-over off still drops the watched tasks', { options: { language: 'en', backgroundQuietMinutes: 1, carryOver: false, pastePreview: false } }, async ($, on) => {
+  const toasts: string[] = []
+  const clock = mock.clock(on)
+  sessionDirs(on)
+  on('fs.stat', () => ({ value: { kind: 'file', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: started('bg9') }) as never)
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'npm run build', run_in_background: true })
+  await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } } as never)
+  await clock.advance(2 * MINUTE)
+  expect(toasts).toEqual([])
+})

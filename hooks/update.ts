@@ -10,7 +10,8 @@ type Marketplace = { source?: { source?: string; repo?: string; url?: string }; 
 // what the person typed in `claude plugin marketplace add`, and goes into commands shown to them, so
 // only plain names count; settings are read from the user's own file, not a repository's.
 const NAME = /^[A-Za-z0-9._-]+$/
-const REPO_URL = new RegExp(String.raw`^(?:https?://|git@)github\.com[/:]${REPO.replace('/', '\\/')}(?:\.git)?/?$`, 'i')
+// https, git@ and ssh:// spellings, a .git suffix, a #ref, and the raw URL of its marketplace.json.
+const REPO_URL = new RegExp(String.raw`^(?:https?://|git@|ssh://git@)(?:github\.com|raw\.githubusercontent\.com)[/:]${REPO.replace('/', '\\/')}(?:\.git)?(?:/[^#]*)?(?:#.*)?$`, 'i')
 
 function ours(settings: Record<string, unknown>): [string, Marketplace][] {
   const markets = settings.extraKnownMarketplaces

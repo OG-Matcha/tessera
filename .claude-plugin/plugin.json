@@ -392,7 +392,7 @@
     "stashBeforeDiscard": {
       "type": "boolean",
       "title": "Stash before discarding",
-      "description": "Off by default. When a discard the tree guard reminded about (git reset --hard, git checkout -- <paths>, git restore) is sent again, run git stash create and git stash store first, so the tracked changes it throws away are in git stash (stash@{0}) and git stash pop brings them back. This writes a stash entry into the repository's .git. git clean gets no snapshot: a stash holds no untracked files.",
+      "description": "Off by default. When a discard the tree guard reminded about (git reset --hard, git checkout -- <paths>, git restore) is sent again, run git stash create and git stash store first, so the tracked changes it throws away are in git stash (stash@{0}) and git stash pop brings them back, or git checkout stash@{0} -- <file> after a discard of some files, since pop refuses while the other changes are still in the tree. This writes a stash entry into the repository's .git. git clean gets no snapshot: a stash holds no untracked files.",
       "default": false
     },
     "guardData": {

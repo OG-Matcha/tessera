@@ -4,6 +4,7 @@ import type { Risk } from './guard'
 import type { Discard } from './guard'
 import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
+import { commandHead } from './background'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
@@ -28,6 +29,7 @@ let guardHeredoc = true
 let guardGlossary = false
 let guardEncoding = true
 let guardData = true
+let stashBeforeDiscard = false
 let glossary: { root: string; terms: Term[] } | undefined
 // Calls refused by a rule that can misjudge intent, by rule and call, with when: the same call sent
 // again within the window goes through, and calls refused in between do not reset each other.
@@ -158,14 +160,30 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
       if (reminded !== undefined) return reminded
     }
   // Discarding is often what the person asked for, so the reminder names what goes.
+  let snapshot = stashBeforeDiscard
   for (const discard of discards(command)) {
     const lost = await lostFiles($, command, discard)
     if (lost.length === 0) continue
     const named = `${lost.slice(0, 8).join(', ')}${lost.length > 8 ? ` and ${lost.length - 8} more` : ''}`
     const reminded = await refuseOnce($, command, 'discard changes', `it throws away uncommitted work that git cannot bring back: ${discard.verb === 'clean' ? 'untracked files' : 'changes to'} ${named}. Commit or \`git stash\` them first, or narrow the command to the files meant. If discarding them is intended`)
     if (reminded !== undefined) return reminded
+    if (snapshot && discard.verb !== 'clean') {
+      snapshot = false
+      await stashSnapshot($, command)
+    }
   }
   return undefined
+}
+
+// A stash entry holding the tracked changes a discard is about to throw away: `git stash create` writes
+// the commit without touching the tree, `git stash store` lists it, so `git stash pop` brings it back.
+// Untracked files are not in it, so `git clean` gets no snapshot.
+async function stashSnapshot($: EngineInterface, command: string) {
+  const dir = await resolveIn($, command)
+  const created = await $.process.run(['git', '-C', dir, 'stash', 'create'], { timeoutMs: 10_000 }).catch(() => undefined)
+  const sha = created?.exitCode === 0 ? created.stdout.trim() : ''
+  const stored = sha === '' ? undefined : await $.process.run(['git', '-C', dir, 'stash', 'store', '-m', `tessera: before ${commandHead(command)}`, sha], { timeoutMs: 10_000 }).catch(() => undefined)
+  $.ui.toast(stored?.exitCode === 0 ? t().stashSaved : t().stashFailed)
 }
 
 // Files up to this size are read whole before an edit; a bigger one is left to the edit.
@@ -269,6 +287,7 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
   guardGlossary = options.guardGlossary === true
   guardEncoding = options.guardEncoding !== false
   guardData = options.guardData !== false
+  stashBeforeDiscard = options.stashBeforeDiscard === true
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()

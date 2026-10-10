@@ -389,6 +389,12 @@
       "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text; in a code file that also holds CJK text, where an escape can be meant, remind once (anthropics/claude-code#83033).",
       "default": true
     },
+    "stashBeforeDiscard": {
+      "type": "boolean",
+      "title": "Stash before discarding",
+      "description": "Off by default. When a discard the tree guard reminded about (git reset --hard, git checkout -- <paths>, git restore) is sent again, run git stash create and git stash store first, so the tracked changes it throws away are in git stash (stash@{0}) and git stash pop brings them back. This writes a stash entry into the repository's .git. git clean gets no snapshot: a stash holds no untracked files.",
+      "default": false
+    },
     "guardData": {
       "type": "boolean",
       "title": "Database guard",

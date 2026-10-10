@@ -53,6 +53,51 @@ test('clean names the untracked files git would remove', async ($, on) => {
   expect((await $.tool.call({ tool: 'Bash', command: 'git clean -fd' })).deny).toContain('untracked files notes.md, tmp/')
 })
 
+test('with stashBeforeDiscard on, the discard sent again stashes the changes first; clean gets no stash', { options: { stashBeforeDiscard: true } }, async ($, on) => {
+  const ran: string[] = []
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  on('session.cwd', () => ({ value: '/w' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', (_, e) => {
+    const argv = (e as { argv: string[] }).argv
+    ran.push(argv.slice(3).join(' '))
+    const out: Record<string, string> = { status: ' M src/a.ts\n', 'stash create': 'abc123\n', 'stash store': '', clean: 'Would remove tmp/\n' }
+    return { value: { exitCode: 0, stdout: out[argv.slice(3, 5).join(' ')] ?? out[argv[3] ?? ''] ?? '', stderr: '' } } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const reset = { tool: 'Bash', command: 'git reset --hard' } as const
+  expect((await $.tool.call(reset)).deny).toContain('src/a.ts')
+  expect(ran.filter(r => r.startsWith('stash'))).toEqual([])
+  expect((await $.tool.call(reset)).deny).toBe(undefined)
+  expect(ran.filter(r => r.startsWith('stash'))).toEqual(['stash create', 'stash store -m tessera: before git reset --hard abc123'])
+  expect(toasts.at(-1)).toContain('stash@{0}')
+  const clean = { tool: 'Bash', command: 'git clean -fd' } as const
+  await $.tool.call(clean)
+  expect((await $.tool.call(clean)).deny).toBe(undefined)
+  expect(ran.filter(r => r.startsWith('stash'))).toHaveLength(2)
+})
+
+test('by default a discard sent again stashes nothing', async ($, on) => {
+  const ran: string[] = []
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: '/w' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', (_, e) => {
+    const argv = (e as { argv: string[] }).argv
+    ran.push(argv.slice(3).join(' '))
+    return { value: { exitCode: 0, stdout: argv[3] === 'status' ? ' M src/a.ts\n' : '', stderr: '' } } as never
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const reset = { tool: 'Bash', command: 'git reset --hard' } as const
+  await $.tool.call(reset)
+  expect((await $.tool.call(reset)).deny).toBe(undefined)
+  expect(ran.some(r => r.startsWith('stash'))).toBe(false)
+})
+
 test('guardGit off lets a discard through', { options: { guardGit: false } }, async ($, on) => {
   on('process.run', git({ status: ' M a.ts\n' }))
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'reset' }) as never)

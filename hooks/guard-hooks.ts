@@ -2,7 +2,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { Risk } from './guard'
 import type { Discard } from './guard'
-import { commandDir, discards, expandedHeredoc, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, discards, expandedHeredoc, forcePushes, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
 import { glossaryHits, parseGlossary } from './glossary'
@@ -26,8 +26,10 @@ let guardHans = 'auto'
 let guardHeredoc = true
 let guardGlossary = false
 let glossary: { root: string; terms: Term[] } | undefined
-// The last call refused by a rule that can misjudge intent; the same call sent again goes through.
-let refusedOnce = ''
+// Calls refused by a rule that can misjudge intent, by rule and call, with when: the same call sent
+// again within the window goes through, and calls refused in between do not reset each other.
+const REFUSED_FOR_MS = 600_000
+const refusedOnce = new Map<string, number>()
 const mainTrees = new Map<string, boolean>()
 
 const RISK_REASONS: Record<Risk, string> = {
@@ -35,8 +37,6 @@ const RISK_REASONS: Record<Risk, string> = {
   'stage-all': "it stages every change while agents are running, which can commit another agent's half-done or reverted files. Stage the files you edited by path",
   'link-node-modules': 'a junction or symlink to node_modules lets a recursive delete (git worktree remove, rm -rf) follow it into the main repo. Run the install inside the worktree instead',
 }
-
-export const isAbsolute = (path: string) => /^([a-z]:)?[\\/]/i.test(path)
 
 // A path as the command would see it: absolute as given, else under the command's cd / git -C, else the session's directory.
 async function resolveIn($: EngineInterface, command: string, path?: string): Promise<string> {
@@ -69,8 +69,8 @@ async function isMainTree($: EngineInterface, command: string): Promise<boolean>
   const dir = await resolveIn($, command)
   if (!mainTrees.has(dir)) {
     const run = await $.process.run(['git', '-C', dir, 'rev-parse', '--git-dir', '--git-common-dir'], { timeoutMs: 5_000 }).catch(() => undefined)
-    const [gitDir, commonDir] = (run?.stdout ?? '').trim().split(/\r?\n/)
-    mainTrees.set(dir, run?.exitCode === 0 && gitDir === commonDir)
+    const [gitDir = '', commonDir = ''] = (run?.stdout ?? '').trim().split(/\r?\n/)
+    mainTrees.set(dir, run?.exitCode === 0 && resolvePath(dir, gitDir) === resolvePath(dir, commonDir))
   }
   return mainTrees.get(dir) ?? false
 }
@@ -91,9 +91,25 @@ async function lostFiles($: EngineInterface, command: string, discard: Discard):
   return discard.verb === 'reset' ? lines.map(l => l.slice(3)) : discard.verb === 'clean' ? lines.map(l => l.replace(/^Would remove /, '')) : lines
 }
 
-function refuse($: EngineInterface, rule: Rule, reason: string) {
-  $.ui.toast(t().blocked(rule))
+// The deny is the guard; a toast that throws must not turn it into a pass through the hook's .catch.
+function refuse($: EngineInterface, rule: Rule, reason: string, reminded = false) {
+  try {
+    $.ui.toast(reminded ? t().reminded(rule) : t().blocked(rule))
+  } catch {
+    /* the deny still goes out */
+  }
   return { deny: `tessera blocked this call: ${reason}.` }
+}
+
+async function refuseOnce($: EngineInterface, key: string, rule: Rule, reason: string) {
+  const now = await $.clock.now()
+  const id = `${rule}\n${key}`
+  const refusedAt = refusedOnce.get(id)
+  refusedOnce.delete(id)
+  if (refusedAt !== undefined && now - refusedAt < REFUSED_FOR_MS) return undefined
+  for (const [other, at] of refusedOnce) if (now - at >= REFUSED_FOR_MS) refusedOnce.delete(other)
+  refusedOnce.set(id, now)
+  return refuse($, rule, `${reason}, send the same call again unchanged and it goes through`, true)
 }
 
 async function judgeShell($: EngineInterface, command: string, agentId: string | undefined) {
@@ -161,19 +177,10 @@ async function judgeGlossary($: EngineInterface, tool: string, input: Record<str
   return refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'project glossary', `it writes wordings the glossary in CLAUDE.md replaces (${hits.slice(0, 8).join(', ')}). Use the glossary's terms. If the other wording is intended here, such as a quotation or a note about the glossary itself`)
 }
 
-function judgeHeredoc($: EngineInterface, command: string) {
+async function judgeHeredoc($: EngineInterface, command: string) {
   const token = guardHeredoc ? expandedHeredoc(command) : undefined
   if (token === undefined) return undefined
   return refuseOnce($, command, 'unquoted heredoc', `its heredoc delimiter is unquoted, so the shell expands ${token} in the body before anything is written: \${x}, $(cmd) and backticks are replaced and \\\\ becomes \\. Quote the delimiter (<<'EOF') to keep the text as written. If the expansion is intended`)
-}
-
-function refuseOnce($: EngineInterface, key: string, rule: Rule, reason: string) {
-  if (key === refusedOnce) {
-    refusedOnce = ''
-    return undefined
-  }
-  refusedOnce = key
-  return refuse($, rule, `${reason}, send the same call again unchanged and it goes through`)
 }
 
 // The model an agent's task calls for, picked by Haiku from the same guidance `choose` gives Claude.
@@ -217,18 +224,24 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
-    const escape = guardCjk ? misEscapedCjk(String(e.tool), e as unknown as Record<string, unknown>) : undefined
-    if (escape !== undefined)
-      return refuse($, 'CJK as \\u escapes', `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`)
-    // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
     const tool = String(e.tool)
-    const hans = await judgeHans($, tool, e as unknown as Record<string, unknown>)
+    const input = e as unknown as Record<string, unknown>
+    const escape = guardCjk ? misEscapedCjk(tool, input) : undefined
+    if (escape !== undefined) {
+      const reason = `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`
+      // Code can mean an escape (a regex, a test of an escaper); prose and prompts never do.
+      const file = writtenFile(tool, input)
+      if (file === undefined || isProse(file.path)) return refuse($, 'CJK as \\u escapes', reason)
+      return (await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, 'CJK as \\u escapes', `${reason}. If the escape itself is meant here`)) ?? next(e)
+    }
+    // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
+    const hans = await judgeHans($, tool, input)
     if (hans !== undefined) return hans
-    const terms = await judgeGlossary($, tool, e as unknown as Record<string, unknown>)
+    const terms = await judgeGlossary($, tool, input)
     if (terms !== undefined) return terms
     if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
-    const command = String((e as { command?: unknown }).command ?? '')
-    return (tool === 'Bash' ? judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
+    const command = String(input.command ?? '')
+    return (tool === 'Bash' ? await judgeHeredoc($, command) : undefined) ?? (await judgeShell($, command, e.agentId)) ?? next(e)
   }).catch((_, e, next) => next(e))
   on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
     if (agentModel === undefined || e.model !== undefined) return next(e)

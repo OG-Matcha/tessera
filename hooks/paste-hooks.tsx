@@ -31,7 +31,8 @@ const pixels = new Map<string, Rgba | null>()
 async function root($: EngineInterface): Promise<string> {
   if (tmpRoot !== undefined) return tmpRoot
   const base = pasteRoot(session.env)
-  tmpRoot = base.includes('{uid}') ? base.replace('{uid}', (await $.process.run(['id', '-u'])).stdout.trim()) : base
+  const uid = base.includes('{uid}') ? (await $.process.run(['id', '-u']).catch(() => undefined))?.stdout.trim() ?? session.env.UID : undefined
+  tmpRoot = uid === undefined ? base : base.replace('{uid}', uid)
   return tmpRoot
 }
 

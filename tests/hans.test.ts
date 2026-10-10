@@ -15,6 +15,12 @@ test('a file already holding Simplified text, or named for a Simplified locale, 
   expect(zhTwFixes('C:/p/notes.md', ['这样'], '已有简体内容')).toEqual([])
   expect(zhTwFixes('src/locales/zh-CN.json', ['这样'], '')).toEqual([])
   expect(zhTwFixes('src/i18n/zh_Hans/app.json', ['这样'], '')).toEqual([])
+  expect(zhTwFixes('docs/intro.zh-Hans.md', ['这样'], '')).toEqual([])
+})
+
+test('a name that happens to contain hans is still checked', () => {
+  expect(zhTwFixes('C:/Users/Hansen/notes.md', ['这样'], '')).toEqual(['这→這', '样→樣'])
+  expect(zhTwFixes('src/johansson/README.md', ['这样'], '')).toEqual(['这→這', '样→樣'])
 })
 
 test('Japanese lines are not taken for Simplified Chinese', () => {

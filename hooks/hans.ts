@@ -20,8 +20,9 @@ const TERMS = new Map(
 )
 const TERM = new RegExp([...TERMS.keys()].sort((a, b) => b.length - a.length).join('|'), 'g')
 
-// Files meant to hold Simplified text: zh-CN, zh-SG and zh-Hans locales.
-const SIMPLIFIED_FILE = /zh[-_](cn|sg|my|hans)|hans|\bchs\b/i
+// Files meant to hold Simplified text: zh-CN, zh-SG and zh-Hans locales, as a path segment or a
+// locale suffix; "hans" inside a name (Hansen, Johansson) is not one.
+const SIMPLIFIED_FILE = /(^|[\\/._-])(zh[-_]?(cn|sg|my|hans)|hans|chs)([\\/._-]|$)/i
 // Japanese shares many Simplified-looking forms (点, 画, 号), so lines with kana are not checked.
 const KANA = /[぀-ヿ]/
 

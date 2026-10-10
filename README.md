@@ -63,8 +63,8 @@ claude plugin update tessera@tessera
 | Paste previews | on | Image thumbnails and collapsed pasted text above the prompt (the text is read from the clipboard and shown only when it matches the paste's line count); "original" opens the full image in an Orca tab, a VS Code tab or your system viewer |
 | Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
 | Carry over tasks | on | A new session, or the conversation after `/clear`, offers the tasks the last one in this repository left open: **continue** puts them in the prompt box, **dismiss** forgets them. It turns on Claude's task tools for the session (`CLAUDE_CODE_ENABLE_TODO_TOOLS`), which Claude Code leaves off for Claude 5.x, unless you set that variable yourself; Claude may then keep a task list on screen (`Ctrl+T` hides it) |
-| CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes |
-| Traditional Chinese guard | auto | While you write Traditional Chinese, refuses Simplified characters and zh-CN terms written into a file and names the zh-TW forms (`这→這`, `服務器→伺服器`); zh-CN files, files already in Simplified, terms the file already uses and Japanese lines are left alone |
+| CJK escape guard | on | Refuses Korean, Chinese or Japanese written as `\uXXXX` escapes in prose files and prompts; in code, where an escape can be meant, reminds once |
+| Traditional Chinese guard | auto | While you write Traditional Chinese, reminds once before Simplified characters or zh-CN terms go into a file and names the zh-TW forms (`这→這`, `服務器→伺服器`); zh-CN files, files already in Simplified, terms the file already uses and Japanese lines are left alone |
 
 A prompt Claude writes for another agent or tool draws as a card with a token estimate and a copy button.
 
@@ -75,7 +75,7 @@ On by default and quiet until they matter.
 | Feature | Default | What it does |
 | --- | --- | --- |
 | Tree guard | on | Refuses recursive deletes through links and links to `node_modules`; reminds once before a force push to `main` or `master`, and before `git reset --hard`, `git checkout -- <paths>`, `git restore` or `git clean -f` throws away uncommitted work, naming the files; while agents run, refuses tree rewrites and `git add -A` in the main tree |
-| Heredoc guard | on | Refuses a Bash heredoc with an unquoted delimiter (`<<EOF`) whose body the shell would change: `${x}`, `$(cmd)` and backticks expanded, `\\` turned into `\`; send it again if the expansion is intended |
+| Heredoc guard | on | Reminds once before a Bash heredoc with an unquoted delimiter (`<<EOF`) whose body the shell would change: `${x}`, `$(cmd)` and backticks expanded, `\\` turned into `\`; sent again, it runs |
 | Model per agent | auto | An agent with no model gets haiku, sonnet, opus or fable picked from its task by a short Haiku call, with a toast naming it; `choose` asks Claude to name one instead. A Workflow script without models is reminded once to name one per `agent()` |
 
 ### Optional
@@ -84,7 +84,7 @@ Off by default, for particular workflows. Turn them on in `/tessera setup`.
 
 | Feature | Default | What it does |
 | --- | --- | --- |
-| Glossary guard | off | When the repository's `CLAUDE.md` has a table with **Use** and **Avoid** columns, refuses a write that brings in an avoided wording and names the term to use; does nothing without such a table |
+| Glossary guard | off | When the repository's `CLAUDE.md` has a table with **Use** and **Avoid** columns, reminds once before a write brings in an avoided wording and names the term to use; does nothing without such a table |
 | Workflows quote you | off | A Workflow script must carry your own words, so its agents keep your standing instruction |
 | Client feedback inbox | off | Pasted chat logs (`22:55 Name message`) become numbered items; a complaint like a fixed item is flagged as a likely regression |
 | Resume after limits | off | A usage-limit stop continues a minute after the reset |

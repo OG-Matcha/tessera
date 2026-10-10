@@ -13,6 +13,28 @@ test('a junction to node_modules is refused even with no agent running', async (
   expect(ran).toEqual([])
 })
 
+// From a subdirectory git prints --git-dir absolute and --git-common-dir relative; in a worktree they differ.
+const gitDirs = (gitDir: string, commonDir: string) => () => ({ value: { exitCode: 0, stdout: `${gitDir}\n${commonDir}\n`, stderr: '' } }) as never
+
+test('an agent rewriting the main tree from a subdirectory is refused', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.cwd', () => ({ value: 'I:/w/pkg/sub' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', gitDirs('I:/w/pkg/.git', '../.git'))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const result = await $.tool.call({ tool: 'Bash', command: 'git stash', agentId: 'a1' } as never)
+  expect(result.deny).toContain('main working tree')
+})
+
+test('an agent rewriting its own worktree goes through', async ($, on) => {
+  on('session.cwd', () => ({ value: '/w/wt-a' }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('process.run', gitDirs('/w/pkg/.git/worktrees/wt-a', '/w/pkg/.git'))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const result = await $.tool.call({ tool: 'Bash', command: 'git checkout -b fix', agentId: 'a1' } as never)
+  expect(result.deny).toBe(undefined)
+})
+
 test('git stash with no agent running goes through', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
   const result = await $.tool.call({ tool: 'Bash', command: 'git stash' })
@@ -89,12 +111,52 @@ test('a todo written with CJK escapes is refused before it reaches the tool', as
   expect(result.deny).toContain('#83033')
 })
 
+test('CJK escapes in a code file holding CJK are a reminder, in prose a refusal', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
+  const hangul = String.fromCharCode(0xd55c, 0xad6d)
+  const escaped = '\\uD55C\\uAD6D'
+  const code = { tool: 'Write', file_path: 'C:/p/escape.test.ts', content: `expect(escape('${hangul}')).toBe('${escaped}')` } as never
+  expect((await $.tool.call(code)).deny).toContain('send the same call again')
+  expect((await $.tool.call(code)).deny).toBe(undefined)
+  const prose = { tool: 'Write', file_path: 'C:/p/notes.md', content: escaped } as never
+  expect((await $.tool.call(prose)).deny).toContain('#83033')
+  expect((await $.tool.call(prose)).deny).toContain('#83033')
+})
+
 test('an unquoted heredoc that would expand code is refused once, and goes through when sent again', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
   const call = { tool: 'Bash', command: 'cat > a.ts <<EOF\nconst s = `${name}`\nEOF' } as const
   expect((await $.tool.call(call)).deny).toContain("<<'EOF'")
   expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('two reminded calls in a row each go through when sent again, and a reminder expires', async ($, on) => {
+  let now = 0
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: now }) as never)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const a = { tool: 'Bash', command: 'cat > a.ts <<EOF\nconst s = `${name}`\nEOF' } as const
+  const b = { tool: 'Bash', command: 'cat > b.ts <<EOF\nconst t = `${name}`\nEOF' } as const
+  expect((await $.tool.call(a)).deny).toBeDefined()
+  expect((await $.tool.call(b)).deny).toBeDefined()
+  expect((await $.tool.call(a)).deny).toBe(undefined)
+  expect((await $.tool.call(b)).deny).toBe(undefined)
+  expect((await $.tool.call(a)).deny).toBeDefined()
+  now = 11 * 60_000
+  expect((await $.tool.call(a)).deny).toBeDefined()
+})
+
+test('a deny still goes out when the toast throws', async ($, on) => {
+  on('ui.toast', () => {
+    throw new Error('no toast here')
+  })
+  on('tool.call', { tool: 'PowerShell' as never }, () => ({ result: 'ran' }) as never)
+  const result = await $.tool.call({ tool: 'PowerShell', command: 'New-Item -ItemType Junction -Path wt/node_modules -Target ../node_modules' } as never)
+  expect(result.deny).toContain('node_modules')
 })
 
 test('guardHeredoc off adds nothing', { options: { guardHeredoc: false } }, async ($, on) => {
@@ -104,6 +166,7 @@ test('guardHeredoc off adds nothing', { options: { guardHeredoc: false } }, asyn
 
 test('a write with a wording the CLAUDE.md glossary avoids is refused once', { options: { guardGlossary: true } }, async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('session.repo', () => ({ value: { root: 'C:/p' } }) as never)
   on('fs.read', (_, e) => ({ value: String((e as { path?: unknown }).path).endsWith('CLAUDE.md') ? '| 用語 | 避免 |\n|---|---|\n| 全文完 | 通關 |\n' : '' }) as never)
   on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
@@ -164,6 +227,7 @@ test('with no setting, an Agent call with no model gets one picked', async ($, o
 
 test('auto reminds a Workflow without models once, and runs the same script when sent again', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('tool.call', { tool: 'Workflow' }, () => ({ result: 'started' }) as never)
   const call = { tool: 'Workflow', script: "await agent('x', { label: 'a' })" } as const
   expect((await $.tool.call(call)).deny).toContain('the model its task needs')
@@ -172,6 +236,7 @@ test('auto reminds a Workflow without models once, and runs the same script when
 
 test('a force push to main is refused once, and goes through when sent again', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('session.cwd', () => ({ value: '/w' }))
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'pushed' }) as never)
   const call = { tool: 'Bash', command: 'git push --force origin main' } as const
@@ -182,6 +247,7 @@ test('a force push to main is refused once, and goes through when sent again', a
 test('a bare force push asks git for the branch, and a feature branch goes through', async ($, on) => {
   let branch = 'master'
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('session.cwd', () => ({ value: '/w' }))
   on('process.run', () => ({ value: { exitCode: 0, stdout: `${branch}
 `, stderr: '' } }) as never)
@@ -197,8 +263,9 @@ test('the blocked toast names the rule in the person’s language', { options: {
     toasts.push(String((e as { text?: unknown }).text ?? e))
     return { value: undefined } as never
   })
+  on('clock.now', () => ({ value: 0 }) as never)
   on('session.cwd', () => ({ value: '/w' }))
   on('tool.call', { tool: 'Bash' }, () => ({ result: 'pushed' }) as never)
   await $.tool.call({ tool: 'Bash', command: 'git push --force origin main' })
-  expect(toasts).toEqual(['tessera 已攔下：強制推送'])
+  expect(toasts).toEqual(['tessera 已請 Claude 再確認：強制推送'])
 })

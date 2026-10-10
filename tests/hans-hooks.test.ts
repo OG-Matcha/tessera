@@ -4,6 +4,7 @@ const write = { tool: 'Write', file_path: 'C:/p/README.md', content: '# 說明\n
 
 test('a Simplified write is refused with the zh-TW forms, and the same call sent again goes through', { options: { guardSimplified: 'on' } }, async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('fs.read', () => ({ value: '' }) as never)
   on('tool.call', { tool: 'Write' }, () => ({ result: 'written' }) as never)
   const first = await $.tool.call(write)
@@ -15,6 +16,7 @@ test('a Simplified write is refused with the zh-TW forms, and the same call sent
 
 test('auto guards only while the person writes Traditional Chinese', async ($, on) => {
   on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
   on('env.get', () => ({ value: undefined }))
   on('fs.read', () => ({ value: '' }) as never)
   on('prompt.submit', (_, e) => ({ text: e.text }) as never)

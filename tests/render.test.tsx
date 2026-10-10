@@ -337,3 +337,14 @@ test('a line break between Chinese characters joins without a space; between wor
   expect(p?.kind === 'paragraph' && p.inline.map(n => ('text' in n ? n.text : '')).join('')).toBe('第一行寫到這裡接著第二行 then English words')
   expect(q?.kind === 'quote' && q.inline.map(n => ('text' in n ? n.text : '')).join('')).toBe('引用的第一行第二行')
 })
+
+test('a bare URL stops before CJK text and punctuation, but keeps a CJK path', () => {
+  const links = (text: string) => {
+    const [p] = parse(text, { numbers: false, paths: false })
+    return p?.kind === 'paragraph' ? p.inline.filter(n => n.kind === 'link').map(n => ('href' in n ? n.href : '')) : []
+  }
+  expect(links('請看https://example.com/docs就知道。')).toEqual(['https://example.com/docs'])
+  expect(links('說明在 https://example.com/a）、https://example.com/b」，還有 https://example.com/c，')).toEqual(['https://example.com/a', 'https://example.com/b', 'https://example.com/c'])
+  expect(links('條目 https://zh.wikipedia.org/wiki/中文。')).toEqual(['https://zh.wikipedia.org/wiki/中文'])
+  expect(links('see https://example.com/x?q=日本語#節 now.')).toEqual(['https://example.com/x?q=日本語#節'])
+})

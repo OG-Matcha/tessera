@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- While agents run, the tree guard did nothing when Claude ran git from a subdirectory of the repository: git reports the repository's `.git` as an absolute path and the shared one as a relative path, and the two were compared as text. Both are resolved first.
+- Two different calls reminded one after the other each go through when sent again; before, the second reminder forgot the first, so the first call was refused again. A reminder lapses after ten minutes.
+- CJK written as `\uXXXX` escapes into a code file that also holds CJK text is a reminder, not a refusal: a regex or a test of an escaper can mean the escape. Prose files and prompts are still refused.
+- A path with "hans" inside a name (`C:/Users/Hansen/`, `johansson/`) no longer turns the Traditional Chinese guard off for that file; only a `zh-Hans`, `zh-CN`, `hans` or `chs` segment does.
+- A bare URL in a reply ends before the Chinese, Japanese or Korean text and punctuation that follows it (`https://example.com/docs就知道。` links `/docs`), while CJK after `/`, `=`, `#` or `%` stays part of the link (`zh.wikipedia.org/wiki/中文`).
+- A guard's refusal still goes out when its toast fails; the toast for a reminder says tessera asked Claude to confirm, and only a hard refusal says blocked.
+- Feature descriptions say which guards remind once and which refuse; the diagram hint is described as about 300 tokens once per context, as the README measures it; the `/tessera` command description names setup and peek; the help screen says `/reload-plugins`.
+- On Linux and macOS, paste previews no longer stop at startup when `id -u` cannot run; the `UID` variable is used instead.
+
 ## [0.7.0] - 2026-10-09
 
 ### Added

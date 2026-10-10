@@ -71,6 +71,20 @@ export function discards(command: string): Discard[] {
 
 export const isDefaultBranch =(branch: string) => /^(refs\/heads\/)?(main|master)$/.test(branch)
 
+export const isAbsolute = (path: string) => /^([a-z]:)?[\\/]/i.test(path)
+
+// A path under base, with `.` and `..` folded, one slash style and a lower-case drive letter, so two
+// spellings of one place compare equal: git prints --git-dir absolute and --git-common-dir relative
+// when run from a subdirectory.
+export function resolvePath(base: string, path: string): string {
+  const parts: string[] = []
+  for (const part of (isAbsolute(path) ? path : `${base}/${path}`).replace(/\\/g, '/').split('/')) {
+    if (part === '..') parts.pop()
+    else if (part !== '.' && (part !== '' || parts.length === 0)) parts.push(part)
+  }
+  return parts.join('/').replace(/^[a-z]:/i, drive => drive.toLowerCase())
+}
+
 // A heredoc with an unquoted delimiter is expanded before it is written: ${x}, $(cmd) and backticks are
 // replaced and \\ becomes \, so code written through one loses its template literals and escapes.
 const HEREDOC = /<<(-?)\s*(["']?)([A-Za-z_][\w-]*)\2/g
@@ -137,25 +151,28 @@ export function recursiveDeletes(command: string): string[] {
 }
 
 // Hangul, kana, CJK ideographs and their punctuation: scripts a model should write as themselves.
-const CJK = (code: number) =>
-  (code >= 0x1100 && code <= 0x11ff) ||
-  (code >= 0x3000 && code <= 0x30ff) ||
-  (code >= 0x3130 && code <= 0x318f) ||
-  (code >= 0x3400 && code <= 0x4dbf) ||
-  (code >= 0x4e00 && code <= 0x9fff) ||
-  (code >= 0xac00 && code <= 0xd7a3) ||
-  (code >= 0xf900 && code <= 0xfaff) ||
-  (code >= 0xff00 && code <= 0xffef)
+const CJK_RANGES: [number, number][] = [
+  [0x1100, 0x11ff],
+  [0x3000, 0x30ff],
+  [0x3130, 0x318f],
+  [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff],
+  [0xac00, 0xd7a3],
+  [0xf900, 0xfaff],
+  [0xff00, 0xffef],
+]
+const CJK = (code: number) => CJK_RANGES.some(([from, to]) => code >= from && code <= to)
 
 const ESCAPE = /\\u([0-9a-fA-F]{4})/g
-const LITERAL_CJK = /[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]/
+const hex = (code: number) => code.toString(16).padStart(4, '0')
+const LITERAL_CJK = new RegExp(`[${CJK_RANGES.map(([from, to]) => `\\u${hex(from)}-\\u${hex(to)}`).join('')}]`)
 
 function cjkEscape(text: string): string | undefined {
   for (const m of text.matchAll(ESCAPE)) if (CJK(parseInt(m[1] ?? '', 16))) return m[0]
   return undefined
 }
 
-const PROSE = /\.(md|mdx|markdown|txt|rst|adoc|org)$/i
+export const isProse = (path: string) => /\.(md|mdx|markdown|txt|rst|adoc|org)$/i.test(path)
 
 // Text a tool call writes where a CJK escape is a mistake rather than code: anything in a prompt-like
 // parameter, and in files only for prose files or when the same text also holds literal CJK.
@@ -171,7 +188,7 @@ export function writtenFile(tool: string, input: Record<string, unknown>): { pat
 
 export function misEscapedCjk(tool: string, input: Record<string, unknown>): string | undefined {
   const file = writtenFile(tool, input)
-  if (file !== undefined) return file.texts.map(t => (PROSE.test(file.path) || LITERAL_CJK.test(t) ? cjkEscape(t) : undefined)).find(Boolean)
+  if (file !== undefined) return file.texts.map(t => (isProse(file.path) || LITERAL_CJK.test(t) ? cjkEscape(t) : undefined)).find(Boolean)
   if (tool === 'AskUserQuestion' || tool === 'TodoWrite' || tool === 'TaskCreate' || tool === 'TaskUpdate') return texts(input).map(cjkEscape).find(Boolean)
   return undefined
 }

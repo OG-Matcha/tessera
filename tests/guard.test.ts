@@ -1,6 +1,14 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, forcePushes, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, scriptNamesModel, shellRisks } from '../hooks/guard'
+
+test('one place spelled two ways resolves to one path', () => {
+  expect(resolvePath('I:/w/pkg/sub', '../.git')).toBe('i:/w/pkg/.git')
+  expect(resolvePath('I:/w/pkg/sub', 'I:/w/pkg/.git')).toBe('i:/w/pkg/.git')
+  expect(resolvePath('C:\\w\\pkg', '.git')).toBe('c:/w/pkg/.git')
+  expect(resolvePath('/w/pkg', './.git')).toBe('/w/pkg/.git')
+  expect(resolvePath('/w/pkg', '/w/pkg/.git/worktrees/a')).not.toBe(resolvePath('/w/pkg', '/w/pkg/.git'))
+})
 
 test('commands that rewrite the shared tree are flagged', () => {
   for (const c of [

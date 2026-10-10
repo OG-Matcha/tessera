@@ -59,7 +59,13 @@ const splitRow = (line: string): string[] => {
   return cells
 }
 
-const INLINE = /(`+)(?!`)(.+?)(?<!`)\1(?!`)|\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+?)\*\*|__([^_]+?)__|~~([^~]+?)~~|(?<![\w*])\*([^*\s][^*]*?)\*(?!\w)|(?<![\w_])_([^_\s][^_]*?)_(?!\w)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g
+// A bare URL ends before CJK text and punctuation (U+3000-303F and the full-width forms), which follow
+// a link with no space in CJK prose, except CJK right after / = # or %, where it is a path or query
+// (zh.wikipedia.org/wiki/中文).
+const CJK_LETTERS = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}'
+const CJK_PUNCT = '　-〿＀-￯'
+const URL = `https?:\\/\\/(?:[^\\s<>()${CJK_LETTERS}${CJK_PUNCT}]|(?<=[/=#%])[${CJK_LETTERS}]+)*(?:[^\\s<>().,;:!?'"${CJK_LETTERS}${CJK_PUNCT}]|(?<=[/=#%])[${CJK_LETTERS}]+)`
+const INLINE = new RegExp(`(\`+)(?!\`)(.+?)(?<!\`)\\1(?!\`)|\\[([^\\]]+)\\]\\(([^)\\s]+)\\)|\\*\\*([^*]+?)\\*\\*|__([^_]+?)__|~~([^~]+?)~~|(?<![\\w*])\\*([^*\\s][^*]*?)\\*(?!\\w)|(?<![\\w_])_([^_\\s][^_]*?)_(?!\\w)|(${URL})`, 'gu')
 const NUMBER = /(?<![\w.#/-])(v?\d+(?:[.,:]\d+)*(?:%|ms|s|m|h|d|Gi|Mi|GB|MB|KB|x)?)(?![\w/])/g
 const PATH = /(?<![\w/.:])((?:~|\.{1,2})?\/[\w.@+-]+(?:\/[\w.@+-]*)*)/g
 

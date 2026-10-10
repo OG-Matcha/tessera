@@ -327,14 +327,25 @@ export const scenarios = [
   },
   {
     name: 'update-offer',
-    // A GitHub install of tessera, under another marketplace name, with auto-update off.
+    // A GitHub install of tessera with auto-update off.
     sessions: () => [
       {
-        args: ['--settings', JSON.stringify({ extraKnownMarketplaces: { 'tessera-e2e': { source: { source: 'github', repo: 'OG-Matcha/tessera' } } } })],
+        args: ['--settings', JSON.stringify({ extraKnownMarketplaces: { 'og-matcha': { source: { source: 'github', repo: 'OG-Matcha/tessera' } } } })],
         steps: [{ until: /auto-update is off|沒開自動更新/, timeoutMs: 20_000, shot: 'band' }],
       },
     ],
-    check: s => seen(s.band, /(auto-update is off|沒開自動更新)[\s\S]*(open \/plugin|打開 \/plugin)[\s\S]*Marketplaces → tessera-e2e/),
+    check: s => seen(s.band, /(auto-update is off|沒開自動更新)[\s\S]*(open \/plugin|打開 \/plugin)[\s\S]*Marketplaces → og-matcha/),
+  },
+  {
+    name: 'moved-install',
+    // A GitHub install under the marketplace's old name, which no longer updates.
+    sessions: () => [
+      {
+        args: ['--settings', JSON.stringify({ extraKnownMarketplaces: { tessera: { source: { source: 'github', repo: 'OG-Matcha/tessera' }, autoUpdate: true } } })],
+        steps: [{ until: /moved to tessera@og-matcha|改為 tessera@og-matcha/, timeoutMs: 20_000, shot: 'band' }],
+      },
+    ],
+    check: s => seen(s.band, /(moved to tessera@og-matcha|改為 tessera@og-matcha)[\s\S]*(copy the commands|複製指令)/),
   },
   {
     name: 'fold-diff',

@@ -39,16 +39,25 @@
 
 ```sh
 claude plugin marketplace add OG-Matcha/tessera
-claude plugin install tessera@tessera --scope user
+claude plugin install tessera@og-matcha --scope user
 ```
 
 Start a new session, then run `/tessera setup` to pick the features you want.
 
-To get new releases automatically, open `/plugin`, go to **Marketplaces**, choose **tessera** and select **Enable auto-update**. Claude Code leaves auto-update off for marketplaces other than Anthropic's own; tessera reminds you of it once, above the prompt, with a button that opens `/plugin`. Without it, update by hand:
+To get new releases automatically, open `/plugin`, go to **Marketplaces**, choose **og-matcha** and select **Enable auto-update**. Claude Code leaves auto-update off for marketplaces other than Anthropic's own; tessera reminds you of it once, above the prompt, with a button that opens `/plugin`. Without it, update by hand:
 
 ```sh
-claude plugin marketplace update tessera
-claude plugin update tessera@tessera
+claude plugin marketplace update og-matcha
+claude plugin update tessera@og-matcha
+```
+
+Installed before 0.8.0 as `tessera@tessera`? The marketplace was renamed from `tessera` to `og-matcha`, so that another plugin named tessera can be added beside it, and the old install no longer updates. Move it once:
+
+```sh
+claude plugin uninstall tessera@tessera
+claude plugin marketplace remove tessera
+claude plugin marketplace add OG-Matcha/tessera
+claude plugin install tessera@og-matcha --scope user
 ```
 
 > [!IMPORTANT]

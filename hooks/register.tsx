@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude-code'
 
-import type { CarryOver } from '../types'
+import type { CarryOver, UpdateOffer } from '../types'
 import type { Env } from './platform'
 import type { InboxItem } from './inbox'
 import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
@@ -22,7 +22,7 @@ import { registerPastes } from './paste-hooks'
 import { completions } from './complete'
 import { FEATURES } from './features'
 import { foldPatch, patchOf } from './fold'
-import { marketplaceWithoutUpdates } from './update'
+import { MARKETPLACE, marketplaceRenamed, marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
 import { resumeAt } from './limits'
 import type { Voice } from './voice'
@@ -35,7 +35,7 @@ import { TERMINALS, hasRtl } from './rtl'
 
 const carryOver = atom({ plugin: 'tessera', key: 'carryOver' } as const, null as CarryOver | null)
 // The marketplace named in the one-time offer to turn on auto-update, while it shows.
-const updateOffer = atom({ plugin: 'tessera', key: 'updateOffer' } as const, null as string | null)
+const updateOffer = atom({ plugin: 'tessera', key: 'updateOffer' } as const, null as UpdateOffer | null)
 // Edit results the person unfolded.
 const unfoldedDiffs = atom({ plugin: 'tessera', key: 'unfoldedDiffs' } as const, [] as string[])
 const CARRY_SHOWN = 5
@@ -104,27 +104,35 @@ async function settleCarry($: EngineInterface, from: string, fill: string | unde
   await update($, carryOver, () => null)
 }
 
-async function settleUpdate($: EngineInterface, fill: string | undefined) {
+const offeredKey = (offer: UpdateOffer) => (offer.reason === 'moved' ? 'moveOffered' : 'updateOffered')
+
+async function settleUpdate($: EngineInterface, offer: UpdateOffer, fill: string | undefined) {
   if (fill !== undefined) await $.prompt.fill({ text: fill })
-  await $.store.set('updateOffered', true).catch(() => undefined)
+  await $.store.set(offeredKey(offer), true).catch(() => undefined)
   await update($, updateOffer, () => null)
 }
 
 function registerUpdateOffer(on: On) {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const market = await read($, updateOffer)
-    if (e.surface !== 'terminal' || e.props.hasSurvey || market === null) return next(e)
+    const offer = await read($, updateOffer)
+    if (e.surface !== 'terminal' || e.props.hasSurvey || offer === null) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     const below = await next(e)
+    const s = t()
+    const moved = offer.reason === 'moved'
+    const copyCommands = (press: { surface?: string }) =>
+      $.ui.copy({ text: s.movedCommands(offer.market), surface: press.surface as never })
+        .then(r => $.ui.toast(r.isCopied ? s.copied : `${s.copyFailed}: ${r.reason}`))
+        .then(() => settleUpdate($, offer, undefined))
     return (
       <Box flexDirection="column">
         <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
           <Box flexDirection="row" gap={2}>
-            <Text bold>{t().updateTitle}</Text>
-            <Button key="update-open" label={t().updateOpen} onPress={() => settleUpdate($, '/plugin')} />
-            <Button key="update-later" label={t().updateLater} onPress={() => settleUpdate($, undefined)} />
+            <Text bold>{moved ? s.movedTitle(MARKETPLACE, offer.market) : s.updateTitle}</Text>
+            {moved ? <Button key="update-copy" label={s.movedCopy} onPress={copyCommands} /> : <Button key="update-open" label={s.updateOpen} onPress={() => settleUpdate($, offer, '/plugin')} />}
+            <Button key="update-later" label={s.updateLater} onPress={() => settleUpdate($, offer, undefined)} />
           </Box>
-          <Text dimColor>{t().updateSteps(market)}</Text>
+          <Text dimColor>{moved ? s.movedSteps : s.updateSteps(offer.market)}</Text>
         </Box>
         {below}
       </Box>
@@ -256,10 +264,12 @@ async function scheduleResume($: EngineInterface) {
   $.ui.toast(t().resumeScheduled(new Date(at + 60_000).toTimeString().slice(0, 5)))
 }
 
+// Classic hook events are not delivered to plugins a person installs, so the turn's own end is watched:
+// the usage figures say whether a window is used up and when it resets.
 function registerResume(on: On) {
-  on('classic.StopFailure', async ($, e, next) => {
+  on('turn.complete', async ($, e, next) => {
     const done = await next(e)
-    if (e.error === 'rate_limit') await scheduleResume($)
+    if (e.reason === 'error') await scheduleResume($)
     return done
   })
 }
@@ -417,11 +427,14 @@ export const register: Register = (on, options) => {
       const offer = e.isInteractive ? carriedFrom(store, sessionId) : undefined
       if (offer !== undefined) await update($, carryOver, () => offer)
     }
-    // Asked once, from the second session on, so the first one only shows the setup hint.
+    // Asked once, from the second session on, so the first one only shows the setup hint. An install
+    // under the marketplace's old name gets no updates at all, so that comes before auto-update.
+    const moved = marketplaceRenamed(settings)
     const market = marketplaceWithoutUpdates(settings)
+    const offer: UpdateOffer | undefined = moved !== undefined ? { reason: 'moved', market: moved } : market !== undefined ? { reason: 'auto-update', market } : undefined
     const offerUpdate = async () => {
-      if (e.isInteractive && returning && market !== undefined && (await $.store.get('updateOffered').catch(() => true)) !== true)
-        await update($, updateOffer, () => market)
+      if (e.isInteractive && returning && offer !== undefined && (await $.store.get(offeredKey(offer)).catch(() => true)) !== true)
+        await update($, updateOffer, () => offer)
     }
     // What follows the start is independent, so it runs at once too.
     await Promise.all([

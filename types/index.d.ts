@@ -8,8 +8,11 @@ export type DraftImage = { n: number; path: string; view: ImageView | null }
 
 export type CarryOver = { from: string; items: string[] }
 
+// Why tessera asks for a look at /plugin: its marketplace has auto-update off, or was added under its old name.
+export type UpdateOffer = { reason: 'auto-update' | 'moved'; market: string }
+
 declare module 'claude-code' {
   interface PluginState {
-    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[]; updateOffer: string | null }
+    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[]; updateOffer: UpdateOffer | null }
   }
 }

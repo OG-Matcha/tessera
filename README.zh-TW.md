@@ -39,16 +39,25 @@
 
 ```sh
 claude plugin marketplace add OG-Matcha/tessera
-claude plugin install tessera@tessera --scope user
+claude plugin install tessera@og-matcha --scope user
 ```
 
 開一個新 session，輸入 `/tessera setup` 選擇要開的功能。
 
-想自動收到新版本：開啟 `/plugin`，到 **Marketplaces** 選 **tessera**，再選 **Enable auto-update**。Anthropic 官方以外的 marketplace，Claude Code 預設不自動更新；tessera 會在輸入框上方提醒你一次，按鈕會幫你打開 `/plugin`。沒開的話，可以手動更新：
+想自動收到新版本：開啟 `/plugin`，到 **Marketplaces** 選 **og-matcha**，再選 **Enable auto-update**。Anthropic 官方以外的 marketplace，Claude Code 預設不自動更新；tessera 會在輸入框上方提醒你一次，按鈕會幫你打開 `/plugin`。沒開的話，可以手動更新：
 
 ```sh
-claude plugin marketplace update tessera
-claude plugin update tessera@tessera
+claude plugin marketplace update og-matcha
+claude plugin update tessera@og-matcha
+```
+
+0.8.0 之前裝的是 `tessera@tessera`？marketplace 已從 `tessera` 改名為 `og-matcha`，讓另一個也叫 tessera 的 plugin 能同時安裝，舊的安裝不會再更新。搬一次就好：
+
+```sh
+claude plugin uninstall tessera@tessera
+claude plugin marketplace remove tessera
+claude plugin marketplace add OG-Matcha/tessera
+claude plugin install tessera@og-matcha --scope user
 ```
 
 > [!IMPORTANT]

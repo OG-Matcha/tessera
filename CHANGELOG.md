@@ -4,7 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- The marketplace is named `og-matcha`, so the install is `tessera@og-matcha`. Another Claude Code plugin is also called tessera with a marketplace of the same name, and Claude Code keeps one marketplace per name, so the two could not be added side by side. An install made as `tessera@tessera` keeps running but no longer updates; the README says how to move it, and tessera says so once above the prompt.
+
 ### Fixed
+
+- Resume after limits never ran: it listened on a classic hook event, which Claude Code does not deliver to plugins a person installs. It now listens for the end of a turn that an API error cut short and schedules the resume from the usage figures.
 
 - While agents run, the tree guard did nothing when Claude ran git from a subdirectory of the repository: git reports the repository's `.git` as an absolute path and the shared one as a relative path, and the two were compared as text. Both are resolved first.
 - Two different calls reminded one after the other each go through when sent again; before, the second reminder forgot the first, so the first call was refused again. A reminder lapses after ten minutes.

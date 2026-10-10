@@ -102,5 +102,5 @@ jobs:
           CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude
         run: |
           claude plugin marketplace add ./
-          claude plugin install tessera@tessera
+          claude plugin install tessera@og-matcha
           claude plugin list | grep -A3 tessera | grep -q enabled

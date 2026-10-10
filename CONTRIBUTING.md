@@ -31,7 +31,7 @@ npx -p typescript@5 tsc -p .
 
 `tsc` needs the API types in `.claude-plugin/types/`, which appear after `claude --plugin-dir .` runs once.
 
-To try a change live, disable the installed copy first (`claude plugin disable tessera@tessera`), then load the working tree with `claude --plugin-dir .`. Two copies at once draw the same components twice.
+To try a change live, disable the installed copy first (`claude plugin disable tessera@og-matcha`), then load the working tree with `claude --plugin-dir .`. Two copies at once draw the same components twice.
 
 ### Live check
 

@@ -1,12 +1,35 @@
 import type { TestBody } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
-import { marketplaceWithoutUpdates } from '../hooks/update'
+import { marketplaceRenamed, marketplaceWithoutUpdates } from '../hooks/update'
 
-const github = (autoUpdate?: boolean) => ({ extraKnownMarketplaces: { mine: { source: { source: 'github', repo: 'OG-Matcha/tessera' }, autoUpdate } } })
+const github = (autoUpdate?: boolean, name = 'og-matcha') => ({ extraKnownMarketplaces: { [name]: { source: { source: 'github', repo: 'OG-Matcha/tessera' }, autoUpdate } } })
+
+test('an install under the old marketplace name is told to move; the current name and other sources are not', () => {
+  expect(marketplaceRenamed(github(true, 'tessera'))).toBe('tessera')
+  expect(marketplaceRenamed(github(true))).toBe(undefined)
+  expect(marketplaceRenamed({ extraKnownMarketplaces: { tessera: { source: { source: 'directory', path: 'I:/tessera' } } } })).toBe(undefined)
+})
+
+test('a session under the old marketplace name shows the move once, and copying the commands settles it', { options: { language: 'en', carryOver: false } }, async ($, on) => {
+  const copied: string[] = []
+  on('ui.copy', (_, e) => {
+    copied.push(String((e as { text?: unknown }).text))
+    return { value: { isCopied: true } } as never
+  })
+  on('ui.toast', () => ({ value: undefined }))
+  const { ui, written } = await start({ setupSeen: true, updateOffered: true }, github(true, 'tessera'))($, on)
+  const copy = await ui.find({ type: 'Button', label: '⧉ copy the commands' } as never)
+  expect(copy).toBeDefined()
+  await ui.press({ key: copy!.key! })
+  expect(copied[0]).toContain('claude plugin marketplace remove tessera\n')
+  expect(copied[0]).toContain('install tessera@og-matcha')
+  expect(written.moveOffered).toBe(true)
+  expect(await ui.find({ type: 'Button', label: '⧉ copy the commands' } as never)).toBe(undefined)
+})
 
 test('a GitHub install of tessera without auto-update is found under any marketplace name', () => {
-  expect(marketplaceWithoutUpdates(github())).toBe('mine')
+  expect(marketplaceWithoutUpdates(github(undefined, 'mine'))).toBe('mine')
   expect(marketplaceWithoutUpdates(github(true))).toBe(undefined)
   expect(marketplaceWithoutUpdates({ extraKnownMarketplaces: { t: { source: { source: 'git', url: 'https://github.com/og-matcha/tessera.git' } } } })).toBe('t')
 })

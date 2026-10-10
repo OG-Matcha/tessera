@@ -389,6 +389,12 @@
       "description": "Refuse tool calls that write Korean, Chinese or Japanese as \\uXXXX escapes in prompts, todos, questions and prose files, where models mis-spell the hex and corrupt the text; in a code file that also holds CJK text, where an escape can be meant, remind once (anthropics/claude-code#83033).",
       "default": true
     },
+    "guardData": {
+      "type": "boolean",
+      "title": "Database guard",
+      "description": "Remind once before a command that throws a database or its volumes away: prisma migrate reset and db push --force-reset, supabase db reset, rails or rake db:drop, db:reset and db:purge, artisan migrate:fresh, migrate:refresh and db:wipe, docker compose down -v, docker volume rm and prune, docker system prune --volumes, dropdb. The same command sent again goes through.",
+      "default": true
+    },
     "guardEncoding": {
       "type": "boolean",
       "title": "Encoding guard",

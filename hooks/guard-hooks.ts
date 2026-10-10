@@ -2,7 +2,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { Risk } from './guard'
 import type { Discard } from './guard'
-import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
+import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isAbsolute, isDefaultBranch, isProse, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks, writtenFile } from './guard'
 import { encodingNote, encodingOf } from './encoding'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
@@ -27,6 +27,7 @@ let guardHans = 'auto'
 let guardHeredoc = true
 let guardGlossary = false
 let guardEncoding = true
+let guardData = true
 let glossary: { root: string; terms: Term[] } | undefined
 // Calls refused by a rule that can misjudge intent, by rule and call, with when: the same call sent
 // again within the window goes through, and calls refused in between do not reset each other.
@@ -150,6 +151,12 @@ async function judgeShell($: EngineInterface, command: string, agentId: string |
     const reminded = await refuseOnce($, command, 'force push', `it force-pushes to ${target}, rewriting history that others and CI build on. Push a branch and merge it instead. If rewriting ${target} is intended`)
     if (reminded !== undefined) return reminded
   }
+  // A database reset is routine on a development machine and a loss anywhere else; the person knows which.
+  if (guardData)
+    for (const reset of dataResets(command)) {
+      const reminded = await refuseOnce($, command, 'data reset', `it runs ${reset}, which throws away a database or its volumes and everything in them. For a development database meant to be reset, go ahead; for anything shared or holding real data, ask the person first. If resetting it is intended`)
+      if (reminded !== undefined) return reminded
+    }
   // Discarding is often what the person asked for, so the reminder names what goes.
   for (const discard of discards(command)) {
     const lost = await lostFiles($, command, discard)
@@ -261,6 +268,7 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
   guardHeredoc = options.guardHeredoc !== false
   guardGlossary = options.guardGlossary === true
   guardEncoding = options.guardEncoding !== false
+  guardData = options.guardData !== false
 
   on('tool.call', async ($, e, next) => {
     if (e.agentId !== undefined) lastAgentCall = await $.clock.now()

@@ -204,6 +204,21 @@ export function recursiveDeletes(command: string): string[] {
   return targets.map(t => t.replace(/^(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE)(?=[\\/]|$)/i, '~')).filter(t => t !== '' && !/[$*?`]/.test(t))
 }
 
+// Commands that throw a database or its volumes away: the ORM and framework resets, Docker's volume
+// removals, and dropdb. Each is named as written, for the reminder.
+const DATA_RESETS: [RegExp, string][] = [
+  [/^(?:npx\s+|pnpm\s+(?:exec\s+)?|yarn\s+|bunx\s+)?prisma\s+(?:migrate\s+reset\b|db\s+push\b.*--force-reset)/, 'prisma migrate reset'],
+  [/^(?:npx\s+)?supabase\s+db\s+reset\b/, 'supabase db reset'],
+  [/^(?:bin\/|bundle\s+exec\s+)?(?:rails|rake)\s+db:(?:drop|reset|purge)\b/, 'rails db:drop'],
+  [/^(?:php\s+)?artisan\s+(?:migrate:(?:fresh|refresh)|db:wipe)\b/, 'artisan migrate:fresh'],
+  [/^docker(?:-compose|\s+compose)\s+(?:\S+\s+)*down\b.*(?:\s-\w*v|\s--volumes)/, 'docker compose down -v'],
+  [/^docker\s+volume\s+(?:rm|prune)\b/, 'docker volume rm'],
+  [/^docker\s+system\s+prune\b.*--volumes/, 'docker system prune --volumes'],
+  [/^dropdb\b/, 'dropdb'],
+]
+
+export const dataResets = (command: string): string[] => [...new Set(pieces(command).flatMap(piece => DATA_RESETS.filter(([re]) => re.test(piece)).map(([, name]) => name)))]
+
 // A recursive delete of one of these has no good reading: the file system's root, a drive, the home
 // directory, or the directory the session works in or one above it.
 export function rootLike(path: string, cwd: string, home: string | undefined): boolean {

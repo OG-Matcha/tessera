@@ -154,6 +154,22 @@ test('a recursive delete of home, the working directory or a parent is refused o
   expect((await $.tool.call({ tool: 'Bash', command: 'rm -rf C:/w/other' })).deny).toBe(undefined)
 })
 
+test('a database reset is reminded once and runs when sent again; guardData off skips it', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 0 }) as never)
+  on('session.cwd', () => ({ value: '/w' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  const call = { tool: 'Bash', command: 'docker compose down -v' } as const
+  expect((await $.tool.call(call)).deny).toContain('docker compose down -v')
+  expect((await $.tool.call(call)).deny).toBe(undefined)
+})
+
+test('guardData off reminds of nothing', { options: { guardData: false } }, async ($, on) => {
+  on('session.cwd', () => ({ value: '/w' }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: 'ran' }) as never)
+  expect((await $.tool.call({ tool: 'Bash', command: 'npx prisma migrate reset --force' })).deny).toBe(undefined)
+})
+
 test('a Git Bash path on Windows reaches the file system', async ($, on) => {
   const stats: string[] = []
   on('ui.toast', () => ({ value: undefined }))

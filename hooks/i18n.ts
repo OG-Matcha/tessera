@@ -78,6 +78,7 @@ const RULES_EN = {
   'Agent model': 'Agent model',
   'file encoding': 'file encoding',
   'root delete': 'delete of a root, home or the session directory',
+  'data reset': 'database reset',
 }
 
 export type Rule = keyof typeof RULES_EN
@@ -98,6 +99,7 @@ const RULES_ZH: Record<Rule, string> = {
   'Agent model': 'Agent 未指定模型',
   'file encoding': '檔案編碼',
   'root delete': '刪除根目錄、家目錄或 session 目錄',
+  'data reset': '重置資料庫',
 }
 
 const EN = {

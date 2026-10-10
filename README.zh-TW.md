@@ -103,6 +103,7 @@ Claude Code 的選項值跟著安裝 ID 走，搬完後用 `/tessera setup` 或 
 | 用我的語言回覆 | 開 | 你自己打的字是中文、日文或韓文時，Claude 用同一種語言回覆；貼上的程式碼、log、引用不算 |
 | 接續未完成 | 開 | 新 session 或 `/clear` 之後，會提示這個 repo 上次沒做完的待辦：**接續** 把它們填進輸入框，**略過** 就不再提。它會在 session 裡替 Claude 打開待辦工具（`CLAUDE_CODE_ENABLE_TODO_TOOLS`，Claude Code 對 Claude 5.x 預設不開），你自己設過這個變數就照你的設定；打開後 Claude 可能在畫面上列出待辦清單（`Ctrl+T` 收起） |
 | 中日韓跳脫守門 | 開 | 文件和提示裡把中日韓文字寫成 `\uXXXX` 時擋下；程式碼裡可能是刻意的跳脫，提醒一次 |
+| 資料庫守門 | 開 | 會把資料庫或其 volume 整個丟掉的指令前提醒一次：`prisma migrate reset`、`supabase db reset`、`rails db:drop`、`artisan migrate:fresh`、`docker compose down -v`、`docker volume rm`、`dropdb` 和同類指令；再送一次就執行 |
 | 編碼守門 | 開 | 編輯既有、不是 UTF-8 的檔案（Big5、Shift-JIS、GBK、EUC-KR、UTF-16，1 MiB 以內）前提醒一次：Claude Code 以 UTF-8 讀寫檔案，內容會被改寫成 `�`（[#7134](https://github.com/anthropics/claude-code/issues/7134)）；再送一次就執行，這個 session 裡不再檢查那個檔案 |
 | 繁簡守門 | 自動 | 你用繁體中文時，簡體字和簡中用語寫進檔案前提醒一次，並列出繁中慣用寫法（`这→這`、`服務器→伺服器`）；zh-CN 檔案、本來就是簡體的檔案、檔案裡原本就用的詞、日文行不檢查 |
 

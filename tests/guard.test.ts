@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { commandDir, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks } from '../hooks/guard'
+import { commandDir, dataResets, discards, expandedHeredoc, forcePushes, hostPath, isDefaultBranch, misEscapedCjk, quotesUser, recursiveDeletes, resolvePath, rootLike, scriptNamesModel, shellRisks } from '../hooks/guard'
 
 test('one place spelled two ways resolves to one path', () => {
   expect(resolvePath('I:/w/pkg/sub', '../.git')).toBe('i:/w/pkg/.git')
@@ -103,6 +103,17 @@ test('a delete of a root, a drive, home, or the working directory or above has n
   expect(recursiveDeletes('rm -rf $HOME/.cache')).toEqual(['~/.cache'])
   expect(recursiveDeletes('Remove-Item -Recurse $env:USERPROFILE\\tmp')).toEqual(['~\\tmp'])
   expect(recursiveDeletes('rm -rf $OTHER/x')).toEqual([])
+})
+
+test('commands that throw a database away are named, and look-alikes are not', () => {
+  expect(dataResets('npx prisma migrate reset --force')).toEqual(['prisma migrate reset'])
+  expect(dataResets('pnpm exec prisma db push --force-reset')).toEqual(['prisma migrate reset'])
+  expect(dataResets('supabase db reset && bin/rails db:drop')).toEqual(['supabase db reset', 'rails db:drop'])
+  expect(dataResets('php artisan migrate:fresh --seed')).toEqual(['artisan migrate:fresh'])
+  expect(dataResets('docker compose -f dev.yml down -v')).toEqual(['docker compose down -v'])
+  expect(dataResets('docker-compose down --volumes --remove-orphans')).toEqual(['docker compose down -v'])
+  expect(dataResets('docker volume prune -f; dropdb app_dev')).toEqual(['docker volume rm', 'dropdb'])
+  for (const c of ['prisma migrate dev', 'prisma db push', 'rails db:migrate', 'docker compose down', 'docker system prune', 'docker volume ls', "git commit -F - <<'EOF'\nrun docker compose down -v later\nEOF"]) expect(dataResets(c)).toEqual([])
 })
 
 test('Git Bash paths on Windows are the file system’s', () => {

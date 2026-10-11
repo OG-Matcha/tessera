@@ -73,4 +73,17 @@ Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a releas
 - The GitHub topics still fit.
 - The token table in both READMEs still holds: re-measure with the `cost-*` scenarios in `scripts/e2e/scenarios.mjs` when a feature adds to the context.
 
-Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` and turn `[Unreleased]` into the new version in `CHANGELOG.md` in a pull request; once it is merged, push a `vX.Y.Z` tag at the merged commit. The release workflow checks the versions agree and publishes the notes.
+Bump the version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` and turn `[Unreleased]` into the new version in `CHANGELOG.md` in a pull request; once it is merged, push a `vX.Y.Z` tag at the merged commit, then move the `stable` branch to it (`git push origin vX.Y.Z^{commit}:refs/heads/stable`). The release workflow checks the versions agree and publishes the notes.
+
+## Anthropic's directory
+
+tessera is submitted to [Anthropic's directory](https://claude.ai/directory) from the owner's account, tracking the `stable` branch, so the directory sees releases only. Each new commit on `stable` is validated and scanned there and, once published, reaches the people who added tessera on claude.ai as `tessera@synced`. The directory's validation reads the hooks module statically, with rules beyond `claude plugin validate`; keep them so a release does not fail there:
+
+- `on()` is called only in `register.tsx`, and `$` is passed only to functions declared in the same file. A feature module exports `configureX(options)` and its hooks as typed constants (see Layout).
+- A `$.config.set` call writes one literal object: `{ key: 'tessera.<option>', value: to }`. No computed key, no shorthand member.
+- Every hook event must be on the directory's list. `prompt.autocomplete` is not yet, which is why the `/tessera` typeahead is out.
+- In a file that declares a hook, the directory reads the name of the hook's first parameter as the engine everywhere in the file: no `_` placeholder elsewhere when a hook takes `(_, e, next)`. In a `.tsx` file nothing else may be named `h` or `Fragment`.
+- No invisible character in the source (write it as a `\u` escape), no credential-named constant beside a URL, no `curl` in a fixture, no file in the plugin that reads a token from the environment.
+- `.claude-plugin/icon.png` is the listing icon, taken once at the first submission.
+
+Policy holds that stay and a reviewer reads: the minified `hooks/vendor/` bundles, commands run with arguments the directory cannot read in full (`git -C`, the junction listing, the clipboard readers; all named in README and SECURITY), the `types` field, and the name's closeness to another listing.

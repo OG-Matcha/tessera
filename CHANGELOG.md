@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-12
+
 ### Added
 
 - `diffLines`: how many lines a folded edit diff shows (8 unless set, up to 40). `0` folds every edit, long or short, to one row: the added and removed counts and the expand button, for a transcript that only says which file changed and by how much.
@@ -244,7 +246,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/OG-Matcha/tessera/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/OG-Matcha/tessera/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/OG-Matcha/tessera/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/OG-Matcha/tessera/compare/v0.8.1...v0.8.2

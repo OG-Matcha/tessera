@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-11
+
+### Changed
+
+- `plugin.json` names the links Anthropic's directory shows on a listing: the README as documentation, GitHub issues as support, the new `PRIVACY.md` as the privacy policy and the MIT license as the terms. The directory had taken the first issue link in the README (a Claude Code issue) for support and a docs link for documentation.
+
 ## [0.8.3] - 2026-10-11
 
 ### Added
@@ -229,7 +235,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/OG-Matcha/tessera/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/OG-Matcha/tessera/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/OG-Matcha/tessera/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/OG-Matcha/tessera/compare/v0.8.0...v0.8.1

@@ -16,6 +16,8 @@ tessera runs inside Claude Code with your user's permissions. Report a vulnerabi
 - **Model context:** tessera adds short notes to your prompts (the diagram hint, the reply-language note, inbox notes), each switchable in `/tessera setup`.
 - **Record mode:** `/tessera record` masks keys, tokens, passwords, emails and phone numbers in what tessera draws, by pattern, on screen only; it is a courtesy for a recorded screen, not a secret scanner: a secret in a shape it does not know, or in what Claude Code draws itself (tool results, permission dialogs, the prompt box), stays visible, and nothing is changed in the transcript or in what Claude reads.
 
+[PRIVACY.md](PRIVACY.md) says the same from the data side: nothing collected, nothing sent.
+
 ## Supported versions
 
 Only the latest release gets fixes.

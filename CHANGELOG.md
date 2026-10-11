@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-11
+
 ### Added
 
 - `/tessera record`: record mode for a screen that is recorded, streamed or shared. In what tessera draws (replies, your prompts, tool rows, folded diffs, paste previews), API keys and tokens by their issuer's prefix, `Bearer` headers, passwords in URLs and in `PASSWORD=` lines, private key blocks, emails and phone numbers show as `••••`, with a status line under the prompt while it is on; `/tessera record` again, or `record off`, turns it off and redraws. Screen only: the transcript, what Claude reads and `/tessera copy` are unchanged. What Claude Code draws itself (tool results, permission dialogs, the prompt box) is not masked.
@@ -227,7 +229,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/OG-Matcha/tessera/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/OG-Matcha/tessera/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/OG-Matcha/tessera/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/OG-Matcha/tessera/compare/v0.7.0...v0.8.0

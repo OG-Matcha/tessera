@@ -6,6 +6,7 @@ import { decodePng, pngSize } from './png'
 import { fitCells, thumbnail } from './raster'
 import { clipboardReaders, drawsPixels, openers, pasteRoot } from './platform'
 import { clipboardHolds, clipboardText, placeholders } from './paste'
+import { mask } from './mask'
 import { session, t } from './session'
 
 const draftImages = atom({ plugin: 'tessera', key: 'draftImages' } as const, [] as DraftImage[])
@@ -156,7 +157,7 @@ export function registerPastes(on: On, options: Record<string, unknown>) {
           <Box key={`paste-${paste.n}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
             <Text dimColor>{t().pastedText(paste.n, paste.total)}</Text>
             {paste.head.map((line, i) => (
-              <Text key={`paste-${paste.n}-${i}`} wrap="truncate-end">{[...line].slice(0, width).join('') || ' '}</Text>
+              <Text key={`paste-${paste.n}-${i}`} wrap="truncate-end">{[...(session.recording ? mask(line) : line)].slice(0, width).join('') || ' '}</Text>
             ))}
             {paste.total > paste.head.length && <Text dimColor>…</Text>}
           </Box>

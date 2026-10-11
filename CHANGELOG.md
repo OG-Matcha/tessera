@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `/tessera record`: record mode for a screen that is recorded, streamed or shared. In what tessera draws (replies, your prompts, tool rows, folded diffs, paste previews), API keys and tokens by their issuer's prefix, `Bearer` headers, passwords in URLs and in `PASSWORD=` lines, private key blocks, emails and phone numbers show as `••••`, with a status line under the prompt while it is on; `/tessera record` again, or `record off`, turns it off and redraws. Screen only: the transcript, what Claude reads and `/tessera copy` are unchanged. What Claude Code draws itself (tool results, permission dialogs, the prompt box) is not masked.
+
 ### Fixed
 
 - The carry-over store kept a record for every repository a session ever ran in, read whole at every access; a machine that runs the e2e made eighty of them in a day. Only the newest thirty repositories are kept, pruned when a session starts; the one in use always stays.

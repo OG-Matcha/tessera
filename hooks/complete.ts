@@ -10,6 +10,7 @@ const SUBCOMMANDS: Record<Lang, [string, string][]> = {
     ['theme', 'Switch theme on the spot'],
     ['copy', 'Copy the last reply; copy code copies its last code block'],
     ['demo', 'Full showcase of every element and diagram'],
+    ['record', 'Record mode: keys, emails and phone numbers masked on screen; again turns it off'],
   ],
   'zh-TW': [
     ['setup', '選擇要開啟的功能'],
@@ -18,12 +19,13 @@ const SUBCOMMANDS: Record<Lang, [string, string][]> = {
     ['theme', '立即切換主題'],
     ['copy', '複製上一則回覆；copy code 只複製最後一個程式碼區塊'],
     ['demo', '完整示範：每種元素和圖表'],
+    ['record', '錄影模式：畫面上的金鑰、email、電話遮住；再輸入一次關閉'],
   ],
 }
 
 const SECOND: Record<Lang, Record<string, [string, string][]>> = {
-  en: { copy: [['code', 'Only the last code block'], ['prompt', 'The prompt card, verbatim']], inbox: [['fixed', 'Mark items fixed at the current commit: inbox fixed 3 5']] },
-  'zh-TW': { copy: [['code', '只複製最後一個程式碼區塊'], ['prompt', '原文複製 prompt 卡片']], inbox: [['fixed', '以目前的 commit 標為已修：inbox fixed 3 5']] },
+  en: { copy: [['code', 'Only the last code block'], ['prompt', 'The prompt card, verbatim']], inbox: [['fixed', 'Mark items fixed at the current commit: inbox fixed 3 5']], record: [['on', 'Turn record mode on'], ['off', 'Turn record mode off']] },
+  'zh-TW': { copy: [['code', '只複製最後一個程式碼區塊'], ['prompt', '原文複製 prompt 卡片']], inbox: [['fixed', '以目前的 commit 標為已修：inbox fixed 3 5']], record: [['on', '開啟錄影模式'], ['off', '關閉錄影模式']] },
 }
 
 export function completions(text: string, start: number, token: string, themes: readonly string[], lang: Lang): Suggestion[] {

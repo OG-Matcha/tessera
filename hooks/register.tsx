@@ -26,6 +26,7 @@ import { EDITS, asEditLog, rekeyed } from './edits'
 import { completions } from './complete'
 import { FEATURES } from './features'
 import { foldPatch, patchOf } from './fold'
+import { mask, maskValues } from './mask'
 import { MARKETPLACE, marketplaceRenamed, marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
 import type { Voice } from './voice'
@@ -351,7 +352,11 @@ const expandedCalls = new Set<string>()
 // leave to the engine. A user message says which view is drawing: every transcript has one, drawn first.
 let transcriptExpanded = false
 
-const drawMarkdown = ($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, style: Style, blocks: ReturnType<typeof parse>, columns: number, reply?: string): RenderElement[] => {
+// Text as record mode shows it: keys, emails and phone numbers masked while /tessera record is on.
+const shown = (text: string): string => (session.recording ? mask(text) : text)
+const shownRow = <T extends { input: unknown; output?: unknown }>(row: T): T => (session.recording ? { ...row, input: maskValues(row.input), output: maskValues(row.output) } : row)
+
+const drawMarkdown =($: EngineInterface, el: ReturnType<EngineInterface['ui']['resolve']>, style: Style, blocks: ReturnType<typeof parse>, columns: number, reply?: string): RenderElement[] => {
   const { Button } = el
   const copy = (text: string | (() => string), key: string, kind: CopyKind | 'reply' = 'block') =>
     style.copyButtons ? (
@@ -615,7 +620,13 @@ export const register: Register = (on, options) => {
     }
     if (!isDrawing) return { text: t().drawingOff }
 
-
+    if (sub === 'record') {
+      session.recording = name === 'on' ? true : name === 'off' ? false : !session.recording
+      $.ui.status(session.recording ? t().recordStatus : undefined)
+      // What is already on screen is drawn again, masked or unmasked.
+      $.ui.invalidate('ui.render')
+      return { text: session.recording ? t().recordOn : t().recordOff }
+    }
     if (sub === 'demo') return { text: session.lang === 'zh-TW' ? showcaseTextZh(PRESET_NAMES) : showcaseText(PRESET_NAMES) }
     if (sub === 'copy') {
       const reply = (await $.session.messages()).findLast(m => m.role === 'assistant' && m.text.trim())
@@ -644,7 +655,8 @@ export const register: Register = (on, options) => {
       const folded = foldPatch(patchOf(output))
       if (folded === undefined || (await read($, unfoldedDiffs)).includes(id)) return next(e)
       const labels = { summary: t().diffSummary(folded.added, folded.removed), hidden: t().diffHidden(folded.hidden), expand: t().diffExpand }
-      return renderFoldedDiff($.ui.resolve(e), style, folded, labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
+      const lines = session.recording ? { ...folded, shown: folded.shown.map(line => ({ ...line, text: mask(line.text) })) } : folded
+      return renderFoldedDiff($.ui.resolve(e), style, lines, labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
     })
   }
 
@@ -657,7 +669,7 @@ export const register: Register = (on, options) => {
     const kind = e.props.origin.kind
     const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
     if (!isDrawing || style.promptStyle === 'off' || !own) return next(e)
-    return renderUserPrompt($.ui.resolve(e), style, e.props.text, Math.max(20, (e.viewport?.columns ?? 100) - 4))
+    return renderUserPrompt($.ui.resolve(e), style, shown(e.props.text), Math.max(20, (e.viewport?.columns ?? 100) - 4))
   })
 
   if (!isDrawing) return
@@ -668,11 +680,11 @@ export const register: Register = (on, options) => {
         for (const call of e.props.calls) if (call.tool_use_id) expandedCalls.add(call.tool_use_id)
         return next(e)
       }
-      return renderToolGroup($.ui.resolve(e), style, e.props.calls, e.props.isActive, e.viewport?.columns, workDir, t().toolWords)
+      return renderToolGroup($.ui.resolve(e), style, e.props.calls.map(shownRow), e.props.isActive, e.viewport?.columns, workDir, t().toolWords)
     })
     on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-      if (!transcriptExpanded && !expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, e.props, e.viewport?.columns, workDir, t().toolWords)
-      return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, e.props) : next(e)
+      if (!transcriptExpanded && !expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, shownRow(e.props), e.viewport?.columns, workDir, t().toolWords)
+      return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, shownRow(e.props)) : next(e)
     })
   }
 
@@ -683,16 +695,18 @@ export const register: Register = (on, options) => {
     if (e.props.isErrored) return next(e)
     // An answer to a plugin's own command arrives as "<plugin>: <text>", which breaks a table or heading on
     // its first line; the echoed command above already says whose it is.
-    const blocks = parseCached(e.props.command === 'tessera' ? e.props.text.replace(/^tessera: /, '') : e.props.text)
+    const text = shown(e.props.command === 'tessera' ? e.props.text.replace(/^tessera: /, '') : e.props.text)
+    const blocks = parseCached(text)
     if (blocks.length === 0) return next(e)
     const el = $.ui.resolve(e)
     const { Box } = el
     const columns = Math.max(20, (e.viewport?.columns ?? 100) - 4)
-    return <Box flexDirection="column" rowGap={1} {...(style.reorder && hasRtl(e.props.text) ? { width: '100%' } : {})}>{drawMarkdown($, el, style, blocks, columns)}</Box>
+    return <Box flexDirection="column" rowGap={1} {...(style.reorder && hasRtl(text) ? { width: '100%' } : {})}>{drawMarkdown($, el, style, blocks, columns)}</Box>
   })
 
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {
-    const blocks = parseCached(e.props.text)
+    const text = shown(e.props.text)
+    const blocks = parseCached(text)
     if (blocks.length === 0) return next(e)
     const el = $.ui.resolve(e)
     const { Box, Text } = el
@@ -704,7 +718,7 @@ export const register: Register = (on, options) => {
           <Text color={style.theme.accent}>{e.props.isFirstOfReply ? '●' : ' '}</Text>
         </Box>
         <Box flexDirection="column" rowGap={1} flexGrow={1}>
-          {drawMarkdown($, el, narration ? { ...style, narration } : style, blocks, columns, blocks.length > 1 || hasRtl(e.props.text) ? e.props.text : undefined)}
+          {drawMarkdown($, el, narration ? { ...style, narration } : style, blocks, columns, blocks.length > 1 || hasRtl(text) ? text : undefined)}
         </Box>
       </Box>
     )

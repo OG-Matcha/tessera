@@ -14,6 +14,7 @@ tessera runs inside Claude Code with your user's permissions. Report a vulnerabi
 - **Environment:** while carry-over is on and you have not set it yourself, `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` for the Claude Code process, so Claude has its task tools; on Windows, while Python in UTF-8 is on and you have not set it yourself, `PYTHONUTF8=1`, so the Python Claude runs uses UTF-8. Both reach the commands Claude runs in that session; nothing is written to your settings files.
 - **Model calls:** with `agentModel: auto`, the default, one short Haiku classification per Agent call that names no model, through your own Claude Code session.
 - **Model context:** tessera adds short notes to your prompts (the diagram hint, the reply-language note, inbox notes), each switchable in `/tessera setup`.
+- **Record mode:** `/tessera record` masks keys, tokens, passwords, emails and phone numbers in what tessera draws, by pattern, on screen only; it is a courtesy for a recorded screen, not a secret scanner: a secret in a shape it does not know, or in what Claude Code draws itself (tool results, permission dialogs, the prompt box), stays visible, and nothing is changed in the transcript or in what Claude reads.
 
 ## Supported versions
 

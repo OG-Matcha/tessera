@@ -160,6 +160,9 @@ const EN = {
   inboxEmpty: 'The inbox is empty. Paste a chat log with timestamped lines (22:55 Name message) to fill it.',
   inboxOff: 'The feedback inbox is off. Turn on feedbackInbox in /config.',
   drawingOff: 'tessera drawing is off (enabled in /config).',
+  recordOn: 'Record mode on: in what tessera draws (replies, your prompts, tool rows, folded diffs, paste previews) API keys, tokens, passwords, emails and phone numbers show as ••••. What Claude Code draws itself (tool results, permission dialogs, the prompt box) is not masked. Screen only: the transcript, what Claude reads and /tessera copy are unchanged; copy buttons copy what is shown. /tessera record again turns it off.',
+  recordOff: 'Record mode off.',
+  recordStatus: '⏺ tessera record: keys, emails and phone numbers masked on screen',
 }
 
 const ZH: typeof EN = {
@@ -218,6 +221,9 @@ const ZH: typeof EN = {
   inboxEmpty: '收件匣是空的。貼上帶時間的聊天紀錄（22:55 名字 訊息）就會建立項目。',
   inboxOff: '回饋收件匣沒有開啟，請到 /config 打開 feedbackInbox。',
   drawingOff: 'tessera 的畫面美化已關閉（/config 的 enabled）。',
+  recordOn: '錄影模式開啟：tessera 畫的內容（回覆、你的提示、工具列、摺疊差異、貼上預覽）裡的 API 金鑰、token、密碼、email 和電話會顯示成 ••••。Claude Code 自己畫的（工具結果、權限對話框、輸入框）不會遮。只改畫面：transcript、Claude 讀到的內容和 /tessera copy 都不變；複製按鈕複製的是畫面上的樣子。再輸入一次 /tessera record 關閉。',
+  recordOff: '錄影模式關閉。',
+  recordStatus: '⏺ tessera 錄影模式：畫面上的金鑰、email、電話已遮住',
 }
 
 export const STRINGS: Record<Lang, typeof EN> = { en: EN, 'zh-TW': ZH }

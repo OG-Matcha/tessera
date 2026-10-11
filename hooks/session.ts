@@ -10,6 +10,8 @@ export const session = {
   voice: undefined as Voice | undefined,
   // Every variable the platform decisions read, read once at session start.
   env: {} as Env,
+  // Record mode (/tessera record): what tessera draws has keys, emails and phone numbers masked.
+  recording: false,
 }
 
 export const t = () => STRINGS[session.lang]

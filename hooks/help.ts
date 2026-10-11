@@ -113,6 +113,7 @@ export const helpText = (themes: readonly string[]): string => `
 | \`/tessera demo\` | Full showcase, every element and diagram |
 | \`/tessera demo-rtl\` | Hebrew right-to-left showcase |
 | \`/tessera inbox\` | Client feedback inbox (turn on feedbackInbox in /config); \`inbox fixed 3 5\` marks items fixed |
+| \`/tessera record\` | Record mode: API keys, tokens, passwords, emails and phone numbers masked in what tessera draws; again, or \`record off\`, turns it off |
 
 ### ${themes.length} themes
 

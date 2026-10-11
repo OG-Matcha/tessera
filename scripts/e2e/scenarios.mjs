@@ -245,6 +245,24 @@ export const scenarios = [
     check: s => seen(s.reply, /1\. build\s+\[ ⧉ (copy|複製) \]/i),
   },
   {
+    name: 'record-mode',
+    // /tessera record masks the key, the email and the phone number in the prompt bubble and in the reply.
+    prompts: true,
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: '/tessera record' },
+          { key: '\r', until: /Record mode on|錄影模式開啟/, timeoutMs: 15_000 },
+          // The key is assembled here, so no scanner takes the scenario for a leak.
+          { type: `Reply with exactly this line and nothing else: contact ada@example.com, key ${['sk-ant-api03', 'AbCdEfGhIjKlMnOpQrStUvWxYz0123'].join('-')}, phone 0912-345-678` },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, wait: 2_000, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => (/ada@example\.com|AbCdEfGh|345-678/.test(s.reply?.text ?? '') ? `unmasked on screen\n${tail(s.reply?.text)}` : seen(s.reply, /a•••@•••\.com/)),
+  },
+  {
     name: 'agent-model-auto',
     prompts: true,
     sessions: () => [

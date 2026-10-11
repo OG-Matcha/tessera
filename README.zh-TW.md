@@ -145,6 +145,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | `/tessera inbox` · `inbox fixed 3 5` | 列出收件匣、以目前的 commit 標記已修 |
 | `/tessera theme <名稱>` | 換主題 |
 | `/tessera demo` | 示範所有元素 |
+| `/tessera record` · `record off` | 錄影模式，給要錄影、直播或分享的畫面：tessera 畫的內容（回覆、你的提示、工具列、摺疊差異、貼上預覽）裡的 API 金鑰和 token（`sk-ant-`、`ghp_`、`AKIA`、JWT 等）、`Bearer` 標頭、URL 和 `PASSWORD=` 裡的密碼、email、電話顯示成 `••••`，輸入框下方有一行狀態提示。Claude Code 自己畫的（工具結果、權限對話框、輸入框、ctrl+o 的完整 transcript）不會遮。只改畫面：transcript、Claude 讀到的內容和 `/tessera copy` 都不變，複製按鈕複製的是畫面上的樣子 |
 
 輸入 `/tessera ` 再打一個字母，就會出現附說明的建議。
 

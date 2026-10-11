@@ -12,6 +12,7 @@ export const helpTextZh = (themes: readonly string[]): string => `
 | \`/tessera copy\` | 複製上一則回覆；\`copy code\` 只複製最後一個程式碼區塊，\`copy prompt\` 複製 prompt 卡片 |
 | \`/tessera demo\` | 完整示範：每種元素和圖表 |
 | \`/tessera inbox\` | 客戶回饋收件匣（需在 /config 開啟 feedbackInbox）；\`inbox fixed 3 5\` 標為已修 |
+| \`/tessera record\` | 錄影模式：tessera 畫的內容裡的 API 金鑰、token、密碼、email、電話遮住；再輸入一次或 \`record off\` 關閉 |
 
 ### ${themes.length} 套主題
 

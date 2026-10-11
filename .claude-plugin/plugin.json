@@ -36,8 +36,16 @@
     "foldDiffs": {
       "type": "boolean",
       "title": "Fold long diffs",
-      "description": "An Edit or Write result over 12 diff lines shows up to 8 of them (the first removed and the first added), the added and removed counts, and an expand button. Display only: what Claude reads is unchanged. ctrl+o and --verbose show it whole.",
+      "description": "An Edit or Write result over 12 diff lines shows up to 8 of them (the first removed and the first added; diffLines sets how many), the added and removed counts, and an expand button. Display only: what Claude reads is unchanged. ctrl+o and --verbose show it whole.",
       "default": true
+    },
+    "diffLines": {
+      "type": "number",
+      "title": "Diff lines shown",
+      "description": "How many lines a folded edit diff shows, up to 40. 0 folds every edit, long or short, to one row: the added and removed counts and the expand button.",
+      "default": 8,
+      "min": 0,
+      "max": 40
     },
     "pastePreview": {
       "type": "boolean",

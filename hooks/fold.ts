@@ -36,7 +36,7 @@ const numbered = (hunk: Hunk, h: number): (DiffLine & { hunk: number })[] => {
 // where it is not.
 const RUN = 3
 
-function gist(lines: readonly (DiffLine & { hunk: number })[]): DiffLine[] {
+function gist(lines: readonly (DiffLine & { hunk: number })[], limit: number): DiffLine[] {
   const shown: DiffLine[] = []
   let run = 0
   let last = -1
@@ -45,7 +45,7 @@ function gist(lines: readonly (DiffLine & { hunk: number })[]): DiffLine[] {
     const after = lines[i + 1]
     run = before?.mark === line.mark ? run + 1 : 0
     const keep = line.mark === ' ' ? (before !== undefined && before.mark !== ' ') || (after !== undefined && after.mark !== ' ') : run < RUN
-    if (shown.length >= SHOWN || !keep) return
+    if (shown.length >= limit || !keep) return
     const { hunk, ...shownLine } = line
     shown.push(last !== -1 && (i > last + 1 || hunk !== lines[last]!.hunk) ? { ...shownLine, gap: true } : shownLine)
     last = i
@@ -53,10 +53,11 @@ function gist(lines: readonly (DiffLine & { hunk: number })[]): DiffLine[] {
   return shown
 }
 
-export function foldPatch(patch: readonly Hunk[]): Folded | undefined {
+// `limit` is how many lines a folded diff shows; 0 folds every edit, long or short, to its counts alone.
+export function foldPatch(patch: readonly Hunk[], limit = SHOWN): Folded | undefined {
   const all = patch.flatMap((hunk, h) => numbered(hunk, h))
-  if (all.length <= FOLD_OVER) return undefined
-  const shown = gist(all)
+  if (all.length === 0 || (limit > 0 && all.length <= FOLD_OVER)) return undefined
+  const shown = limit > 0 ? gist(all, limit) : []
   return {
     shown,
     added: all.filter(l => l.mark === '+').length,

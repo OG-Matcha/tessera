@@ -686,10 +686,12 @@ export const register: Register = (on, options) => {
   })
 
   if (options.foldDiffs !== false) {
+    // How many lines a folded diff shows; 0 is the counts alone, for every edit.
+    const diffLines = Number.isFinite(Number(options.diffLines)) && options.diffLines !== '' ? Math.min(40, Math.max(0, Math.round(Number(options.diffLines)))) : 8
     on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
       const { tool, tool_use_id: id, output, isErrored } = e.props
       if (transcriptExpanded || isErrored || !/^(Edit|MultiEdit|Write)$/.test(tool) || expandedCalls.has(id)) return next(e)
-      const folded = foldPatch(patchOf(output))
+      const folded = foldPatch(patchOf(output), diffLines)
       if (folded === undefined || (await read($, unfoldedDiffs)).includes(id)) return next(e)
       const labels = { summary: t().diffSummary(folded.added, folded.removed), hidden: t().diffHidden(folded.hidden), expand: t().diffExpand }
       const lines = session.recording ? { ...folded, shown: folded.shown.map(line => ({ ...line, text: mask(line.text) })) } : folded

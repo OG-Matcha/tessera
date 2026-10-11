@@ -100,7 +100,7 @@ Before rolling it out, `claude plugin validate .` in a checkout lists every even
 | Feature | Default | What it does |
 | --- | --- | --- |
 | Themed replies | on | Tables, headings, highlighted code, mermaid diagrams and charts, tool rows, copy buttons; 16 themes |
-| Fold long diffs | on | An Edit or Write diff over 12 lines shows up to 8 lines (the first of what was removed and of what was added), the counts, and **expand**; ctrl+o and `--verbose` show it whole. Display only: what Claude reads is unchanged |
+| Fold long diffs | on | An Edit or Write diff over 12 lines shows up to 8 lines (the first of what was removed and of what was added), the counts, and **expand**; ctrl+o and `--verbose` show it whole. `diffLines` sets how many lines; `0` folds every edit to one row, the counts and **expand**. Display only: what Claude reads is unchanged |
 | Paste previews | on | Image thumbnails and collapsed pasted text above the prompt (the text is read from the clipboard and shown only when it matches the paste's line count); "original" opens the full image in an Orca tab, a VS Code tab or your system viewer |
 | Reply in my language | on | When your own words are Chinese, Japanese or Korean, Claude replies in that language; pasted code, logs and quotes do not count |
 | Carry over tasks | on | A new session, or the conversation after `/clear`, offers the tasks the last one in this repository left open: **continue** puts them in the prompt box, **dismiss** forgets them. It turns on Claude's task tools for the session (`CLAUDE_CODE_ENABLE_TODO_TOOLS`), which Claude Code leaves off for Claude 5.x, unless you set that variable yourself; Claude may then keep a task list on screen (`Ctrl+T` hides it) |

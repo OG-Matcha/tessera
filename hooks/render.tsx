@@ -790,11 +790,22 @@ export const renderToolGroup = (el: ElementTable, style: Style, calls: readonly 
 export type FoldLabels = { summary: string; hidden: string; expand: string }
 
 // A long edit diff as a few of its lines under Claude Code's own header, with what is left and a button to
-// show it all.
+// show it all; with no lines to show (diffLines 0), one row: the counts and the button.
 export const renderFoldedDiff = (el: ElementTable, style: Style, folded: Folded, labels: FoldLabels, onExpand: () => void): RenderElement => {
   const { Box, Text, Button } = el
   const t = style.theme
   const color = (mark: string) => (mark === '+' ? t.codeString : mark === '-' ? t.codeFlag : undefined)
+  if (folded.shown.length === 0) {
+    return (
+      <Box flexDirection="row" gap={2}>
+        <Text>
+          <Text dimColor>{'  ⎿  '}</Text>
+          {labels.summary}
+        </Text>
+        <Button key="diff-expand" label={labels.expand} onPress={onExpand} />
+      </Box>
+    )
+  }
   return (
     <Box flexDirection="column">
       <Text>

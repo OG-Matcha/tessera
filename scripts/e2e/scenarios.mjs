@@ -389,6 +389,22 @@ export const scenarios = [
     check: s => seen(s.reply, /more lines|行未顯示/) ?? seen(s.expanded, /\+item 24/) ?? seen(s.folded, /more lines|行未顯示/) ?? seen(s.unfolded, /\+item 24/),
   },
   {
+    name: 'fold-summary',
+    prompts: true,
+    // diffLines 0: the edit result is one row, the counts and expand, with no diff line at all.
+    setup: dir => writeFileSync(join(dir, 'list.txt'), Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n') + '\n'),
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options: { diffLines: 0 } } } })],
+        steps: [
+          { type: 'Use the Edit tool once on list.txt: replace the lines "line 5" through "line 24" with "item 5" through "item 24". Do nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /(Added 20 lines, removed 20 lines|新增 20 行，刪除 20 行)\s+\[ (expand|展開) \]/) ?? (/[+-]item 5/.test(s.reply?.text ?? '') ? `a diff line drew with diffLines 0\n${tail(s.reply?.text)}` : undefined),
+  },
+  {
     name: 'carry-over-reload',
     prompts: true,
     sessions: () => [

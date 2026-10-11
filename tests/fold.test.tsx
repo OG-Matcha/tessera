@@ -104,3 +104,17 @@ test('the ctrl+o transcript shows every diff whole, and the normal view folds ag
   expect(await folded.find({ type: 'Button' })).toBeDefined()
   await folded.unmount()
 })
+
+test('a short row under a speaker label is expanded on its own and does not unfold the diffs', async ($, on) => {
+  engine(on)
+  for (const props of [
+    { text: 'done', origin: { kind: 'unclassified' }, isExpanded: true, from: { name: 'bob' } },
+    { text: 'task 3 finished', origin: { kind: 'task-notification' }, isExpanded: true, task: { id: '3' } },
+  ]) {
+    const row = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'UserMessage', props } as never)
+    await row.unmount()
+    const result = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: edit(`e-${props.text}`) })
+    expect(await result.find({ type: 'Button' })).toBeDefined()
+    await result.unmount()
+  }
+})

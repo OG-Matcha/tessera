@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - `diffLines`: how many lines a folded edit diff shows (8 unless set, up to 40). `0` folds every edit, long or short, to one row: the added and removed counts and the expand button, for a transcript that only says which file changed and by how much.
 
+### Fixed
+
+- In a session with rows under a speaker label (a teammate's message, a task notification, a stop hook's or an away summary), tessera stopped drawing tool rows and folding diffs: such a row reports itself expanded whenever its body fits, and tessera took that for the ctrl+o transcript. Only the person's own prompts tell the view now.
+
 ## [0.8.4] - 2026-10-11
 
 ### Changed

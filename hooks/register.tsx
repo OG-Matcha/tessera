@@ -700,13 +700,16 @@ export const register: Register = (on, options) => {
   }
 
   on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
-    // A toggle changes no tool row's props, so the engine would keep their drawings: they are redrawn here.
-    if (e.props.isExpanded !== transcriptExpanded) {
+    const kind = e.props.origin.kind
+    const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
+    // Only the person's own prompts tell whether the transcript is the ctrl+o or --verbose one: a row under
+    // a speaker label (a teammate's, a task's, a hook's summary) is `isExpanded` whenever its body fits, and
+    // taking that for the whole view handed every tool row and diff back to the engine. A toggle changes
+    // no tool row's props, so the engine would keep their drawings: they are redrawn here.
+    if (own && e.props.isExpanded !== transcriptExpanded) {
       transcriptExpanded = e.props.isExpanded
       $.ui.invalidate('ui.render')
     }
-    const kind = e.props.origin.kind
-    const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
     if (!isDrawing || style.promptStyle === 'off' || !own) return next(e)
     return renderUserPrompt($.ui.resolve(e), style, shown(e.props.text), Math.max(20, (e.viewport?.columns ?? 100) - 4))
   })

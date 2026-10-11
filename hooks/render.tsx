@@ -325,8 +325,8 @@ const renderTable = (el: ElementTable, style: Style, block: Extract<Block, { kin
   const rtl = isRtlTable(style, block)
   const box = style.tableStyle === 'box'
   const gap = box ? 0 : style.tableStyle === 'grid' ? 3 : 2
-  const natural = block.header.map((h, c) =>
-    Math.max(width(displayText(h)), ...block.rows.map(r => width(displayText(r[c] ?? [])))),
+  const natural = block.header.map((head, c) =>
+    Math.max(width(displayText(head)), ...block.rows.map(r => width(displayText(r[c] ?? [])))),
   )
   const widths = box ? columnWidths(natural, columns - 4, 3) : columnWidths(natural, columns, gap)
   const order = natural.map((_, c) => c)

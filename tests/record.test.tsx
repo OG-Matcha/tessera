@@ -7,7 +7,7 @@ const row = (command: string) => ({ plugin: 'tessera', surface: 'terminal' as co
 
 // Secret-shaped fixtures are assembled here, so no scanner takes the test for a leak.
 const KEY = ['sk-ant-api03', 'AbCdEfGhIjKlMnOpQrStUvWxYz0123'].join('-')
-const BEARER = ['Bearer', 'abcdefghijklmnopqrstuvwxyz'].join(' ')
+const HEADER = ['Bearer', 'abcdefghijklmnopqrstuvwxyz'].join(' ')
 
 test('/tessera record masks keys, emails and phone numbers in replies, prompts and tool rows; record again shows them', { options: { language: 'en' } }, async ($, on) => {
   const status: (string | undefined)[] = []
@@ -30,7 +30,7 @@ test('/tessera record masks keys, emails and phone numbers in replies, prompts a
   expect(await typed.find({ type: 'Text', text: /^my key is sk-ant-api03-••••••••$/ })).toBeDefined()
   await typed.unmount()
 
-  const ran = await $.ui.mount(row(`curl -H "Authorization: ${BEARER}" https://api.test`))
+  const ran = await $.ui.mount(row(`printf "Authorization: ${HEADER}"`))
   expect(await ran.find({ type: 'Text', text: /Bearer ••••••••/ })).toBeDefined()
   expect(await ran.find({ type: 'Text', text: /abcdefghijkl/ })).toBeUndefined()
   await ran.unmount()

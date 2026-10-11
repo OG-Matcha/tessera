@@ -149,7 +149,7 @@ async function saveTasks($: EngineInterface) {
 async function settleCarry($: EngineInterface, from: string, fill: string | undefined) {
   if (fill !== undefined) await $.prompt.fill({ text: fill })
   const key = await carryKey($)
-  const { [from]: _, ...rest } = await readCarry($, key)
+  const { [from]: _dropped, ...rest } = await readCarry($, key)
   await $.store.set(key, rest).catch(() => undefined)
   await update($, carryOver, () => null)
 }
@@ -283,27 +283,27 @@ const SETUP_PANE = 'tessera-setup'
 // /tessera setup: one row per feature; a press writes its option, which reloads tessera with it.
 // One settings write per option, each with its key written out: a reader of the module (the directory's
 // validation among them) takes a settings write only with a literal key.
-function setOption($: EngineInterface, key: string, value: string | boolean) {
+function setOption($: EngineInterface, key: string, to: string | boolean) {
   switch (key) {
-    case 'enabled': return $.config.set({ key: 'tessera.enabled', value })
-    case 'foldDiffs': return $.config.set({ key: 'tessera.foldDiffs', value })
-    case 'pastePreview': return $.config.set({ key: 'tessera.pastePreview', value })
-    case 'replyLanguage': return $.config.set({ key: 'tessera.replyLanguage', value })
-    case 'carryOver': return $.config.set({ key: 'tessera.carryOver', value })
-    case 'backgroundWatch': return $.config.set({ key: 'tessera.backgroundWatch', value })
-    case 'pythonUtf8': return $.config.set({ key: 'tessera.pythonUtf8', value })
-    case 'guardGit': return $.config.set({ key: 'tessera.guardGit', value })
-    case 'stashBeforeDiscard': return $.config.set({ key: 'tessera.stashBeforeDiscard', value })
-    case 'guardData': return $.config.set({ key: 'tessera.guardData', value })
-    case 'guardCjkEscapes': return $.config.set({ key: 'tessera.guardCjkEscapes', value })
-    case 'guardEncoding': return $.config.set({ key: 'tessera.guardEncoding', value })
-    case 'guardSessions': return $.config.set({ key: 'tessera.guardSessions', value })
-    case 'guardSimplified': return $.config.set({ key: 'tessera.guardSimplified', value })
-    case 'guardHeredoc': return $.config.set({ key: 'tessera.guardHeredoc', value })
-    case 'guardGlossary': return $.config.set({ key: 'tessera.guardGlossary', value })
-    case 'agentModel': return $.config.set({ key: 'tessera.agentModel', value })
-    case 'requireUserQuote': return $.config.set({ key: 'tessera.requireUserQuote', value })
-    case 'feedbackInbox': return $.config.set({ key: 'tessera.feedbackInbox', value })
+    case 'enabled': return $.config.set({ key: 'tessera.enabled', value: to })
+    case 'foldDiffs': return $.config.set({ key: 'tessera.foldDiffs', value: to })
+    case 'pastePreview': return $.config.set({ key: 'tessera.pastePreview', value: to })
+    case 'replyLanguage': return $.config.set({ key: 'tessera.replyLanguage', value: to })
+    case 'carryOver': return $.config.set({ key: 'tessera.carryOver', value: to })
+    case 'backgroundWatch': return $.config.set({ key: 'tessera.backgroundWatch', value: to })
+    case 'pythonUtf8': return $.config.set({ key: 'tessera.pythonUtf8', value: to })
+    case 'guardGit': return $.config.set({ key: 'tessera.guardGit', value: to })
+    case 'stashBeforeDiscard': return $.config.set({ key: 'tessera.stashBeforeDiscard', value: to })
+    case 'guardData': return $.config.set({ key: 'tessera.guardData', value: to })
+    case 'guardCjkEscapes': return $.config.set({ key: 'tessera.guardCjkEscapes', value: to })
+    case 'guardEncoding': return $.config.set({ key: 'tessera.guardEncoding', value: to })
+    case 'guardSessions': return $.config.set({ key: 'tessera.guardSessions', value: to })
+    case 'guardSimplified': return $.config.set({ key: 'tessera.guardSimplified', value: to })
+    case 'guardHeredoc': return $.config.set({ key: 'tessera.guardHeredoc', value: to })
+    case 'guardGlossary': return $.config.set({ key: 'tessera.guardGlossary', value: to })
+    case 'agentModel': return $.config.set({ key: 'tessera.agentModel', value: to })
+    case 'requireUserQuote': return $.config.set({ key: 'tessera.requireUserQuote', value: to })
+    case 'feedbackInbox': return $.config.set({ key: 'tessera.feedbackInbox', value: to })
     default: return undefined
   }
 }
@@ -493,7 +493,7 @@ export const register: Register = (on, options) => {
       let store = await readCarry($, key)
       // A session resumed with --resume is running again: its record is no longer another terminal's leftovers.
       if (store[sessionId]?.ended === true) {
-        const { ended: _, ...live } = store[sessionId]!
+        const { ended: _dropped, ...live } = store[sessionId]!
         store = { ...store, [sessionId]: { ...live, at: now } }
         await $.store.set(key, store).catch(() => undefined)
       }

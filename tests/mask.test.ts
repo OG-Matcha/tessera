@@ -8,7 +8,7 @@ const GITHUB = ['ghp', 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'].join('_')
 const AWS = ['AKIA', 'IOSFODNN7EXAMPLE'].join('')
 const GOOGLE = ['AIza', 'SyA1234567890abcdefghijklmnopqrstuv'].join('')
 const JWT = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxMjM0In0', 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'].join('.')
-const BEARER = ['Bearer', 'abcdefghijklmnopqrstuvwxyz'].join(' ')
+const HEADER = ['Bearer', 'abcdefghijklmnopqrstuvwxyz'].join(' ')
 const PEM = (part: string) => `-----${part} RSA PRIVATE KEY-----`
 
 test('keys keep their issuer prefix and lose the rest', () => {
@@ -16,7 +16,7 @@ test('keys keep their issuer prefix and lose the rest', () => {
   expect(mask(`token ${GITHUB} here`)).toBe('token ghp_•••••••• here')
   expect(mask(`${AWS} and ${GOOGLE}`)).toBe('AKIA•••••••• and AIza••••••••')
   expect(mask(JWT)).toBe('eyJ••••••••')
-  expect(mask(`Authorization: ${BEARER}`)).toBe('Authorization: Bearer ••••••••')
+  expect(mask(`Authorization: ${HEADER}`)).toBe('Authorization: Bearer ••••••••')
   expect(mask(['postgres://app:', 's3cret-pass', '@db.internal:5432/app'].join(''))).toBe('postgres://app:••••••••@db.internal:5432/app')
   expect(mask(`${PEM('BEGIN')}\nMIIEow\nAAAA\n${PEM('END')}`)).toBe(`${PEM('BEGIN')}\n••••••••\n${PEM('END')}`)
 })
@@ -46,8 +46,8 @@ test('phone numbers keep their first four characters; dates, versions, times and
 test('masked text is left as it is when masked again, and a tool input is masked one level deep', () => {
   const once = mask(`ada@example.com ${KEY}`)
   expect(mask(once)).toBe(once)
-  expect(maskValues({ command: `curl -H "Authorization: ${BEARER}" https://x.test`, timeout: 5, nested: { a: 'ada@example.com' } })).toEqual({
-    command: 'curl -H "Authorization: Bearer ••••••••" https://x.test',
+  expect(maskValues({ command: `printf "Authorization: ${HEADER}"`, timeout: 5, nested: { a: 'ada@example.com' } })).toEqual({
+    command: 'printf "Authorization: Bearer ••••••••"',
     timeout: 5,
     nested: { a: 'ada@example.com' },
   })

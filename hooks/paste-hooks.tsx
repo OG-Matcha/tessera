@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On } from 'claude-code'
+import type { EngineInterface, MatchedHook } from 'claude-code'
 
 import type { DraftImage, DraftPaste, ImageView } from '../types'
 import { decodePng, pngSize } from './png'
@@ -130,57 +130,57 @@ async function readPaste($: EngineInterface, extraLines: number | undefined): Pr
   return null
 }
 
-export function registerPastes(on: On, options: Record<string, unknown>) {
+export function configurePastes(options: Record<string, unknown>) {
   imageMode = typeof options.imageMode === 'string' ? options.imageMode : 'auto'
   thumbBox = THUMB_SIZES[String(options.thumbnailSize)] ?? thumbBox
+}
 
-  // Previews draw on the terminal only. The environment is read once register.tsx's session.start has run.
-  on('session.start', { surface: 'terminal' }, async ($, e, next) => {
-    const started = await next(e)
-    usePixels = drawsPixels(imageMode, session.env)
-    $.clock.every(POLL_MS, () => void check($))
-    return started
-  })
+// Previews draw on the terminal only. The environment is read once register.tsx's session.start has run.
+export const startPastes: MatchedHook<'session.start', { surface: 'terminal' }> = async ($, e, next) => {
+  const started = await next(e)
+  usePixels = drawsPixels(imageMode, session.env)
+  $.clock.every(POLL_MS, () => void check($))
+  return started
+}
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.surface !== 'terminal' || e.props.hasSurvey) return next(e)
-    const list = await read($, draftImages)
-    const texts = await read($, draftPastes)
-    if (list.length === 0 && texts.length === 0) return next(e)
-    const { Box, Text, Raster, Image, Button } = $.ui.resolve(e)
-    const width = Math.max(20, (e.viewport?.columns ?? 80) - 4)
-    // What other plugins draw above the prompt stays, below the previews.
-    const below = await next(e)
-    return (
-      <Box flexDirection="column">
-        {texts.map(paste => (
-          <Box key={`paste-${paste.n}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
-            <Text dimColor>{t().pastedText(paste.n, paste.total)}</Text>
-            {paste.head.map((line, i) => (
-              <Text key={`paste-${paste.n}-${i}`} wrap="truncate-end">{[...(session.recording ? mask(line) : line)].slice(0, width).join('') || ' '}</Text>
-            ))}
-            {paste.total > paste.head.length && <Text dimColor>…</Text>}
+export const pasteBand: MatchedHook<'ui.render', { component: 'AbovePrompt' }> = async ($, e, next) => {
+  if (e.surface !== 'terminal' || e.props.hasSurvey) return next(e)
+  const list = await read($, draftImages)
+  const texts = await read($, draftPastes)
+  if (list.length === 0 && texts.length === 0) return next(e)
+  const { Box, Text, Raster, Image, Button } = $.ui.resolve(e)
+  const width = Math.max(20, (e.viewport?.columns ?? 80) - 4)
+  // What other plugins draw above the prompt stays, below the previews.
+  const below = await next(e)
+  return (
+    <Box flexDirection="column">
+      {texts.map(paste => (
+        <Box key={`paste-${paste.n}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+          <Text dimColor>{t().pastedText(paste.n, paste.total)}</Text>
+          {paste.head.map((line, i) => (
+            <Text key={`paste-${paste.n}-${i}`} wrap="truncate-end">{[...(session.recording ? mask(line) : line)].slice(0, width).join('') || ' '}</Text>
+          ))}
+          {paste.total > paste.head.length && <Text dimColor>…</Text>}
+        </Box>
+      ))}
+    <Box flexDirection="row" gap={2}>
+      {list.map(img => (
+        <Box key={`img-${img.n}`} flexDirection="column" alignItems="center">
+          {img.view === null ? (
+            <Text dimColor>{t().noPreview}</Text>
+          ) : img.view.kind === 'pixels' ? (
+            <Image key={`image-${img.n}`} source={{ file: img.path, format: 'png' }} columns={img.view.columns} rows={img.view.rows} alt={`[Image #${img.n}]`} />
+          ) : (
+            <Raster key={`raster-${img.n}`} columns={img.view.columns} rows={img.view.rows} cells={img.view.cells} />
+          )}
+          <Box flexDirection="row" gap={1}>
+            <Text dimColor>#{img.n}</Text>
+            <Button key={`open-${img.n}`} label={t().original} onPress={() => openOriginal($, img.path)} />
           </Box>
-        ))}
-      <Box flexDirection="row" gap={2}>
-        {list.map(img => (
-          <Box key={`img-${img.n}`} flexDirection="column" alignItems="center">
-            {img.view === null ? (
-              <Text dimColor>{t().noPreview}</Text>
-            ) : img.view.kind === 'pixels' ? (
-              <Image key={`image-${img.n}`} source={{ file: img.path, format: 'png' }} columns={img.view.columns} rows={img.view.rows} alt={`[Image #${img.n}]`} />
-            ) : (
-              <Raster key={`raster-${img.n}`} columns={img.view.columns} rows={img.view.rows} cells={img.view.cells} />
-            )}
-            <Box flexDirection="row" gap={1}>
-              <Text dimColor>#{img.n}</Text>
-              <Button key={`open-${img.n}`} label={t().original} onPress={() => openOriginal($, img.path)} />
-            </Box>
-          </Box>
-        ))}
-      </Box>
-      {below}
-      </Box>
-    )
-  })
+        </Box>
+      ))}
+    </Box>
+    {below}
+    </Box>
+  )
 }

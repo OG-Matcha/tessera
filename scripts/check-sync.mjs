@@ -1,6 +1,6 @@
 // Fails when a place that describes tessera has fallen behind the code: every switchable feature has an
 // option and a row in both READMEs, every hooks module is in the CONTRIBUTING layout, and the marketplace
-// entry and the GitHub repository say what plugin.json says.
+// entry says what plugin.json says (the GitHub description is compared in ci.yml, with gh).
 import { readFileSync, readdirSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -26,12 +26,6 @@ for (const file of modules) if (!contributing.includes(`\`${file.replace(/\.tsx?
 
 const entry = marketplace.plugins.find(p => p.name === plugin.name)
 if (entry?.description !== plugin.description) problems.push('marketplace.json and plugin.json descriptions differ')
-
-if (process.env.GITHUB_REPOSITORY) {
-  const headers = process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}
-  const repo = await (await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}`, { headers })).json()
-  if (repo.description !== plugin.description) problems.push(`the GitHub description differs from plugin.json; run: gh repo edit --description "${plugin.description}"`)
-}
 
 for (const p of problems) console.error(`out of sync: ${p}`)
 process.exit(problems.length > 0 ? 1 : 0)

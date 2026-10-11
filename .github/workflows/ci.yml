@@ -83,10 +83,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Docs, manifests and the GitHub description match the code
+      - name: Docs and manifests match the code
         run: node scripts/check-sync.mjs
+      - name: The GitHub description matches plugin.json
+        run: test "$(gh repo view "$GITHUB_REPOSITORY" --json description -q .description)" = "$(jq -r .description .claude-plugin/plugin.json)"
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
 
   install:
     runs-on: windows-latest

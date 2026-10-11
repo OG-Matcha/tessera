@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On } from 'claude-code'
+import type { EngineInterface, MatchedHook } from 'claude-code'
 
 import type { Quiet } from '../types'
 import type { Watched } from './background'
@@ -85,54 +85,50 @@ async function watch($: EngineInterface, command: string, result: unknown) {
   }
 }
 
-export function registerBackgroundWatch(on: On, options: Record<string, unknown>) {
+export function configureBackgroundWatch(options: Record<string, unknown>) {
   const minutes = Number(options.backgroundQuietMinutes)
   quietMs = (Number.isFinite(minutes) && minutes > 0 ? minutes : 10) * 60_000
   watched.clear()
   tasksDir = undefined
+}
 
-  // A command reaches the background by its own flag, by Claude Code moving it there when it outlives
-  // its timeout, or by the person pressing ctrl+b: the result says, the flag does not.
-  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    const done = await next(e)
-    if (done.deny === undefined) await watch($, e.command, done.result)
-    return done
-  })
-  // PowerShell exists only in the Windows build's tool table.
-  on('tool.call', { tool: 'PowerShell' as 'Bash' }, async ($, e, next) => {
-    const done = await next(e)
-    if (done.deny === undefined) await watch($, e.command, done.result)
-    return done
-  })
-  // A task the person or Claude stopped writes no more, and is not quiet.
-  on('tool.call', { tool: 'TaskStop' as 'Bash' }, async ($, e, next) => {
-    const done = await next(e)
-    const { task_id: taskId, shell_id: shellId } = e as unknown as { task_id?: string; shell_id?: string }
-    const id = taskId ?? shellId
-    if (done.deny === undefined && id !== undefined && watched.has(id)) await forget($, id)
-    return done
-  })
+// A command reaches the background by its own flag, by Claude Code moving it there when it outlives
+// its timeout, or by the person pressing ctrl+b: the result says, the flag does not.
+export const watchShell: MatchedHook<'tool.call', { tool: 'Bash' }> = async ($, e, next) => {
+  const done = await next(e)
+  if (done.deny === undefined) await watch($, e.command, done.result)
+  return done
+}
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const list = await read($, quietTasks)
-    if (e.surface !== 'terminal' || e.props.hasSurvey || list.length === 0) return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
-    const below = await next(e)
-    const s = t()
-    return (
-      <Box flexDirection="column">
-        {list.map(quiet => (
-          <Box key={`quiet-${quiet.id}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
-            <Box flexDirection="row" gap={2}>
-              <Text bold>{s.quietTitle(quiet.minutes)}</Text>
-              <Button key={`quiet-ask-${quiet.id}`} label={s.quietAskButton} onPress={() => askClaude($, quiet)} />
-              <Button key={`quiet-ignore-${quiet.id}`} label={s.quietIgnore} onPress={() => forget($, quiet.id)} />
-            </Box>
-            <Text dimColor wrap="truncate-end">{session.lang === 'zh-TW' ? `${quiet.id}：${quiet.command}` : `${quiet.id}: ${quiet.command}`}</Text>
+// A task the person or Claude stopped writes no more, and is not quiet. Registered on TaskStop, which
+// the tool table types as Bash.
+export const forgetStopped: MatchedHook<'tool.call', { tool: 'Bash' }> = async ($, e, next) => {
+  const done = await next(e)
+  const { task_id: taskId, shell_id: shellId } = e as unknown as { task_id?: string; shell_id?: string }
+  const id = taskId ?? shellId
+  if (done.deny === undefined && id !== undefined && watched.has(id)) await forget($, id)
+  return done
+}
+
+export const quietBand: MatchedHook<'ui.render', { component: 'AbovePrompt' }> = async ($, e, next) => {
+  const list = await read($, quietTasks)
+  if (e.surface !== 'terminal' || e.props.hasSurvey || list.length === 0) return next(e)
+  const { Box, Text, Button } = $.ui.resolve(e)
+  const below = await next(e)
+  const s = t()
+  return (
+    <Box flexDirection="column">
+      {list.map(quiet => (
+        <Box key={`quiet-${quiet.id}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+          <Box flexDirection="row" gap={2}>
+            <Text bold>{s.quietTitle(quiet.minutes)}</Text>
+            <Button key={`quiet-ask-${quiet.id}`} label={s.quietAskButton} onPress={() => askClaude($, quiet)} />
+            <Button key={`quiet-ignore-${quiet.id}`} label={s.quietIgnore} onPress={() => forget($, quiet.id)} />
           </Box>
-        ))}
-        {below}
-      </Box>
-    )
-  })
+          <Text dimColor wrap="truncate-end">{session.lang === 'zh-TW' ? `${quiet.id}：${quiet.command}` : `${quiet.id}: ${quiet.command}`}</Text>
+        </Box>
+      ))}
+      {below}
+    </Box>
+  )
 }

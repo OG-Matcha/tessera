@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - `/tessera record`: record mode for a screen that is recorded, streamed or shared. In what tessera draws (replies, your prompts, tool rows, folded diffs, paste previews), API keys and tokens by their issuer's prefix, `Bearer` headers, passwords in URLs and in `PASSWORD=` lines, private key blocks, emails and phone numbers show as `••••`, with a status line under the prompt while it is on; `/tessera record` again, or `record off`, turns it off and redraws. Screen only: the transcript, what Claude reads and `/tessera copy` are unchanged. What Claude Code draws itself (tool results, permission dialogs, the prompt box) is not masked.
+- A listing icon for Anthropic's directory (`.claude-plugin/icon.png`).
+
+### Changed
+
+- For the directory's validation, which follows `$` and `on` only inside the file they were given to: each feature module (`guard-hooks`, `paste-hooks`, `background-hooks`) now exports a `configure` function and its hooks, and `register.tsx` makes every `on()` call; the setup pane writes each option by its own literal key; the RTL character classes are written as `\u` escapes (one range ended in an invisible U+FEFF). No behaviour changes.
+- The GitHub description check moved out of `scripts/check-sync.mjs` into the CI workflow, with `gh`, so no file in the plugin reads a token from the environment.
+
+### Removed
+
+- The `/tessera` typeahead (suggestions after `/tessera ` and a letter): it hooked `prompt.autocomplete`, which Anthropic's directory does not yet list as an event and refuses a submission for. `/tessera` still prints every subcommand. It comes back when the directory's list carries the event.
 
 ### Fixed
 

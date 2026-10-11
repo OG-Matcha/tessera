@@ -18,12 +18,11 @@ import { REPOSITORIES_KEPT, carriedFrom, endSession, recordSession, restoredTask
 import { pickLang } from './i18n'
 import { session, t } from './session'
 import { isAbsolute } from './guard'
-import { registerGuards } from './guard-hooks'
-import { registerPastes } from './paste-hooks'
-import { background, registerBackgroundWatch } from './background-hooks'
+import { configureGuards, guardAgent, guardToolCall, guardWorkflow } from './guard-hooks'
+import { configurePastes, pasteBand, startPastes } from './paste-hooks'
+import { background, configureBackgroundWatch, forgetStopped, quietBand, watchShell } from './background-hooks'
 import { notifiedTask } from './background'
 import { EDITS, asEditLog, rekeyed } from './edits'
-import { completions } from './complete'
 import { FEATURES } from './features'
 import { foldPatch, patchOf } from './fold'
 import { mask, maskValues } from './mask'
@@ -282,6 +281,33 @@ async function markInbox($: EngineInterface, ids: number[], commit: string): Pro
 const SETUP_PANE = 'tessera-setup'
 
 // /tessera setup: one row per feature; a press writes its option, which reloads tessera with it.
+// One settings write per option, each with its key written out: a reader of the module (the directory's
+// validation among them) takes a settings write only with a literal key.
+function setOption($: EngineInterface, key: string, value: string | boolean) {
+  switch (key) {
+    case 'enabled': return $.config.set({ key: 'tessera.enabled', value })
+    case 'foldDiffs': return $.config.set({ key: 'tessera.foldDiffs', value })
+    case 'pastePreview': return $.config.set({ key: 'tessera.pastePreview', value })
+    case 'replyLanguage': return $.config.set({ key: 'tessera.replyLanguage', value })
+    case 'carryOver': return $.config.set({ key: 'tessera.carryOver', value })
+    case 'backgroundWatch': return $.config.set({ key: 'tessera.backgroundWatch', value })
+    case 'pythonUtf8': return $.config.set({ key: 'tessera.pythonUtf8', value })
+    case 'guardGit': return $.config.set({ key: 'tessera.guardGit', value })
+    case 'stashBeforeDiscard': return $.config.set({ key: 'tessera.stashBeforeDiscard', value })
+    case 'guardData': return $.config.set({ key: 'tessera.guardData', value })
+    case 'guardCjkEscapes': return $.config.set({ key: 'tessera.guardCjkEscapes', value })
+    case 'guardEncoding': return $.config.set({ key: 'tessera.guardEncoding', value })
+    case 'guardSessions': return $.config.set({ key: 'tessera.guardSessions', value })
+    case 'guardSimplified': return $.config.set({ key: 'tessera.guardSimplified', value })
+    case 'guardHeredoc': return $.config.set({ key: 'tessera.guardHeredoc', value })
+    case 'guardGlossary': return $.config.set({ key: 'tessera.guardGlossary', value })
+    case 'agentModel': return $.config.set({ key: 'tessera.agentModel', value })
+    case 'requireUserQuote': return $.config.set({ key: 'tessera.requireUserQuote', value })
+    case 'feedbackInbox': return $.config.set({ key: 'tessera.feedbackInbox', value })
+    default: return undefined
+  }
+}
+
 function registerSetup(on: On, options: Record<string, unknown>) {
   on('ui.render', { component: 'Pane', requestId: SETUP_PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
@@ -299,7 +325,7 @@ function registerSetup(on: On, options: Record<string, unknown>) {
               <Button
                 key={`toggle-${feature.key}`}
                 label={`${isOn ? '☑' : '☐'} ${feature.name[session.lang]}`}
-                onPress={() => $.config.set({ key: `${$.plugin.name}.${feature.key}`, value: isOn ? feature.off : feature.on })}
+                onPress={() => setOption($, feature.key, isOn ? feature.off : feature.on)}
               />
               {/* The pane's width is not known here, so the text wraps by its own pieces, between CJK characters too. */}
               <Box flexDirection="row" flexWrap="wrap" paddingLeft={3}>
@@ -497,12 +523,29 @@ export const register: Register = (on, options) => {
     return started
   })
 
+  // Every hook of the feature modules is registered here: `on` stays in this file, where a reader of the
+  // module (the directory's validation among them) can follow each registration to its hook.
   const imagesOn = options.pastePreview !== false
-  if (imagesOn) registerPastes(on, options)
+  if (imagesOn) {
+    configurePastes(options)
+    on('session.start', { surface: 'terminal' }, startPastes)
+    on('ui.render', { component: 'AbovePrompt' }, pasteBand)
+  }
   backgroundOn = options.backgroundWatch !== false
-  if (backgroundOn) registerBackgroundWatch(on, options)
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true)
-    registerGuards(on, options)
+  if (backgroundOn) {
+    configureBackgroundWatch(options)
+    on('tool.call', { tool: 'Bash' }, watchShell)
+    // PowerShell exists only in the Windows build's tool table.
+    on('tool.call', { tool: 'PowerShell' as 'Bash' }, watchShell)
+    on('tool.call', { tool: 'TaskStop' as 'Bash' }, forgetStopped)
+    on('ui.render', { component: 'AbovePrompt' }, quietBand)
+  }
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true) {
+    configureGuards(options)
+    on('tool.call', guardToolCall).catch((_, e, next) => next(e))
+    on('tool.call', { tool: 'Agent' }, guardAgent)
+    on('tool.call', { tool: 'Workflow' }, guardWorkflow).catch((_, e, next) => next(e))
+  }
   registerSetup(on, options)
   carryOn = options.carryOver !== false
   if (carryOn) registerCarryOver(on)
@@ -551,12 +594,6 @@ export const register: Register = (on, options) => {
     hintSent = false
     notedVoice = undefined
     return done
-  })
-
-  on('prompt.autocomplete', async (_, e, next) => {
-    const rows = completions(e.text, e.start, e.token, PRESET_NAMES, session.lang)
-    if (rows.length === 0) return next(e)
-    return { suggestions: [...(await next(e)).suggestions, ...rows] }
   })
 
   on('prompt.submit', async ($, e, next) => {
@@ -644,7 +681,7 @@ export const register: Register = (on, options) => {
     }
     if (sub !== 'theme' || !name) return { text: session.lang === 'zh-TW' ? helpTextZh(PRESET_NAMES) : helpText(PRESET_NAMES) }
     if (!(PRESET_NAMES as readonly string[]).includes(name)) return { text: t().unknownTheme(name, PRESET_NAMES.join(', ')) }
-    const result = await $.config.set({ key: `${$.plugin.name}.theme`, value: name })
+    const result = await $.config.set({ key: 'tessera.theme', value: name })
     return { text: result.deny ? `${t().themeFailed}: ${result.deny}` : t().themeSet(name) }
   })
 

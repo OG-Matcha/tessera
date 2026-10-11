@@ -23,9 +23,9 @@ export type Terminal = keyof typeof TERMINALS
 type Fmt = { wrap: ('strong' | 'emphasis' | 'strike')[]; leaf: 'text' | 'code' | 'number' | 'path' | 'link' | 'dim' }
 type Unit = { ch: string; fmt: Fmt }
 
-const R = /[֐-׿؀-ٟ٪-ۯۺ-ݿࢠ-ࣿיִ-﷿ﹰ-﻿]/
-const L = /[A-Za-z0-9À-ɏ٠-٩۰-۹]/
-const LATIN = /[A-Za-zÀ-ɏ]/
+const R = /[\u0590-\u05FF\u0600-\u065F\u066A-\u06EF\u06FA-\u077F\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/
+const L = /[A-Za-z0-9\u00C0-\u024F\u0660-\u0669\u06F0-\u06F9]/
+const LATIN = /[A-Za-z\u00C0-\u024F]/
 const MARK = /\p{M}/u
 const MIRROR: Record<string, string> = { '(': ')', ')': '(', '[': ']', ']': '[', '{': '}', '}': '{', '<': '>', '>': '<' }
 const DIGIT = /[0-9\u0660-\u0669\u06F0-\u06F9]/

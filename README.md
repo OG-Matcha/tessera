@@ -147,8 +147,6 @@ Off by default, for particular workflows. Turn them on in `/tessera setup`.
 | `/tessera demo` | Show every element tessera draws |
 | `/tessera record` · `record off` | Record mode, for a screen that is recorded, streamed or shared: in what tessera draws (replies, your prompts, tool rows, folded diffs, paste previews), API keys and tokens (`sk-ant-`, `ghp_`, `AKIA`, JWTs and their kin), `Bearer` headers, passwords in URLs and in `PASSWORD=` lines, emails and phone numbers show as `••••`; a status line under the prompt says so. What Claude Code draws itself (tool results, permission dialogs, the prompt box, the full transcript under ctrl+o) is not masked. Screen only: the transcript, what Claude reads and `/tessera copy` are unchanged, and copy buttons copy what is shown |
 
-Type `/tessera ` and a letter for suggestions with descriptions.
-
 ## Terminals
 
 | Terminal | Image previews | "original" opens in |

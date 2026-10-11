@@ -31,11 +31,6 @@ const thirtyLines = ['錯誤：無法連線到資料庫', '  at connect (db.ts:1
 
 export const scenarios = [
   {
-    name: 'typeahead',
-    sessions: () => [{ steps: [{ type: '/tessera s' }, { wait: 2_000, shot: 'menu' }] }],
-    check: s => seen(s.menu, /setup/),
-  },
-  {
     name: 'setup',
     // The first command the README tells people to run.
     sessions: () => [{ steps: [{ type: '/tessera setup' }, { key: '\r', until: /tessera features|tessera 功能/, timeoutMs: 15_000, shot: 'pane' }] }],

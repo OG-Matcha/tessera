@@ -1,4 +1,4 @@
-import type { EngineInterface, On } from 'claude-code'
+import type { EngineInterface, Hook, MatchedHook } from 'claude-code'
 
 import type { Risk } from './guard'
 import type { Discard } from './guard'
@@ -317,7 +317,7 @@ async function judgeWorkflow($: EngineInterface, script: string | undefined, scr
   return refuse($, 'Workflow authorization', 'the script does not quote the person. Paste their standing instruction verbatim, dated, into the shared prompt, and say that later status questions do not cancel it; agents only see the latest message and refuse to edit otherwise')
 }
 
-export function registerGuards(on: On, options: Record<string, unknown>) {
+export function configureGuards(options: Record<string, unknown>) {
   guardGit = options.guardGit !== false
   agentModel = options.agentModel === undefined || options.agentModel === 'auto' ? 'auto' : options.agentModel === 'choose' ? 'choose' : AGENT_MODELS.find(m => m === options.agentModel)
   requireUserQuote = options.requireUserQuote === true
@@ -329,51 +329,53 @@ export function registerGuards(on: On, options: Record<string, unknown>) {
   guardData = options.guardData !== false
   guardSessions = options.guardSessions !== false
   stashBeforeDiscard = options.stashBeforeDiscard === true
-
-  on('tool.call', async ($, e, next) => {
-    if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
-    const tool = String(e.tool)
-    const input = e as unknown as Record<string, unknown>
-    const escape = guardCjk ? misEscapedCjk(tool, input) : undefined
-    const escapeReason = `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`
-    const file = writtenFile(tool, input)
-    if (file === undefined) {
-      // Prompts, todos and questions never mean an escape.
-      if (escape !== undefined) return refuse($, 'CJK as \\u escapes', escapeReason)
-      // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
-      if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
-      return (await judgeShell($, String(input.command ?? ''), e.agentId, tool === 'Bash')) ?? next(e)
-    }
-    // Prose never means an escape either; code can (a regex, a test of an escaper), so there it is a reminder.
-    if (escape !== undefined && isProse(file.path)) return refuse($, 'CJK as \\u escapes', escapeReason)
-    // Every reminder the edit earns is gathered into one, answered by one resend; judged one at a time,
-    // each would take a resend of its own.
-    const reminders: Reminder[] = []
-    if (escape !== undefined) reminders.push({ rule: 'CJK as \\u escapes', reason: `${escapeReason}. If the escape itself is meant here` })
-    const encoding = await judgeEncoding($, tool, input)
-    for (const reminder of [encoding, await judgeHans($, tool, input), await judgeGlossary($, tool, input), await judgeSessions($, tool, input)]) if (reminder !== undefined) reminders.push(reminder)
-    const first = reminders[0]
-    if (first !== undefined) {
-      const reminded = await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, first.rule, reminders.map(r => r.reason).join('; and '))
-      if (reminded !== undefined) return reminded
-      if (encoding !== undefined) acceptedEncodings.add(file.path)
-    }
-    const result = await next(e)
-    // An edit the tool refused or that failed (old_string not found, a permission refused) changed nothing.
-    if (result.deny === undefined && !('isError' in result && result.isError === true)) await noteEdit($, tool, input)
-    return result
-  }).catch((_, e, next) => next(e))
-  on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
-    if (agentModel === undefined || e.model !== undefined) return next(e)
-    if (agentModel === 'choose') return refuse($, 'Agent model', `the call names no model, so the agent runs on the session's model. Pass the model this task needs: ${PICK}`)
-    if (agentModel !== 'auto') return next({ ...e, model: agentModel })
-    // Other agent types carry their own model in their definition, which an override would replace.
-    if (e.subagent_type !== undefined && e.subagent_type !== 'general-purpose') return next(e)
-    // The task's description and opening tell its difficulty; a longer prompt only costs Haiku tokens.
-    const model = await pickModel($, `Agent type: ${e.subagent_type ?? 'general-purpose'}\nTask: ${e.description}\n\n${e.prompt.slice(0, 2000)}`)
-    if (model === undefined) return next(e)
-    $.ui.toast(t().agentPicked(e.description, model))
-    return next({ ...e, model })
-  })
-  on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)).catch((_, e, next) => next(e))
 }
+
+export const guardToolCall: Hook<'tool.call'> = async ($, e, next) => {
+  if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
+  const tool = String(e.tool)
+  const input = e as unknown as Record<string, unknown>
+  const escape = guardCjk ? misEscapedCjk(tool, input) : undefined
+  const escapeReason = `it writes CJK text as escapes (${escape}). Models mis-spell the hex when they escape, which turns words into wrong characters (anthropics/claude-code#83033). Write the characters themselves`
+  const file = writtenFile(tool, input)
+  if (file === undefined) {
+    // Prompts, todos and questions never mean an escape.
+    if (escape !== undefined) return refuse($, 'CJK as \\u escapes', escapeReason)
+    // PowerShell exists only in the Windows build's tool table, so shells are matched by name here.
+    if (tool !== 'Bash' && tool !== 'PowerShell') return next(e)
+    return (await judgeShell($, String(input.command ?? ''), e.agentId, tool === 'Bash')) ?? next(e)
+  }
+  // Prose never means an escape either; code can (a regex, a test of an escaper), so there it is a reminder.
+  if (escape !== undefined && isProse(file.path)) return refuse($, 'CJK as \\u escapes', escapeReason)
+  // Every reminder the edit earns is gathered into one, answered by one resend; judged one at a time,
+  // each would take a resend of its own.
+  const reminders: Reminder[] = []
+  if (escape !== undefined) reminders.push({ rule: 'CJK as \\u escapes', reason: `${escapeReason}. If the escape itself is meant here` })
+  const encoding = await judgeEncoding($, tool, input)
+  for (const reminder of [encoding, await judgeHans($, tool, input), await judgeGlossary($, tool, input), await judgeSessions($, tool, input)]) if (reminder !== undefined) reminders.push(reminder)
+  const first = reminders[0]
+  if (first !== undefined) {
+    const reminded = await refuseOnce($, `${file.path}\n${file.texts.join('\n')}`, first.rule, reminders.map(r => r.reason).join('; and '))
+    if (reminded !== undefined) return reminded
+    if (encoding !== undefined) acceptedEncodings.add(file.path)
+  }
+  const result = await next(e)
+  // An edit the tool refused or that failed (old_string not found, a permission refused) changed nothing.
+  if (result.deny === undefined && !('isError' in result && result.isError === true)) await noteEdit($, tool, input)
+  return result
+}
+
+export const guardAgent: MatchedHook<'tool.call', { tool: 'Agent' }> = async ($, e, next) => {
+  if (agentModel === undefined || e.model !== undefined) return next(e)
+  if (agentModel === 'choose') return refuse($, 'Agent model', `the call names no model, so the agent runs on the session's model. Pass the model this task needs: ${PICK}`)
+  if (agentModel !== 'auto') return next({ ...e, model: agentModel })
+  // Other agent types carry their own model in their definition, which an override would replace.
+  if (e.subagent_type !== undefined && e.subagent_type !== 'general-purpose') return next(e)
+  // The task's description and opening tell its difficulty; a longer prompt only costs Haiku tokens.
+  const model = await pickModel($, `Agent type: ${e.subagent_type ?? 'general-purpose'}\nTask: ${e.description}\n\n${e.prompt.slice(0, 2000)}`)
+  if (model === undefined) return next(e)
+  $.ui.toast(t().agentPicked(e.description, model))
+  return next({ ...e, model })
+}
+
+export const guardWorkflow: MatchedHook<'tool.call', { tool: 'Workflow' }> = async ($, e, next) => (await judgeWorkflow($, e.script, e.scriptPath)) ?? next(e)

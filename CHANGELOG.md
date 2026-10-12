@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- `diffLines` `0` now makes each edit one line: the added and removed counts (`+73 -19`) and the expand button sit on the edit's own tool row, and the result block below draws nothing. A file Write creates counts its lines. With tool rows off, the result keeps its own counts row.
+
 ### Fixed
 
 - Carry-over offered a running session's open tasks to every other session opened in the same repository once that session's task list had gone two hours without a change, and dismissing them only lasted until the running session wrote its record again. The two-hour rule now applies only when Claude Code's registry of running sessions cannot be read; a session the registry lists keeps its items, however old its record.

@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 
-import { foldPatch, patchOf } from '../hooks/fold'
+import { editCounts, foldPatch, patchOf } from '../hooks/fold'
 
 const engine = (on: On) =>
   on('ui.render', ($, e) => {
@@ -55,13 +55,37 @@ test('with a limit of 0 every edit folds to its counts, and a limit caps the lin
   expect(foldPatch([hunk], 3)?.shown.map(l => l.text)).toEqual(['line 4', 'line 5', 'line 6'])
 })
 
-test('with diffLines 0 an edit result is one row: the counts and expand', { options: { language: 'en', diffLines: 0 } }, async ($, on) => {
+const small = { tool_use_id: 'z1', tool: 'Edit', input: { file_path: '/p/a.txt' }, output: { filePath: '/p/a.txt', structuredPatch: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }] }, isErrored: false, isRunning: false, isInterrupted: false }
+
+test('with diffLines 0 an edit is one line: its row carries the counts and expand, its result draws nothing', { options: { language: 'en', diffLines: 0 } }, async ($, on) => {
   engine(on)
-  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: 'z1', tool: 'Edit', output: { filePath: '/p/a.txt', structuredPatch: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }] }, isErrored: false } })
+  const row = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolUse', props: small })
+  const result = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: small })
+  expect(await row.find({ type: 'Text', text: /^\+1$/ })).toBeDefined()
+  expect(await row.find({ type: 'Text', text: /^ -1$/ })).toBeDefined()
+  expect(await result.find({ type: 'Text' })).toBeUndefined()
+  expect(await result.find({ type: 'Button' })).toBeUndefined()
+  const button = await row.find({ type: 'Button' })
+  expect(button?.props.label).toBe('expand')
+  await row.press({ key: button!.key! })
+  expect(await result.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await row.find({ type: 'Button' })).toBeUndefined()
+  await row.unmount()
+  await result.unmount()
+})
+
+test('with diffLines 0 but tool rows off the result keeps its own counts row', { options: { language: 'en', diffLines: 0, toolRows: false } }, async ($, on) => {
+  engine(on)
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: small })
   expect(await ui.find({ type: 'Text', text: /Added 1 line, removed 1 line/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^\s*1 / })).toBeUndefined()
   expect((await ui.find({ type: 'Button' }))?.props.label).toBe('expand')
   await ui.unmount()
+})
+
+test('editCounts counts a patch, or the lines of a file Write created', () => {
+  expect(editCounts({ structuredPatch: [hunk] })).toEqual({ added: 20, removed: 20 })
+  expect(editCounts({ type: 'create', filePath: '/p/new.txt', content: 'a\nb\nc\n', structuredPatch: [], originalFile: null })).toEqual({ added: 3, removed: 0 })
+  expect(editCounts({ type: 'update', filePath: '/p/big.txt', content: 'x', structuredPatch: [], originalFile: null })).toBeUndefined()
 })
 
 test('a long Edit result draws folded, and expand gives it back to the engine', { options: { language: 'en' } }, async ($, on) => {

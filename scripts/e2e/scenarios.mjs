@@ -391,7 +391,7 @@ export const scenarios = [
   {
     name: 'fold-summary',
     prompts: true,
-    // diffLines 0: the edit result is one row, the counts and expand, with no diff line at all.
+    // diffLines 0: the edit is one line, its row with the counts and expand; no counts row, no diff line.
     setup: dir => writeFileSync(join(dir, 'list.txt'), Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n') + '\n'),
     sessions: () => [
       {
@@ -402,7 +402,7 @@ export const scenarios = [
         ],
       },
     ],
-    check: s => seen(s.reply, /(Added 20 lines, removed 20 lines|新增 20 行，刪除 20 行)\s+\[ (expand|展開) \]/) ?? (/[+-]item 5/.test(s.reply?.text ?? '') ? `a diff line drew with diffLines 0\n${tail(s.reply?.text)}` : undefined),
+    check: s => seen(s.reply, /list\.txt\s+\+20 -20\s+\[ (expand|展開) \]/) ?? (/Added 20 lines|新增 20 行|[+-]item 5/.test(s.reply?.text ?? '') ? `a counts row or diff line drew with diffLines 0\n${tail(s.reply?.text)}` : undefined),
   },
   {
     name: 'carry-over-reload',

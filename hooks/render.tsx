@@ -679,8 +679,12 @@ const toolLayout = (el: ElementTable, style: Style, columns: number, label: stri
   )
 }
 
-export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100, cwd?: string, words: ToolWords = STRINGS.en.toolWords): RenderElement => {
-  const { Text } = el
+// With diffLines 0 an edit's row carries its counts (`+73 -19`) and the expand button, and its result block
+// draws nothing, so each edit is one line: the file, how much changed, and the way to see the diff.
+export type RowFold = { added: number; removed: number; expand?: { label: string; onPress: () => void } }
+
+export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, columns = 100, cwd?: string, words: ToolWords = STRINGS.en.toolWords, fold?: RowFold): RenderElement => {
+  const { Box, Text, Button } = el
   const t = style.theme
   const isShell = row.tool === 'Bash' || row.tool === 'PowerShell'
   const verb = words.verbs[row.tool] ?? row.tool.replace(/^mcp__([^_]+)__/, '$1 ')
@@ -691,14 +695,26 @@ export const renderToolRow = (el: ElementTable, style: Style, row: ToolRow, colu
   const dot = row.isErrored ? t.codeFlag : row.isInterrupted ? t.codeComment : row.isRunning ? t.accent : t.number
   const isPath = target !== undefined && /^(~|\.{0,2}\/|[A-Za-z]:\\)/.test(target)
 
-  const label = `${verb}${target === undefined ? "" : ` ${target}`}${row.isInterrupted ? words.interrupted : row.isErrored ? words.failedRow : ""}`
-  return toolLayout(el, style, columns, label, dot, row.isRunning, (
+  const counts = fold === undefined ? "" : `+${fold.added} -${fold.removed}`
+  const label = `${verb}${target === undefined ? "" : ` ${target}`}${row.isInterrupted ? words.interrupted : row.isErrored ? words.failedRow : ""}${fold === undefined ? "" : ` ${counts}${fold.expand ? ` [ ${fold.expand.label} ]` : ""}`}`
+  const text = (
       <Text wrap="truncate-end" dimColor={toolDim(style)}>
         <Text bold={!toolDim(style)} dimColor={toolDim(style)}>{verb}</Text>
         {target === undefined ? null : <Text> </Text>}
         {target === undefined ? null : isShell ? codeLine(el, style, target, 'bash', 'cmd') : <Text color={isPath ? t.path : t.inlineCode} dimColor={toolDim(style)}>{target}</Text>}
         {row.isInterrupted ? <Text dimColor>{words.interrupted}</Text> : row.isErrored ? <Text color={t.codeFlag}>{words.failedRow}</Text> : null}
       </Text>
+  )
+  if (fold === undefined) return toolLayout(el, style, columns, label, dot, row.isRunning, text)
+  return toolLayout(el, style, columns, label, dot, row.isRunning, (
+      <Box flexDirection="row" gap={1}>
+        {text}
+        <Text>
+          <Text color={t.codeString}>{`+${fold.added}`}</Text>
+          <Text color={t.codeFlag}>{` -${fold.removed}`}</Text>
+        </Text>
+        {fold.expand ? <Button key="diff-expand" label={fold.expand.label} onPress={fold.expand.onPress} /> : null}
+      </Box>
   ))
 }
 

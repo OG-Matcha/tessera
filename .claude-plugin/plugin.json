@@ -42,7 +42,7 @@
     "diffLines": {
       "type": "number",
       "title": "Diff lines shown",
-      "description": "How many lines a folded edit diff shows, up to 40. 0 folds every edit, long or short, to one row: the added and removed counts and the expand button.",
+      "description": "How many lines a folded edit diff shows, up to 40. 0 folds every edit, long or short, to one line: the added and removed counts and the expand button on the edit's own row, nothing below it.",
       "default": 8,
       "min": 0,
       "max": 40

@@ -24,7 +24,7 @@ import { background, configureBackgroundWatch, forgetStopped, quietBand, watchSh
 import { notifiedTask } from './background'
 import { EDITS, asEditLog, rekeyed } from './edits'
 import { FEATURES } from './features'
-import { foldPatch, patchOf } from './fold'
+import { editCounts, foldPatch, patchOf } from './fold'
 import { mask, maskValues } from './mask'
 import { MARKETPLACE, marketplaceRenamed, marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
@@ -685,14 +685,24 @@ export const register: Register = (on, options) => {
     return { text: result.deny ? `${t().themeFailed}: ${result.deny}` : t().themeSet(name) }
   })
 
+  // How many lines a folded diff shows; 0 is the counts alone, for every edit. With tool rows drawn here too,
+  // 0 puts the counts and the expand button on the edit's own row and its result block draws nothing.
+  const diffLines = Number.isFinite(Number(options.diffLines)) && options.diffLines !== '' ? Math.min(40, Math.max(0, Math.round(Number(options.diffLines)))) : 8
+  const oneLineEdits = options.foldDiffs !== false && diffLines === 0 && isDrawing && options.toolRows !== false
+  const isEdit = (tool: string) => /^(Edit|MultiEdit|Write)$/.test(tool)
   if (options.foldDiffs !== false) {
-    // How many lines a folded diff shows; 0 is the counts alone, for every edit.
-    const diffLines = Number.isFinite(Number(options.diffLines)) && options.diffLines !== '' ? Math.min(40, Math.max(0, Math.round(Number(options.diffLines)))) : 8
     on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
       const { tool, tool_use_id: id, output, isErrored } = e.props
-      if (transcriptExpanded || isErrored || !/^(Edit|MultiEdit|Write)$/.test(tool) || expandedCalls.has(id)) return next(e)
+      if (transcriptExpanded || isErrored || !isEdit(tool) || expandedCalls.has(id)) return next(e)
+      const unfolded = async () => (await read($, unfoldedDiffs)).includes(id)
+      if (oneLineEdits) {
+        // The edit's row carries the counts and the button; nothing to draw here until it is unfolded.
+        if (editCounts(output) === undefined || (await unfolded())) return next(e)
+        const { Box } = $.ui.resolve(e)
+        return <Box />
+      }
       const folded = foldPatch(patchOf(output), diffLines)
-      if (folded === undefined || (await read($, unfoldedDiffs)).includes(id)) return next(e)
+      if (folded === undefined || (await unfolded())) return next(e)
       const labels = { summary: t().diffSummary(folded.added, folded.removed), hidden: t().diffHidden(folded.hidden), expand: t().diffExpand }
       const lines = session.recording ? { ...folded, shown: folded.shown.map(line => ({ ...line, text: mask(line.text) })) } : folded
       return renderFoldedDiff($.ui.resolve(e), style, lines, labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
@@ -724,9 +734,13 @@ export const register: Register = (on, options) => {
       }
       return renderToolGroup($.ui.resolve(e), style, e.props.calls.map(shownRow), e.props.isActive, e.viewport?.columns, workDir, t().toolWords)
     })
-    on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-      if (!transcriptExpanded && !expandedCalls.has(e.props.tool_use_id)) return renderToolRow($.ui.resolve(e), style, shownRow(e.props), e.viewport?.columns, workDir, t().toolWords)
-      return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, shownRow(e.props)) : next(e)
+    on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+      const id = e.props.tool_use_id
+      if (transcriptExpanded || expandedCalls.has(id)) return e.props.tool === 'Bash' || e.props.tool === 'PowerShell' ? renderExpandedShell($.ui.resolve(e), style, shownRow(e.props)) : next(e)
+      const counts = oneLineEdits && !e.props.isErrored && isEdit(e.props.tool) ? editCounts(e.props.output) : undefined
+      const unfolded = counts !== undefined && (await read($, unfoldedDiffs)).includes(id)
+      const fold = counts === undefined ? undefined : { ...counts, expand: unfolded ? undefined : { label: t().diffExpand, onPress: () => update($, unfoldedDiffs, ids => [...ids, id]) } }
+      return renderToolRow($.ui.resolve(e), style, shownRow(e.props), e.viewport?.columns, workDir, t().toolWords, fold)
     })
   }
 

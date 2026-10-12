@@ -65,3 +65,15 @@ export function foldPatch(patch: readonly Hunk[], limit = SHOWN): Folded | undef
     hidden: all.length - shown.length,
   }
 }
+
+export type Counts = { added: number; removed: number }
+
+// What an edit changed, as counts alone: from its patch, or for a file Write created, its lines. Undefined
+// where there is no patch to count (nothing changed, the diff timed out, the old content was too large).
+export function editCounts(output: unknown): Counts | undefined {
+  const all = patchOf(output).flatMap(hunk => hunk.lines)
+  if (all.length > 0) return { added: all.filter(l => l[0] === '+').length, removed: all.filter(l => l[0] === '-').length }
+  const written = output !== null && typeof output === 'object' ? (output as { type?: unknown; content?: unknown }) : undefined
+  if (written?.type !== 'create' || typeof written.content !== 'string') return undefined
+  return { added: written.content === '' ? 0 : written.content.replace(/\n$/, '').split('\n').length, removed: 0 }
+}

@@ -10,7 +10,7 @@ import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 import { parse } from './markdown'
 import { boxArt, mermaidText, unpad } from './mermaid'
 import type { CopyKind, Drawn } from './render'
-import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, width } from './render'
+import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderShellEdits, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, shortPath, width } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { CarryStore, TaskLog } from './carry'
@@ -24,7 +24,8 @@ import { background, configureBackgroundWatch, forgetStopped, quietBand, watchSh
 import { notifiedTask } from './background'
 import { EDITS, asEditLog, rekeyed } from './edits'
 import { FEATURES } from './features'
-import { editCounts, foldPatch, patchOf } from './fold'
+import type { Folded } from './fold'
+import { editCounts, foldPatch, hunkCounts, patchOf, shellEdits } from './fold'
 import { mask, maskValues } from './mask'
 import { MARKETPLACE, marketplaceRenamed, marketplaceWithoutUpdates } from './update'
 import { peek } from './peek'
@@ -693,8 +694,26 @@ export const register: Register = (on, options) => {
   if (options.foldDiffs !== false) {
     on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
       const { tool, tool_use_id: id, output, isErrored } = e.props
-      if (transcriptExpanded || isErrored || !isEdit(tool) || expandedCalls.has(id)) return next(e)
+      if (transcriptExpanded || isErrored || expandedCalls.has(id)) return next(e)
       const unfolded = async () => (await read($, unfoldedDiffs)).includes(id)
+      const maskLines = (folded: Folded) => (session.recording ? { ...folded, shown: folded.shown.map(line => ({ ...line, text: mask(line.text) })) } : folded)
+      if (tool === 'Bash' || tool === 'PowerShell') {
+        // The files the command changed, which the engine draws whole under the output: folded like edits,
+        // over the engine's own drawing of the output alone. Short changes stay the engine's, as an edit's do.
+        const files = shellEdits(output).map(file => ({ ...file, folded: foldPatch(file.hunks, diffLines) }))
+        if (!files.some(file => file.folded !== undefined) || (await unfolded())) return next(e)
+        const { bashEditDiff: _dropped, ...rest } = output as Record<string, unknown>
+        const base = await next({ ...e, props: { ...e.props, output: rest } })
+        const verbs = t().toolWords.verbs
+        const rows = files.map(file => ({
+          verb: file.deleted ? t().toolWords.deleted : (file.created ? verbs['Write'] : verbs['Edit']) ?? tool,
+          path: shortPath(file.filePath, workDir),
+          folded: maskLines(file.folded ?? { shown: [], hidden: 0, ...hunkCounts(file.hunks) }),
+        }))
+        const hidden = rows.reduce((n, row) => n + row.folded.hidden, 0)
+        return renderShellEdits($.ui.resolve(e), style, base, rows, { hidden: t().diffHidden(hidden), expand: t().diffExpand }, () => update($, unfoldedDiffs, ids => [...ids, id]))
+      }
+      if (!isEdit(tool)) return next(e)
       if (oneLineEdits) {
         // The edit's row carries the counts and the button; nothing to draw here until it is unfolded.
         if (editCounts(output) === undefined || (await unfolded())) return next(e)
@@ -704,8 +723,7 @@ export const register: Register = (on, options) => {
       const folded = foldPatch(patchOf(output), diffLines)
       if (folded === undefined || (await unfolded())) return next(e)
       const labels = { summary: t().diffSummary(folded.added, folded.removed), hidden: t().diffHidden(folded.hidden), expand: t().diffExpand }
-      const lines = session.recording ? { ...folded, shown: folded.shown.map(line => ({ ...line, text: mask(line.text) })) } : folded
-      return renderFoldedDiff($.ui.resolve(e), style, lines, labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
+      return renderFoldedDiff($.ui.resolve(e), style, maskLines(folded), labels, () => update($, unfoldedDiffs, ids => [...ids, id]))
     })
   }
 

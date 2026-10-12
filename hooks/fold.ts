@@ -71,9 +71,28 @@ export type Counts = { added: number; removed: number }
 // What an edit changed, as counts alone: from its patch, or for a file Write created, its lines. Undefined
 // where there is no patch to count (nothing changed, the diff timed out, the old content was too large).
 export function editCounts(output: unknown): Counts | undefined {
-  const all = patchOf(output).flatMap(hunk => hunk.lines)
-  if (all.length > 0) return { added: all.filter(l => l[0] === '+').length, removed: all.filter(l => l[0] === '-').length }
+  const patch = patchOf(output)
+  if (patch.some(hunk => hunk.lines.length > 0)) return hunkCounts(patch)
   const written = output !== null && typeof output === 'object' ? (output as { type?: unknown; content?: unknown }) : undefined
   if (written?.type !== 'create' || typeof written.content !== 'string') return undefined
   return { added: written.content === '' ? 0 : written.content.replace(/\n$/, '').split('\n').length, removed: 0 }
+}
+
+export type EditedFile = { filePath: string; hunks: Hunk[]; created: boolean; deleted: boolean }
+
+export const hunkCounts = (hunks: readonly Hunk[]): Counts => {
+  const lines = hunks.flatMap(hunk => hunk.lines)
+  return { added: lines.filter(l => l[0] === '+').length, removed: lines.filter(l => l[0] === '-').length }
+}
+
+// The files a shell command changed, as Claude Code reports them under a Bash result's `bashEditDiff`
+// (2.1.296 on) and draws them, each with its whole diff, under the command's output.
+export function shellEdits(output: unknown): EditedFile[] {
+  const diff = output !== null && typeof output === 'object' ? (output as { bashEditDiff?: { files?: unknown } }).bashEditDiff : undefined
+  const files = Array.isArray(diff?.files) ? diff.files : []
+  return files.flatMap((file: unknown) => {
+    if (file === null || typeof file !== 'object' || typeof (file as EditedFile).filePath !== 'string') return []
+    const { filePath, hunks, created, deleted } = file as { filePath: string; hunks?: unknown; created?: unknown; deleted?: unknown }
+    return [{ filePath, hunks: Array.isArray(hunks) ? hunks.filter(isHunk) : [], created: created === true, deleted: deleted === true }]
+  })
 }

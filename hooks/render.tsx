@@ -1,6 +1,6 @@
 import type { ElementTable, RenderElement } from 'claude-code'
 
-import type { Folded } from './fold'
+import type { DiffLine, Folded } from './fold'
 import type { ToolKind, ToolWords } from './i18n'
 import { STRINGS } from './i18n'
 import type { Block, Inline } from './markdown'
@@ -809,8 +809,6 @@ export type FoldLabels = { summary: string; hidden: string; expand: string }
 // show it all; with no lines to show (diffLines 0), one row: the counts and the button.
 export const renderFoldedDiff = (el: ElementTable, style: Style, folded: Folded, labels: FoldLabels, onExpand: () => void): RenderElement => {
   const { Box, Text, Button } = el
-  const t = style.theme
-  const color = (mark: string) => (mark === '+' ? t.codeString : mark === '-' ? t.codeFlag : undefined)
   if (folded.shown.length === 0) {
     return (
       <Box flexDirection="row" gap={2}>
@@ -828,16 +826,54 @@ export const renderFoldedDiff = (el: ElementTable, style: Style, folded: Folded,
         <Text dimColor>{'  ⎿  '}</Text>
         {labels.summary}
       </Text>
-      {folded.shown.flatMap((line, i) => [
-        ...(line.gap ? [<Text key={`g${i}`} color={t.codeComment}>{'⋮'.padStart(8)}</Text>] : []),
-        <Text key={`d${i}`} wrap="truncate-end">
-          <Text color={t.codeComment}>{String(line.number).padStart(8)}</Text>
-          <Text color={color(line.mark)}>{` ${line.mark}${line.text}`}</Text>
-        </Text>,
-      ])}
+      {diffRows(el, style, folded.shown)}
       <Box flexDirection="row" gap={2} paddingLeft={8}>
         <Text dimColor>{`… ${labels.hidden}`}</Text>
         <Button key="diff-expand" label={labels.expand} onPress={onExpand} />
+      </Box>
+    </Box>
+  )
+}
+
+const diffRows = (el: ElementTable, style: Style, shown: readonly DiffLine[]): RenderElement[] => {
+  const { Text } = el
+  const t = style.theme
+  const color = (mark: string) => (mark === '+' ? t.codeString : mark === '-' ? t.codeFlag : undefined)
+  return shown.flatMap((line, i) => [
+    ...(line.gap ? [<Text key={`g${i}`} color={t.codeComment}>{'⋮'.padStart(8)}</Text>] : []),
+    <Text key={`d${i}`} wrap="truncate-end">
+      <Text color={t.codeComment}>{String(line.number).padStart(8)}</Text>
+      <Text color={color(line.mark)}>{` ${line.mark}${line.text}`}</Text>
+    </Text>,
+  ])
+}
+
+export type ShellEdit = { verb: string; path: string; folded: Folded }
+
+// The files a shell command changed, under the engine's own drawing of the command's output (`base`): one
+// row per file with its counts, a few diff lines where there are any to show, and one button to show it all.
+export const renderShellEdits = (el: ElementTable, style: Style, base: RenderElement, files: readonly ShellEdit[], labels: Pick<FoldLabels, 'hidden' | 'expand'>, onExpand: () => void): RenderElement => {
+  const { Box, Text, Button } = el
+  const t = style.theme
+  const hidden = files.reduce((n, f) => n + f.folded.hidden, 0)
+  return (
+    <Box flexDirection="column">
+      {base}
+      {files.map((f, i) => (
+        <Box key={`f${i}`} flexDirection="column">
+          <Text wrap="truncate-end">
+            <Text dimColor>{'  ⎿  '}</Text>
+            <Text bold>{f.verb}</Text>
+            <Text color={t.path}>{` ${f.path}`}</Text>
+            <Text color={t.codeString}>{` +${f.folded.added}`}</Text>
+            <Text color={t.codeFlag}>{` -${f.folded.removed}`}</Text>
+          </Text>
+          {diffRows(el, style, f.folded.shown)}
+        </Box>
+      ))}
+      <Box flexDirection="row" gap={2} paddingLeft={hidden > 0 ? 8 : 5}>
+        {hidden > 0 ? <Text dimColor>{`… ${labels.hidden}`}</Text> : null}
+        <Button key="shell-edits-expand" label={labels.expand} onPress={onExpand} />
       </Box>
     </Box>
   )

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- The files a shell command changed, which Claude Code 2.1.296 draws whole under the command's output, fold like edits: one row per file with its counts, up to `diffLines` lines of its diff, and one expand button; the command's own output stays as the engine draws it. Short changes stay whole, as an edit's do.
+
 ### Changed
 
 - `diffLines` `0` now makes each edit one line: the added and removed counts (`+73 -19`) and the expand button sit on the edit's own tool row, and the result block below draws nothing. A file Write creates counts its lines. With tool rows off, the result keeps its own counts row.

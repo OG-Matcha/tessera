@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 
-import { editCounts, foldPatch, patchOf } from '../hooks/fold'
+import { editCounts, foldPatch, patchOf, shellEdits } from '../hooks/fold'
 
 const engine = (on: On) =>
   on('ui.render', ($, e) => {
@@ -86,6 +86,48 @@ test('editCounts counts a patch, or the lines of a file Write created', () => {
   expect(editCounts({ structuredPatch: [hunk] })).toEqual({ added: 20, removed: 20 })
   expect(editCounts({ type: 'create', filePath: '/p/new.txt', content: 'a\nb\nc\n', structuredPatch: [], originalFile: null })).toEqual({ added: 3, removed: 0 })
   expect(editCounts({ type: 'update', filePath: '/p/big.txt', content: 'x', structuredPatch: [], originalFile: null })).toBeUndefined()
+})
+
+const shell = (id: string, files: unknown[]) => ({ tool_use_id: id, tool: 'Bash', output: { stdout: 'changed', stderr: '', interrupted: false, bashEditDiff: { files } }, isErrored: false })
+const oneLine = { oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-a', '+b'] }
+
+test('the files a shell command changed fold like edits, under the engine drawing of the output', { options: { language: 'en', diffLines: 0 } }, async ($, on) => {
+  engine(on)
+  const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: shell('s1', [{ filePath: '/p/a.txt', hunks: [oneLine] }, { filePath: '/p/new.bin', hunks: [], created: true }]) })
+  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /a\.txt$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^ \+1$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^ -1$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^Wrote$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /new\.bin$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^\s*1 / })).toBeUndefined()
+  const button = await ui.find({ type: 'Button' })
+  expect(button?.props.label).toBe('expand')
+  await ui.press({ key: button!.key! })
+  expect(await ui.find({ type: 'Text', text: /a\.txt$/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a shell command with a long change shows its gist, a short one stays the engine own', { options: { language: 'en' } }, async ($, on) => {
+  engine(on)
+  const long = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: shell('s2', [{ filePath: '/p/list.txt', hunks: [hunk] }]) })
+  expect(await long.find({ type: 'Text', text: /^ \+20$/ })).toBeDefined()
+  expect(await long.find({ type: 'Text', text: /^ -line 5$/ })).toBeDefined()
+  expect(await long.find({ type: 'Text', text: /38 more lines/ })).toBeDefined()
+  await long.unmount()
+  const short = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'ToolResult', props: shell('s3', [{ filePath: '/p/a.txt', hunks: [oneLine] }]) })
+  expect(await short.find({ type: 'Text', text: /a\.txt$/ })).toBeUndefined()
+  expect(await short.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  await short.unmount()
+})
+
+test('shellEdits reads the files a Bash result carries', () => {
+  expect(shellEdits({ stdout: '' })).toEqual([])
+  expect(shellEdits({ bashEditDiff: { files: [{ filePath: '/p/a', hunks: [oneLine], created: false }, { filePath: '/p/b', hunks: [], created: true }, { nope: 1 }] } })).toEqual([
+    { filePath: '/p/a', hunks: [oneLine], created: false, deleted: false },
+    { filePath: '/p/b', hunks: [], created: true, deleted: false },
+  ])
 })
 
 test('a long Edit result draws folded, and expand gives it back to the engine', { options: { language: 'en' } }, async ($, on) => {

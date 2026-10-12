@@ -405,6 +405,27 @@ export const scenarios = [
     check: s => seen(s.reply, /list\.txt\s+\+20 -20\s+\[ (expand|展開) \]/) ?? (/Added 20 lines|新增 20 行|[+-]item 5/.test(s.reply?.text ?? '') ? `a counts row or diff line drew with diffLines 0\n${tail(s.reply?.text)}` : undefined),
   },
   {
+    name: 'shell-edit-fold',
+    prompts: true,
+    // A file a shell command changed (Claude Code 2.1.296 draws it whole under the output; only in a git
+    // repository, in auto or bypass mode): with diffLines 0 one row, the file and its counts, under the
+    // command's own output; no diff line.
+    setup: dir => {
+      writeFileSync(join(dir, 'list.txt'), Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n') + '\n')
+      for (const args of [['init', '-q'], ['add', '-A'], ['-c', 'user.name=e2e', '-c', 'user.email=e2e@example.com', 'commit', '-q', '-m', 'init']]) execFileSync('git', args, { cwd: dir })
+    },
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ bashEditDiffEnabled: true, pluginConfigs: { [PLUGIN_ID]: { options: { diffLines: 0 } } } })],
+        steps: [
+          { type: "Use the Bash tool once to run exactly this, then stop: sed -i 's/^line 5$/item 5/' list.txt && echo changed" },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /changed/) ?? seen(s.reply, /list\.txt \+1 -1/) ?? (/[+-]item 5|[+-]line 5/.test(s.reply?.text ?? '') ? `a diff line drew with diffLines 0\n${tail(s.reply?.text)}` : undefined),
+  },
+  {
     name: 'carry-over-reload',
     prompts: true,
     sessions: () => [

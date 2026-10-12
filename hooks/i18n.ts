@@ -12,6 +12,7 @@ export type ToolWords = {
   failedRow: string
   interrupted: string
   last: string
+  deleted: string
 }
 
 const EN_GROUPS: Record<ToolKind, [string, string]> = {
@@ -36,6 +37,7 @@ const TOOL_WORDS_EN: ToolWords = {
   failedRow: ' failed',
   interrupted: ' interrupted',
   last: ' · last: ',
+  deleted: 'Deleted',
 }
 
 const ZH_GROUPS: Record<ToolKind, [string, string]> = {
@@ -59,6 +61,7 @@ const TOOL_WORDS_ZH: ToolWords = {
   failedRow: ' 失敗',
   interrupted: ' 已中斷',
   last: ' · 最後：',
+  deleted: '刪除',
 }
 
 // The names the guards give their rules in the toast; the reason the model reads stays English.

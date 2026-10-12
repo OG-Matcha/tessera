@@ -52,9 +52,11 @@ const STALE_MS = 2 * 60 * 60_000
 
 // The latest other session in this repository that is over, when it stopped with items still open. `live`
 // is the set of session ids Claude Code's registry lists as running (~/.claude/sessions): a session not in
-// it is over, whatever its record says, since /exit seldom lets a mod write its ended mark.
+// it is over, whatever its record says, since /exit seldom lets a mod write its ended mark, and one in it
+// is running however old its record, so a long session's open items are not offered to every terminal
+// opened beside it. The two-hour rule stands in only when the registry could not be read.
 export function carriedFrom(store: CarryStore, sessionId: string, now: number, live?: ReadonlySet<string>): { from: string; items: string[] } | undefined {
-  const over = (id: string, s: CarryStore[string]) => s.ended === true || (live !== undefined && !live.has(id)) || now - s.at > STALE_MS
+  const over = (id: string, s: CarryStore[string]) => s.ended === true || (live !== undefined ? !live.has(id) : now - s.at > STALE_MS)
   const [from, latest] = Object.entries(store)
     .filter(([id, s]) => id !== sessionId && over(id, s))
     .sort(([, a], [, b]) => b.at - a.at)[0] ?? []

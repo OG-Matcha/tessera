@@ -44,11 +44,15 @@ test('a reloaded module gets the session task list back with its ids', () => {
   expect(restoredTasks(store, 'other').size).toBe(0)
 })
 
-test('with the registry of running sessions, a session not in it is over whatever its record says, and one in it is not', () => {
+test('with the registry of running sessions, a session not in it is over whatever its record says, and one in it is not, however old its record', () => {
   const store = { other: { at: 10, open: ['in progress'] }, now: { at: 10, open: [] } }
   expect(carriedFrom(store, 'now', 11, new Set(['now']))).toEqual({ from: 'other', items: ['in progress'] })
   expect(carriedFrom(store, 'now', 11, new Set(['now', 'other']))).toBe(undefined)
   expect(carriedFrom(store, 'now', 11, new Set())).toEqual({ from: 'other', items: ['in progress'] })
+  // A day-long session whose task list last changed yesterday is still running: its items stay its own.
+  const day = 24 * 60 * 60_000
+  expect(carriedFrom(store, 'now', 10 + day, new Set(['now', 'other']))).toBe(undefined)
+  expect(carriedFrom({ ...store, other: { ...store.other, ended: true as const } }, 'now', 10 + day, new Set(['now', 'other']))).toEqual({ from: 'other', items: ['in progress'] })
 })
 
 test('only the newest repositories are kept, the one in use always', () => {

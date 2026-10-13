@@ -437,6 +437,20 @@
         "off"
       ]
     },
+    "cacheClock": {
+      "type": "boolean",
+      "title": "Cache clock",
+      "description": "When the prompt cache is about to go cold, one dim row above the prompt counts the minutes down and says what the next message re-caches once it is cold; nothing while a turn runs. An hour on a subscription, five minutes on an API key, told apart by the rate-limit windows.",
+      "default": true
+    },
+    "cacheClockMinutes": {
+      "type": "number",
+      "title": "Cache clock from",
+      "description": "How many minutes before the prompt cache goes cold the row appears, 1 to 60; 60 keeps it up from the end of every turn.",
+      "default": 10,
+      "min": 1,
+      "max": 60
+    },
     "maskSecrets": {
       "type": "boolean",
       "title": "Mask secrets in tool results",

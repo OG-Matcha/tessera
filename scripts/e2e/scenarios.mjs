@@ -443,6 +443,22 @@ export const scenarios = [
     check: s => seen(s.reply, /sk-proj-••••••••/) ?? (/E2eFakeKeyBody/.test(s.reply?.text ?? '') ? `the key drew unmasked\n${tail(s.reply?.text)}` : undefined),
   },
   {
+    name: 'cache-clock',
+    prompts: true,
+    // With cacheClockMinutes 60 the row stands from the end of the turn: the minutes left and what the next
+    // message re-caches, above the prompt.
+    sessions: () => [
+      {
+        args: [...HAIKU, '--settings', JSON.stringify({ pluginConfigs: { [PLUGIN_ID]: { options: { cacheClockMinutes: 60 } } } })],
+        steps: [
+          { type: 'Reply with the single word ready and nothing else.' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /⏱ (快取 \d+ 分後冷掉 · 下一則要重新快取 \d+k? tokens|Prompt cache cold in \d+ min · the next message re-caches \d+k? tokens)/),
+  },
+  {
     name: 'carry-over-reload',
     prompts: true,
     sessions: () => [

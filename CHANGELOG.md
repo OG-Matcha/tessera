@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - Secrets masked (`maskSecrets`, on by default): API keys, tokens, private keys, URL passwords and values given to a secret-sounding name in a tool's result are replaced with `••••••••` before Claude reads it, before it goes into the transcript and on screen, with a note after the result that tells Claude and one toast per session that tells you. Code (`process.env.KEY`, `${TOKEN}`), placeholders and a result the tool reported as an error are left as they are.
+- Cache clock (`cacheClock`, on by default): when the prompt cache is about to go cold (ten minutes left; `cacheClockMinutes` moves it, 60 keeps the row up from the end of every turn), one dim row above the prompt counts the minutes down and says what the next message re-caches once it is cold; nothing while a turn runs. An hour on a subscription, five minutes on an API key, told apart by the rate-limit windows.
 - The files a shell command changed, which Claude Code 2.1.296 draws whole under the command's output, fold like edits: one row per file with its counts, up to `diffLines` lines of its diff, and one expand button; the command's own output stays as the engine draws it. Short changes stay whole, as an edit's do.
 
 ### Changed

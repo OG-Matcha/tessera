@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { mask, maskValues } from '../hooks/mask'
+import { mask, maskValues, veil, veilValues } from '../hooks/mask'
 
 // Secret-shaped fixtures are assembled here, so no scanner takes the test for a leak.
 const KEY = ['sk-ant-api03', 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'].join('-')
@@ -53,4 +53,30 @@ test('masked text is left as it is when masked again, and a tool input is masked
   })
   expect(maskValues(['ada@example.com', 3])).toEqual(['a•••@•••.com', 3])
   expect(maskValues(undefined)).toBe(undefined)
+})
+
+test('the veil masks keys, headers and secret values and keeps code, names, placeholders, emails and phones', () => {
+  expect(veil(`OPENAI_API_KEY=${KEY}\nDB_PASSWORD=${['hunter22', 'hunter'].join('')}`)).toEqual(['OPENAI_API_KEY=sk-ant-api03-••••••••\nDB_PASSWORD=••••••••', 2])
+  expect(veil(`curl -H "Authorization: ${HEADER}" ${['postgres://app:', 's3cret-pass', '@db'].join('')}`)).toEqual(['curl -H "Authorization: Bearer ••••••••" postgres://app:••••••••@db', 2])
+  for (const kept of [
+    'const apiKey = process.env.OPENAI_API_KEY',
+    'token: ${GITHUB_TOKEN}',
+    'password = getenv("DB_PASSWORD")',
+    'API_KEY=your_api_key_here',
+    'secret: config.secrets.main',
+    'TOKEN=REPLACE_WITH_TOKEN',
+    'mail ada@example.com or 0912-345-678',
+  ])
+    expect(veil(kept)).toEqual([kept, 0])
+})
+
+test('a result is veiled however deep, and comes back as the same object when nothing matched', () => {
+  const clean = { stdout: 'ok', stderr: '', nested: [{ text: 'fine' }] }
+  expect(veilValues(clean)[0]).toBe(clean)
+  expect(veilValues({ file: { content: `k=${GITHUB}`, lines: 1 }, blocks: [{ type: 'text', text: `Authorization: ${HEADER}` }] })).toEqual([
+    { file: { content: 'k=ghp_••••••••', lines: 1 }, blocks: [{ type: 'text', text: 'Authorization: Bearer ••••••••' }] },
+    2,
+  ])
+  expect(veilValues(`${'A'.repeat(1_000_001)}${KEY}`)[1]).toBe(0)
+  expect(veilValues(undefined)).toEqual([undefined, 0])
 })

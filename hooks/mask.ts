@@ -1,6 +1,7 @@
-// Record mode: the text tessera draws with the strings that identify an account or a person masked, for a
-// screen that is being recorded, streamed or shared. On screen only: the transcript, what Claude reads and
-// what `/tessera copy` copies are untouched.
+// Two masks. `veil`: a tool result's secrets (keys, tokens, passwords) as ••••, before Claude reads it
+// and before it goes into the transcript. `mask`: record mode, the text tessera draws with the strings that
+// identify an account or a person masked too (emails, phone numbers), for a screen that is being recorded,
+// streamed or shared; on screen only.
 
 const DOTS = '••••••••'
 
@@ -48,16 +49,64 @@ const PHONE = /(?<![\w-]|\d\.)(?:(?:\+\d{1,3}[ -]?\d{2,4}[ -]?|\(\d{2,4}\)[ -]?|
 
 // A key masked above keeps its prefix, so an assignment of one is left as it is.
 const secretValue = (value: string) => !value.includes(DOTS) && (/\d/.test(value) || value.length >= 16)
+// What Claude reads must keep its code: an expression (`process.env.API_KEY`, `${TOKEN}`, `getenv("x")`),
+// a dotted or constant name, or a placeholder (`your_api_key_here`) given to a secret-sounding name is no
+// secret, and masked it would break the edit or the answer that follows.
+const CODE = /[(){}$<>[\]]|^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$|^[A-Z][A-Z0-9_]*$/
+const PLACEHOLDER = /your|example|placeholder|change[_-]?me|xxxx|dummy|sample/i
+const secretForModel = (value: string) => secretValue(value) && !CODE.test(value) && !PLACEHOLDER.test(value)
+
+// The secrets masked, with how many.
+const secrets = (text: string, isSecret: (value: string) => boolean): [text: string, count: number] => {
+  let count = 0
+  const hit = (replacement: string) => {
+    count++
+    return replacement
+  }
+  const masked = text
+    .replace(PRIVATE_KEY, (_, begin: string, end: string) => hit(`${begin}\n${DOTS}\n${end}`))
+    .replace(KEY, (_, ...groups: unknown[]) => hit(`${groups.slice(0, KEYS.length).find(g => typeof g === 'string') as string}${DOTS}`))
+    .replace(BEARER, (_, head: string) => hit(`${head}${DOTS}`))
+    .replace(URL_PASSWORD, (_, head: string, at: string) => hit(`${head}${DOTS}${at}`))
+    .replace(ASSIGNMENT, (whole: string, head: string, value: string) => (isSecret(value) ? hit(`${head}${DOTS}`) : whole))
+  return [masked, count]
+}
 
 export const mask = (text: string): string =>
-  text
-    .replace(PRIVATE_KEY, `$1\n${DOTS}\n$2`)
-    .replace(KEY, (_, ...groups: unknown[]) => `${groups.slice(0, KEYS.length).find(g => typeof g === 'string') as string}${DOTS}`)
-    .replace(BEARER, `$1${DOTS}`)
-    .replace(URL_PASSWORD, `$1${DOTS}$2`)
-    .replace(ASSIGNMENT, (whole: string, head: string, value: string) => (secretValue(value) ? `${head}${DOTS}` : whole))
+  secrets(text, secretValue)[0]
     .replace(EMAIL, (whole: string, first: string, tld: string) => (whole.startsWith('git@') ? whole : `${first}•••@•••.${tld}`))
     .replace(PHONE, number => number.slice(0, 4) + number.slice(4).replace(/\d/g, '•'))
+
+export const veil = (text: string): [text: string, count: number] => secrets(text, secretForModel)
+
+// A string past this is a file's bytes (an image, a PDF), never text with a key in it.
+const VEIL_MAX = 1_000_000
+
+// A tool's result with every string in it veiled, however deep: a shell's stdout, a file's content, an MCP
+// tool's content blocks. The same object comes back when nothing was masked.
+export const veilValues = (value: unknown): [value: unknown, count: number] => {
+  if (typeof value === 'string') return value.length > VEIL_MAX ? [value, 0] : veil(value)
+  if (Array.isArray(value)) {
+    let count = 0
+    const out = value.map(v => {
+      const [veiled, n] = veilValues(v)
+      count += n
+      return veiled
+    })
+    return [count === 0 ? value : out, count]
+  }
+  if (value !== null && typeof value === 'object') {
+    let count = 0
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) {
+      const [veiled, n] = veilValues(v)
+      count += n
+      out[k] = veiled
+    }
+    return [count === 0 ? value : out, count]
+  }
+  return [value, 0]
+}
 
 // A tool call's input or output with its strings masked, one level deep: a command, a path, a pattern, a
 // shell result's stdout and stderr.

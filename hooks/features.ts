@@ -47,6 +47,7 @@ export const FEATURES: Feature[] = [
     name: { en: 'Traditional Chinese guard', 'zh-TW': '繁簡守門' },
     about: { en: 'While you write Traditional Chinese, reminds once before Simplified characters or zh-CN terms go into a file', 'zh-TW': '你用繁體中文時，簡體字和簡中用語寫進檔案前提醒一次' },
   },
+  flag('maskSecrets', true, { en: 'Mask secrets', 'zh-TW': '遮住祕密' }, { en: 'API keys, tokens and passwords in tool results show as •••• to Claude and on screen', 'zh-TW': '工具結果裡的 API 金鑰、token、密碼，Claude 讀到和畫面上都是 ••••' }),
   flag('guardHeredoc', true, { en: 'Heredoc guard', 'zh-TW': 'heredoc 守門' }, { en: 'Reminds once before an unquoted heredoc expands ${...} or eats backslashes', 'zh-TW': '沒加引號的 heredoc 會展開 ${...} 或吃掉反斜線時提醒一次' }),
   flag('guardGlossary', false, { en: 'Glossary guard', 'zh-TW': '用語表守門' }, { en: 'Reminds once before a wording the glossary in CLAUDE.md says to avoid is written', 'zh-TW': 'CLAUDE.md 用語表裡標為避免的寫法寫進檔案前提醒一次' }),
   {

@@ -457,3 +457,29 @@ test('a cd after another command still places the delete: cd .. && rm -rf <the s
   expect((await $.tool.call({ tool: 'Bash', command: 'make && cd .. && rm -rf repo' })).deny).toContain('Name the directory meant')
   expect((await $.tool.call({ tool: 'Bash', command: 'make && cd .. && rm -rf other' })).deny).toBe(undefined)
 })
+
+// Secret-shaped fixtures are assembled, so no scanner takes the test for a leak.
+const TOKEN = ['ghp', 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'].join('_')
+const envTool = (_: unknown, e: unknown) =>
+  ({ result: { stdout: (e as { command: string }).command === 'cat settings.txt' ? `GITHUB_TOKEN=${TOKEN}\n` : 'clean\n', stderr: '' }, context: ['after'] }) as never
+
+test('a tool result with a secret is veiled before Claude reads it, with a note; one without goes back as it came', async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'Bash' }, envTool)
+  const veiled = await $.tool.call({ tool: 'Bash', command: 'cat settings.txt' })
+  expect(veiled.result).toEqual({ stdout: 'GITHUB_TOKEN=ghp_••••••••\n', stderr: '' })
+  expect(veiled.context?.length).toBe(2)
+  expect(veiled.context?.[0]).toBe('after')
+  expect(veiled.context?.[1]).toContain('masked 1 secret value')
+  const clean = await $.tool.call({ tool: 'Bash', command: 'echo clean' })
+  expect(clean.result).toEqual({ stdout: 'clean\n', stderr: '' })
+  expect(clean.context).toEqual(['after'])
+})
+
+test('with maskSecrets off a secret goes through', { options: { maskSecrets: false } }, async ($, on) => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('tool.call', { tool: 'Bash' }, envTool)
+  const result = await $.tool.call({ tool: 'Bash', command: 'cat settings.txt' })
+  expect(result.result).toEqual({ stdout: `GITHUB_TOKEN=${TOKEN}\n`, stderr: '' })
+  expect(result.context).toEqual(['after'])
+})

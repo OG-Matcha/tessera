@@ -437,6 +437,12 @@
         "off"
       ]
     },
+    "maskSecrets": {
+      "type": "boolean",
+      "title": "Mask secrets in tool results",
+      "description": "API keys, tokens, private keys, URL passwords and values given to a secret-sounding name in a tool's result are replaced with \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 before Claude reads the result, before it goes into the transcript and on screen, by pattern; a note after the result tells Claude. Code (process.env.KEY, ${TOKEN}), placeholders and a result the tool reported as an error are left as they are.",
+      "default": true
+    },
     "guardHeredoc": {
       "type": "boolean",
       "title": "Guard unquoted heredocs",

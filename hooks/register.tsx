@@ -302,6 +302,7 @@ function setOption($: EngineInterface, key: string, to: string | boolean) {
     case 'guardSimplified': return $.config.set({ key: 'tessera.guardSimplified', value: to })
     case 'guardHeredoc': return $.config.set({ key: 'tessera.guardHeredoc', value: to })
     case 'guardGlossary': return $.config.set({ key: 'tessera.guardGlossary', value: to })
+    case 'maskSecrets': return $.config.set({ key: 'tessera.maskSecrets', value: to })
     case 'agentModel': return $.config.set({ key: 'tessera.agentModel', value: to })
     case 'requireUserQuote': return $.config.set({ key: 'tessera.requireUserQuote', value: to })
     case 'feedbackInbox': return $.config.set({ key: 'tessera.feedbackInbox', value: to })
@@ -541,7 +542,7 @@ export const register: Register = (on, options) => {
     on('tool.call', { tool: 'TaskStop' as 'Bash' }, forgetStopped)
     on('ui.render', { component: 'AbovePrompt' }, quietBand)
   }
-  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true) {
+  if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true || options.maskSecrets !== false) {
     configureGuards(options)
     on('tool.call', guardToolCall).catch((_, e, next) => next(e))
     on('tool.call', { tool: 'Agent' }, guardAgent)

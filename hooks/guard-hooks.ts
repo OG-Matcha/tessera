@@ -8,6 +8,7 @@ import { EDITS, asEditLog, prune, recentEdit, remember } from './edits'
 import { commandHead } from './background'
 import { zhTwFixes } from './hans'
 import type { Term } from './glossary'
+import { veilValues } from './mask'
 import { glossaryHits, parseGlossary } from './glossary'
 import type { Rule } from './i18n'
 import { platformOf } from './platform'
@@ -32,6 +33,8 @@ let guardEncoding = true
 let guardData = true
 let guardSessions = true
 let stashBeforeDiscard = false
+let maskSecrets = true
+let veilNoted = false
 let glossary: { root: string; terms: Term[] } | undefined
 // Calls refused by a rule that can misjudge intent, by rule and call, with when: the same call sent
 // again within the window goes through, and calls refused in between do not reset each other.
@@ -328,10 +331,35 @@ export function configureGuards(options: Record<string, unknown>) {
   guardData = options.guardData !== false
   guardSessions = options.guardSessions !== false
   stashBeforeDiscard = options.stashBeforeDiscard === true
+  maskSecrets = options.maskSecrets !== false
+}
+
+// The result with its secrets veiled, for the model, the transcript and the screen alike: the engine
+// records a hook's own `{ result }` as the call's result. One note after it tells Claude what the dots
+// are, so it answers with them instead of printing the value another way; one toast per session tells
+// the person. A deny, an error and a result with nothing to mask go back as they came.
+const veiled = ($: EngineInterface, answer: Awaited<ReturnType<Hook<'tool.call'>>>) => {
+  if (!maskSecrets || answer.deny !== undefined || answer.isError === true) return answer
+  const [result, count] = veilValues(answer.result)
+  if (count === 0) return answer
+  if (!veilNoted) {
+    veilNoted = true
+    try {
+      $.ui.toast(t().veiled(count))
+    } catch {
+      /* the veil still goes out */
+    }
+  }
+  const note = `tessera masked ${count} secret ${count === 1 ? 'value' : 'values'} in this result as ${'•'.repeat(8)}. The real values stay on disk and in the environment; do not print them another way. If the task needs one, say so and let the person handle it.`
+  return { result, context: [...(answer.context ?? []), note] }
 }
 
 export const guardToolCall: Hook<'tool.call'> = async ($, e, next) => {
   if (e.agentId !== undefined) lastAgentCall = await $.clock.now()
+  return veiled($, await guardedCall($, e, next))
+}
+
+const guardedCall: Hook<'tool.call'> = async ($, e, next) => {
   const tool = String(e.tool)
   const input = e as unknown as Record<string, unknown>
   const escape = guardCjk ? misEscapedCjk(tool, input) : undefined

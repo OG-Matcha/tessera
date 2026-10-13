@@ -426,6 +426,23 @@ export const scenarios = [
     check: s => seen(s.reply, /changed/) ?? seen(s.reply, /list\.txt \+1 -1/) ?? (/[+-]item 5|[+-]line 5/.test(s.reply?.text ?? '') ? `a diff line drew with diffLines 0\n${tail(s.reply?.text)}` : undefined),
   },
   {
+    name: 'mask-secrets',
+    prompts: true,
+    // A tool result with a key in it reaches Claude, the transcript and the screen with the key as ••••:
+    // the result row shows the issuer prefix and the dots, never the key, and so does the reply.
+    setup: dir => writeFileSync(join(dir, 'settings.txt'), `OPENAI_API_KEY=${['sk-proj', 'E2eFakeKeyBodyAbCdEfGhIjKlMnOpQrStUvWx0123'].join('-')}\n`),
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Use the Bash tool once to run exactly this, then tell me what value OPENAI_API_KEY has: cat settings.txt' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /sk-proj-••••••••/) ?? (/E2eFakeKeyBody/.test(s.reply?.text ?? '') ? `the key drew unmasked\n${tail(s.reply?.text)}` : undefined),
+  },
+  {
     name: 'carry-over-reload',
     prompts: true,
     sessions: () => [

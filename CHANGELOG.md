@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- The quiet background rows no longer pile up: however many background commands are quiet, the band shows one row, naming up to three; **ask Claude** asks about them all, **ignore** drops the row, and so does the next message you send, since you have seen it. A command that writes again and falls quiet again is said again.
 - `diffLines` `0` now makes each edit one line: the added and removed counts (`+73 -19`) and the expand button sit on the edit's own tool row, and the result block below draws nothing. A file Write creates counts its lines. With tool rows off, the result keeps its own counts row.
 
 ### Fixed

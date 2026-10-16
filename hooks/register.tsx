@@ -617,6 +617,7 @@ export const register: Register = (on, options) => {
     const context = [...(e.context ?? [])]
     if (own) {
       if (carryOn && (await read($, carryOver)) !== null) await update($, carryOver, () => null)
+      if (backgroundOn && (await read($, quietTasks)).length > 0) await update($, quietTasks, () => [])
       session.voice = voiceOf(e.text) ?? session.voice
       if (!langSettled && (session.voice === 'zh-Hant' || session.voice === 'zh-Hans')) {
         session.lang = 'zh-TW'

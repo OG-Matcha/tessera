@@ -165,3 +165,39 @@ test('a /clear with carry-over off still drops the watched tasks', { options: { 
   await clock.advance(2 * MINUTE)
   expect(toasts).toEqual([])
 })
+
+test('two quiet commands share one row, and the next prompt the person sends takes it down', { options: { language: 'en', backgroundQuietMinutes: 1, carryOver: false, pastePreview: false } }, async ($, on) => {
+  const toasts: string[] = []
+  const clock = mock.clock(on)
+  sessionDirs(on)
+  on('fs.stat', () => ({ value: { kind: 'file', size: 0, mtimeMs: 0, isLink: false } }) as never)
+  on('ui.toast', (_, e) => {
+    toasts.push(String((e as { text?: unknown }).text ?? e))
+    return { value: undefined } as never
+  })
+  let n = 0
+  on('tool.call', { tool: 'Bash' }, () => ({ result: started(`bg${++n}`) }) as never)
+  on('prompt.submit', (_, e) => ({ text: e.text }) as never)
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Bash', command: 'npm run build', run_in_background: true })
+  await $.tool.call({ tool: 'Bash', command: 'npm test', run_in_background: true })
+  await clock.advance(MINUTE)
+  expect(toasts).toHaveLength(2)
+  let ui = await mountBand($)
+  expect(await ui.find({ type: 'Text', text: '2 background commands have written nothing for 1 min' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'bg1: npm run build' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'bg2: npm test' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', label: 'ignore' } as never)).toBeDefined()
+  await ui.unmount()
+  await $.prompt.submit({ text: 'carry on', origin: { kind: 'composer' }, wait: false } as never)
+  ui = await mountBand($)
+  expect(await ui.find({ type: 'Button', label: 'ignore' } as never)).toBe(undefined)
+  await ui.unmount()
+  // Still quiet: not said again.
+  await clock.advance(5 * MINUTE)
+  expect(toasts).toHaveLength(2)
+})

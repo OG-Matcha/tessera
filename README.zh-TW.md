@@ -119,7 +119,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 
 | 功能 | 預設 | 說明 |
 | --- | --- | --- |
-| 監看背景工作 | 開 | Claude 丟到背景的指令十分鐘（`backgroundQuietMinutes`）沒有新輸出時，輸入框上方會多一列：**問 Claude** 把查看這個工作的請求填進輸入框，**忽略** 就不再提。卡住的指令本來不會回報，要等你去問才知道 |
+| 監看背景工作 | 開 | Claude 丟到背景的指令十分鐘（`backgroundQuietMinutes`）沒有新輸出時，輸入框上方會多一列（幾個一起安靜也只有一列）：**問 Claude** 把查看它們的請求填進輸入框，**忽略** 收起這列，你送出下一則訊息也會收起；結束的工作自己從列上消失。卡住的指令本來不會回報，要等你去問才知道 |
 | 快取倒數 | 開 | 快取快冷掉時（剩十分鐘；`cacheClockMinutes` 可調，60 就每輪結束都顯示），輸入框上方多一行暗色倒數，並說冷掉後下一則要重新快取多少 token；Claude 工作中不顯示。訂閱制一小時、API 金鑰五分鐘，由額度視窗判斷 |
 | Python 用 UTF-8 | 開 | Windows 上替 session 設 `PYTHONUTF8=1`，Claude 執行的 Python 改用 UTF-8 讀寫，不再卡在系統 code page（中日韓文字出現 `UnicodeEncodeError` 或印成 `?`）；你自己設過這個變數就不動，其他系統上沒有作用 |
 | 工作區守門 | 開 | 擋下對根目錄、磁碟、家目錄、session 目錄或其上層的遞迴刪除、穿過連結的遞迴刪除、連到 `node_modules` 的連結；強制推送到 `main` 或 `master` 前，以及 `git reset --hard`、`git checkout -- <路徑>`、`git restore`、`git clean -f` 會丟掉未提交的改動前，列出檔案提醒一次；agent 執行時擋下改寫主樹和 `git add -A` |

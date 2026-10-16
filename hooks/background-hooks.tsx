@@ -8,6 +8,7 @@ import { pasteRoot, platformOf } from './platform'
 import { session, t } from './session'
 
 const CHECK_MS = 60_000
+const QUIET_SHOWN = 3
 
 const quietTasks = atom({ plugin: 'tessera', key: 'quietTasks' } as const, [] as Quiet[])
 const watched = new Map<string, Watched>()
@@ -63,9 +64,17 @@ function forget($: EngineInterface, id: string) {
   return update($, quietTasks, list => list.filter(q => q.id !== id))
 }
 
-async function askClaude($: EngineInterface, quiet: Quiet) {
-  await $.prompt.fill({ text: t().quietAsk(quiet.id, quiet.minutes) })
-  await forget($, quiet.id)
+// The band's one row speaks for every quiet task: asking fills one request about them all, ignoring drops
+// them all. The next prompt the person sends drops the row too (they have seen it, and the toast), and a
+// task that goes on writing and falls quiet again is said again.
+async function askClaude($: EngineInterface, list: Quiet[]) {
+  await $.prompt.fill({ text: t().quietAsk(list.map(q => q.id), Math.min(...list.map(q => q.minutes))) })
+  await forgetAll($, list)
+}
+
+async function forgetAll($: EngineInterface, list: Quiet[]) {
+  for (const q of list) watched.delete(q.id)
+  await update($, quietTasks, () => [])
 }
 
 type Backgrounded = { backgroundTaskId?: string; backgroundEndsWithFinalResponse?: true }
@@ -118,16 +127,17 @@ export const quietBand: MatchedHook<'ui.render', { component: 'AbovePrompt' }> =
   const s = t()
   return (
     <Box flexDirection="column">
-      {list.map(quiet => (
-        <Box key={`quiet-${quiet.id}`} flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
-          <Box flexDirection="row" gap={2}>
-            <Text bold>{s.quietTitle(quiet.minutes)}</Text>
-            <Button key={`quiet-ask-${quiet.id}`} label={s.quietAskButton} onPress={() => askClaude($, quiet)} />
-            <Button key={`quiet-ignore-${quiet.id}`} label={s.quietIgnore} onPress={() => forget($, quiet.id)} />
-          </Box>
-          <Text dimColor wrap="truncate-end">{session.lang === 'zh-TW' ? `${quiet.id}：${quiet.command}` : `${quiet.id}: ${quiet.command}`}</Text>
+      <Box flexDirection="column" borderStyle="round" borderDimColor paddingX={1}>
+        <Box flexDirection="row" gap={2}>
+          <Text bold>{s.quietTitle(list.length, Math.min(...list.map(q => q.minutes)))}</Text>
+          <Button key="quiet-ask" label={s.quietAskButton} onPress={() => askClaude($, list)} />
+          <Button key="quiet-ignore" label={s.quietIgnore} onPress={() => forgetAll($, list)} />
         </Box>
-      ))}
+        {list.slice(0, QUIET_SHOWN).map(quiet => (
+          <Text key={`quiet-${quiet.id}`} dimColor wrap="truncate-end">{session.lang === 'zh-TW' ? `${quiet.id}：${quiet.command}` : `${quiet.id}: ${quiet.command}`}</Text>
+        ))}
+        {list.length > QUIET_SHOWN && <Text dimColor>…</Text>}
+      </Box>
       {below}
     </Box>
   )

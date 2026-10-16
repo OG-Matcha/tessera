@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { mermaidText, unpad } from '../hooks/mermaid'
+import { mermaidFit, mermaidText, unpad } from '../hooks/mermaid'
 import { width } from '../hooks/render'
 import { showcaseTextZh } from '../hooks/help-zh'
 
@@ -38,4 +38,25 @@ test('Chinese chart categories sit under their ticks', () => {
   const centers = [...row.matchAll(/第\d天/g)].map(m => width(row.slice(0, m.index)) + width(m[0]) / 2)
   expect(centers.length).toBe(ticks.length)
   centers.forEach((c, i) => expect(Math.abs(c - ticks[i]!)).toBeLessThanOrEqual(1.5))
+})
+
+const SIX = `graph LR
+  A[使用者送出提示] --> B[tessera prompt.submit]
+  B --> C{有背景工作?}
+  C -->|是| D[清掉安靜列]
+  C -->|否| E[照常處理]
+  D --> F[模型回覆]
+  E --> F`
+
+test('a left-to-right flowchart too wide for the terminal is laid out top down; one that fits stays as written', () => {
+  const wideTerminal = unpad(mermaidFit(SIX, false, 160) ?? '')
+  const narrowTerminal = unpad(mermaidFit(SIX, false, 100) ?? '')
+  expect(wideTerminal).not.toBe('')
+  expect(narrowTerminal).not.toBe('')
+  expect(wideTerminal.split('\n').length).toBeLessThan(20)
+  expect(narrowTerminal.split('\n').length).toBeGreaterThan(wideTerminal.split('\n').length)
+  for (const line of narrowTerminal.split('\n')) expect(line.length).toBeLessThanOrEqual(98)
+  expect(narrowTerminal).toContain('使用者送出提示')
+  // Not a flowchart, and too wide: code it stays.
+  expect(mermaidFit('sequenceDiagram\n  參與者甲->>參與者乙: 一段很長很長的訊息文字再長一點\n  參與者乙-->>參與者甲: 回覆', false, 30)).toBe(null)
 })

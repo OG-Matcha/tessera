@@ -61,6 +61,22 @@ export const mermaidText =(source: string, ascii: boolean, columns: number): str
   })
 }
 
+// A diagram wider than the terminal is drawn as code. A flowchart laid out left to right grows by a box
+// per node, so one that does not fit is laid out top down and tried again before giving up.
+const fits = (art: string, columns: number) => unpad(art).split('\n').every(l => width(l) <= columns - 2)
+const turnedDown = (source: string): string | undefined => {
+  const down = source.replace(/^(\s*(?:graph|flowchart)\s+)(?:LR|RL)\b/m, '$1TD')
+  return down === source ? undefined : down
+}
+
+export const mermaidFit = (source: string, ascii: boolean, columns: number): string | null => {
+  const art = mermaidText(source, ascii, columns)
+  if (art !== null && fits(art, columns)) return art
+  const down = turnedDown(source)
+  const again = down === undefined ? null : mermaidText(down, ascii, columns)
+  return again !== null && fits(again, columns) ? again : null
+}
+
 const LINE = /[─-╿◇]/
 const ARROW = /[►◄▲▼]/
 

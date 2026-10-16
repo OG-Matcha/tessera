@@ -459,6 +459,22 @@ export const scenarios = [
     check: s => seen(s.reply, /⏱ (快取 \d+ 分後冷掉 · 下一則要重新快取 \d+k? tokens|Prompt cache cold in \d+ min · the next message re-caches \d+k? tokens)/),
   },
   {
+    name: 'mermaid-fit',
+    prompts: true,
+    // A seven-box LR flowchart with Chinese labels draws wider than the harness's 110 columns; it is laid
+    // out top down (arrows point down) and drawn as boxes, not left as code.
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Reply with exactly this fenced block and nothing else, no words before or after:\n```mermaid\ngraph LR\n  A[使用者送出提示] --> B[tessera prompt.submit]\n  B --> C{有背景工作?}\n  C -->|是| D[清掉安靜列]\n  C -->|否| E[照常處理]\n  D --> F[模型回覆]\n  E --> F\n  F --> G[寫進 transcript 和畫面]\n```' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY, shot: 'reply' },
+        ],
+      },
+    ],
+    check: s => seen(s.reply, /│\s*模型回覆\s*│/) ?? seen(s.reply, /│\s*寫進 transcript 和畫面\s*│/) ?? seen(s.reply, /▼/),
+  },
+  {
     name: 'carry-over-reload',
     prompts: true,
     sessions: () => [

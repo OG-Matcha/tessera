@@ -8,9 +8,9 @@ import type { InboxItem } from './inbox'
 import { intake, intakeNote, listText, markFixed, parseChat } from './inbox'
 
 import { parse } from './markdown'
-import { boxArt, mermaidText, unpad } from './mermaid'
+import { boxArt, mermaidFit, unpad } from './mermaid'
 import type { CopyKind, Drawn } from './render'
-import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderShellEdits, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, shortPath, width } from './render'
+import { breakUnits, remember, renderBlocks, renderExpandedShell, renderFoldedDiff, renderShellEdits, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, shortPath } from './render'
 import { helpText, rtlShowcaseText, showcaseText } from './help'
 import { helpTextZh, showcaseTextZh } from './help-zh'
 import type { CarryStore, TaskLog } from './carry'
@@ -405,8 +405,8 @@ const drawMarkdown =($: EngineInterface, el: ReturnType<EngineInterface['ui']['r
   if (style.mermaid) {
     for (const [i, block] of blocks.entries()) {
       if (block.kind !== 'code' || block.lang.toLowerCase() !== 'mermaid') continue
-      const art = mermaidText(block.lines.join('\n'), style.mermaidAscii, columns)
-      if (art !== null && unpad(art).split('\n').every(l => width(l) <= columns - 2)) drawn.set(i, { element: boxArt(el, style, art, `b${i}`), art: unpad(art) })
+      const art = mermaidFit(block.lines.join('\n'), style.mermaidAscii, columns)
+      if (art !== null) drawn.set(i, { element: boxArt(el, style, art, `b${i}`), art: unpad(art) })
     }
   }
   const elements = renderBlocks(el, style, blocks, columns, drawn, copy)

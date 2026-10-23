@@ -45,14 +45,21 @@ function append(log: readonly LoggedPrompt[], entry: Omit<LoggedPrompt, 'n'>): L
   return [...log, { n, ...entry }].slice(-KEPT)
 }
 
-export const addPrompt = (log: readonly LoggedPrompt[], text: string, origin: string, images: number, at: number) =>
-  append(log, { at, kind: kindOf(text, origin, images), text: cut(flat(unwrapPastes(text)), PREVIEW_CHARS), source: text })
+// Before Claude Code 2.1.309 a slash command also came through prompt.submit as its typed line, which
+// command.run hears as well: whichever comes second within a few seconds is the same command.
+const SAME_COMMAND_MS = 5_000
+const sameCommand = (last: LoggedPrompt | undefined, line: string, at: number) => last !== undefined && last.source === line && at - last.at < SAME_COMMAND_MS
 
-// A command can be heard twice, at command.run and at prompt.submit (a skill's): kept once.
+export function addPrompt(log: readonly LoggedPrompt[], text: string, origin: string, images: number, at: number): LoggedPrompt[] {
+  if (sameCommand(log.at(-1), text.trim(), at) && log.at(-1)!.kind === 'command') return log as LoggedPrompt[]
+  return append(log, { at, kind: kindOf(text, origin, images), text: cut(flat(unwrapPastes(text)), PREVIEW_CHARS), source: text })
+}
+
+// A command can be heard twice, at command.run and at prompt.submit: kept once, as a command.
 export function addCommand(log: readonly LoggedPrompt[], command: string, args: string, at: number): LoggedPrompt[] {
   const line = commandLine(command, args)
   const last = log.at(-1)
-  if (last?.kind === 'command' && last.source === line && at - last.at < 5_000) return log as LoggedPrompt[]
+  if (sameCommand(last, line, at)) return last!.kind === 'command' ? (log as LoggedPrompt[]) : log.map(p => (p === last ? { ...p, kind: 'command' as const } : p))
   return append(log, { at, kind: 'command', text: cut(line, PREVIEW_CHARS), source: line })
 }
 

@@ -130,3 +130,16 @@ test('a reply that opens with a code fence is previewed by its first line inside
   const log = attachReply(addPrompt([], 'numbers', 'composer', 0, 1), '```text\n1\n2\n```')
   expect(log[0]!.reply).toBe('1')
 })
+
+test('before 2.1.309 a slash command also arrives as typed text: heard either way round, it is one command', () => {
+  // prompt.submit first, then command.run
+  let log = addPrompt([], '/context', 'composer', 0, 1_000)
+  log = addCommand(log, 'context', '', 1_500)
+  expect(log.map(p => [p.kind, p.text])).toEqual([['command', '/context']])
+  // command.run first, then prompt.submit
+  log = addCommand([], 'context', '', 1_000)
+  log = addPrompt(log, '/context', 'composer', 0, 1_500)
+  expect(log).toHaveLength(1)
+  // The same text much later is a prompt of its own.
+  expect(addPrompt(log, '/context', 'composer', 0, 60_000)).toHaveLength(2)
+})

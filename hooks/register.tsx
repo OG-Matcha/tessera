@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On, Register, RenderElement, Timer } from 'claude-code'
+import type { EngineInterface, MatchedHook, On, Register, RenderElement, Timer } from 'claude-code'
 
-import type { CarryOver, Quiet, UpdateOffer } from '../types'
+import type { CarryOver, LoggedPrompt, PromptLogView, Quiet, UpdateOffer } from '../types'
 import type { Env } from './platform'
 import { platformOf } from './platform'
 import type { InboxItem } from './inbox'
@@ -22,7 +22,8 @@ import { configureGuards, guardAgent, guardToolCall, guardWorkflow } from './gua
 import { configurePastes, pasteBand, startPastes } from './paste-hooks'
 import { background, configureBackgroundWatch, forgetStopped, quietBand, watchShell } from './background-hooks'
 import { cacheBand, configureCacheClock, forgetCache, warmCache } from './cache-hooks'
-import { clearPromptLog, configurePromptLog, flashed, logArrows, logClosed, logCommand, logFocus, logPane, logPrompt, noteCommandRow, notePromptRow, noteReply, openLog } from './prompt-log-hooks'
+import { PANE_COLUMNS, configurePromptLog, logArrows, logClosed, logCommand, logFocus, logPane, logPrompt, logReply, logScreen } from './prompt-log-hooks'
+import { isOwn, isRealRow, withRows } from './prompt-log'
 import { notifiedTask } from './background'
 import { EDITS, asEditLog, rekeyed } from './edits'
 import { FEATURES } from './features'
@@ -416,6 +417,70 @@ const drawMarkdown =($: EngineInterface, el: ReturnType<EngineInterface['ui']['r
   return button ? [...elements, <el.Box key="reply" alignSelf="flex-end">{button}</el.Box>] : elements
 }
 
+// The prompt log's work that needs $ and runs inside this module's own hooks: past an import, $ is
+// followed only into the hooks `on` registers, so these live here and the log's own hooks in
+// prompt-log-hooks.tsx. The state they touch is declared here too, as a reader of the module lists it
+// per file; prompt-log-hooks.tsx declares the same keys.
+const promptLog = atom({ plugin: 'tessera', key: 'promptLog' } as const, [] as LoggedPrompt[])
+const promptLogView = atom({ plugin: 'tessera', key: 'promptLogView' } as const, { selected: null } as PromptLogView)
+const promptFlash = atom({ plugin: 'tessera', key: 'promptFlash' } as const, null as string | null)
+
+async function keepPromptRows($: EngineInterface) {
+  if (logScreen.seenRows.size > 0) await update($, promptLog, log => withRows(log, logScreen.seenRows.values()))
+}
+
+async function openPromptLog($: EngineInterface) {
+  await keepPromptRows($)
+  const log = await read($, promptLog)
+  const newest = log.at(-1)
+  if (newest !== undefined) await update($, promptLogView, v => (log.some(p => p.n === v.selected) ? v : { selected: newest.n }))
+  await $.ui.open({ id: 'tessera-log', title: t().logTitle(log.length), focus: true, closeOnEscape: true, columns: PANE_COLUMNS })
+}
+
+// A /clear or /resume starts another conversation in this terminal: its prompts are another log.
+async function clearPromptLog($: EngineInterface) {
+  logScreen.seenRows.clear()
+  logScreen.onScreen.clear()
+  await update($, promptLog, () => [])
+  await update($, promptLogView, () => ({ selected: null }))
+  await update($, promptFlash, () => null)
+}
+
+function noteScreen($: EngineInterface, id: string, screen: unknown) {
+  if (screen === undefined) return
+  const shown = screen !== null
+  if (logScreen.onScreen.has(id) === shown) return
+  if (shown) logScreen.onScreen.add(id)
+  else logScreen.onScreen.delete(id)
+  if (logScreen.paneShown) $.ui.invalidate('ui.render')
+}
+
+type UserRow = Parameters<MatchedHook<'ui.render', { component: 'UserMessage' }>>[1]
+type CommandRow = Parameters<MatchedHook<'ui.render', { component: 'CommandOutput' }>>[1]
+
+// A transcript row of the person's prompt, seen as it draws; a drawing cannot write state.
+function notePromptRow($: EngineInterface, e: UserRow) {
+  const id = e.requestId
+  if (!isRealRow(id) || !isOwn(e.props.origin.kind)) return
+  if (!logScreen.seenRows.has(id)) logScreen.seenRows.set(id, { id, kind: 'prompt', text: e.props.text })
+  noteScreen($, id, e.props.onScreen)
+}
+
+function noteCommandRow($: EngineInterface, e: CommandRow) {
+  const id = e.requestId
+  if (!isRealRow(id) || e.props.isErrored) return
+  if (!logScreen.seenRows.has(id)) logScreen.seenRows.set(id, { id, kind: 'command', command: e.props.command, args: e.props.args })
+  noteScreen($, id, e.props.onScreen)
+}
+
+// The row a jump landed on, lit for a moment in the theme's rule color; every other row as drawn.
+let rowFlashColor = 'gray'
+async function flashRow($: EngineInterface, e: UserRow | CommandRow, drawn: RenderElement): Promise<RenderElement> {
+  if ((await read($, promptFlash)) !== e.requestId) return drawn
+  const { Box } = $.ui.resolve(e)
+  return <Box backgroundColor={rowFlashColor}>{drawn}</Box>
+}
+
 export const register: Register = (on, options) => {
   const isDrawing = options.enabled !== false
   const promptLogOn = options.promptLog !== false
@@ -547,18 +612,11 @@ export const register: Register = (on, options) => {
     on('tool.call', { tool: 'TaskStop' as 'Bash' }, forgetStopped)
     on('ui.render', { component: 'AbovePrompt' }, quietBand)
   }
-  const cacheOn = options.cacheClock !== false
-  if (cacheOn) {
+  if (options.cacheClock !== false) {
     configureCacheClock(options)
+    on('turn.complete', warmCache)
     on('turn.start', forgetCache)
     on('ui.render', { component: 'AbovePrompt' }, cacheBand)
-  }
-  // The module's one turn.complete: the cache clock and the prompt log both read the turn's end.
-  if (cacheOn || promptLogOn) {
-    on('turn.complete', async ($, e, next) => {
-      if (promptLogOn) await noteReply($, e)
-      return cacheOn ? warmCache($, e, next) : next(e)
-    })
   }
   if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true || options.maskSecrets !== false) {
     configureGuards(options)
@@ -569,6 +627,10 @@ export const register: Register = (on, options) => {
   registerSetup(on, options)
   if (promptLogOn) {
     configurePromptLog(style.theme)
+    rowFlashColor = style.theme.rule ?? 'gray'
+    // Each with a matcher: the module's own prompt.submit and the cache clock's turn.complete are unmatched.
+    on('prompt.submit', { origin: { kind: /^(composer|bridge)$/ } }, logPrompt)
+    on('turn.complete', { reason: 'answer' }, logReply)
     on('command.run', logCommand)
     on('ui.render', { component: 'Pane', requestId: 'tessera-log' }, logPane)
     on('ui.focus', { component: 'Pane', requestId: 'tessera-log' }, logFocus)
@@ -657,8 +719,7 @@ export const register: Register = (on, options) => {
       const note = await fileFeedback($, e.text)
       if (note !== undefined) context.push(note)
     }
-    const forward = context.length === (e.context ?? []).length ? e : { ...e, context }
-    return promptLogOn ? logPrompt($, forward, next) : next(forward)
+    return context.length === (e.context ?? []).length ? next(e) : next({ ...e, context })
   })
 
   on('command.run', { command: 'tessera' }, async ($, e) => {
@@ -688,7 +749,7 @@ export const register: Register = (on, options) => {
     }
     if (sub === 'log') {
       if (!promptLogOn) return { text: t().logOff }
-      await openLog($)
+      await openPromptLog($)
       return { text: t().logOpened }
     }
     if (!isDrawing) return { text: t().drawingOff }
@@ -775,14 +836,14 @@ export const register: Register = (on, options) => {
     }
     if (promptLogOn) notePromptRow($, e)
     const drawn = !isDrawing || style.promptStyle === 'off' || !own ? await next(e) : renderUserPrompt($.ui.resolve(e), style, shown(e.props.text), Math.max(20, (e.viewport?.columns ?? 100) - 4))
-    return promptLogOn ? flashed($, e, drawn) : drawn
+    return promptLogOn ? flashRow($, e, drawn) : drawn
   })
 
   // A command's row tells the log where the command drew; with drawing on, the row's own hook below does.
   if (promptLogOn && !isDrawing) {
     on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
       noteCommandRow($, e)
-      return flashed($, e, await next(e))
+      return flashRow($, e, await next(e))
     })
   }
 
@@ -818,7 +879,7 @@ export const register: Register = (on, options) => {
     const el = $.ui.resolve(e)
     const columns = Math.max(20, (e.viewport?.columns ?? 100) - 4)
     const drawn = blocks.length === 0 ? await next(e) : <el.Box flexDirection="column" rowGap={1} {...(style.reorder && hasRtl(text) ? { width: '100%' } : {})}>{drawMarkdown($, el, style, blocks, columns)}</el.Box>
-    return promptLogOn ? flashed($, e, drawn) : drawn
+    return promptLogOn ? flashRow($, e, drawn) : drawn
   })
 
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {

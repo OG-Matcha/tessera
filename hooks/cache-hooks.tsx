@@ -32,12 +32,10 @@ function stop() {
   timer = undefined
 }
 
-type TurnComplete = Parameters<Hook<'turn.complete'>>
-
 // The main loop's last response warms the cache from this moment; a turn with no request (an error, an
 // interrupt before one) leaves the reading as it was. What the next message re-caches is the window as
-// the last response reported it. A function declaration: register.tsx calls it from its one turn.complete.
-export async function warmCache($: EngineInterface, e: TurnComplete[1], next: TurnComplete[2]): Promise<Awaited<ReturnType<TurnComplete[2]>>> {
+// the last response reported it.
+export const warmCache: Hook<'turn.complete'> = async ($, e, next) => {
   if (e.agentId !== undefined || e.usage === undefined) return next(e)
   const now = await $.clock.now()
   const usage = await $.session.usage().catch(() => undefined)

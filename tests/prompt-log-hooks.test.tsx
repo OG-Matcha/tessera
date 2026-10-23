@@ -76,9 +76,9 @@ test('typed prompts, a paste and a command are listed newest first, and a jump t
   expect(await pane.find({ type: 'Text', text: 'Prompt log · 3 prompts' })).toBeDefined()
   const rows = (await pane.findAll({ type: 'Button' })).map(b => b.props.key).filter(k => String(k).startsWith('log-') && /\d$/.test(String(k)))
   expect(rows).toEqual(['log-3', 'log-2', 'log-1'])
-  expect(await pane.find({ type: 'Text', text: ' /context' })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /^3 \d\d:\d\d \/ \/context$/ })).toBeDefined()
   // The pane is 46 columns: the paste's text, unwrapped, is cut to the row.
-  expect(await pane.find({ type: 'Text', text: /^ log line 1 log line 2 what does t…$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /^2 \d\d:\d\d ⎘ log line 1 log line 2 what does t…$/ })).toBeDefined()
 
   await press(pane, 'log-1')
   expect(seen.toasts).toEqual(['Cannot jump to #1 (no implementation for ui.scroll); press f to put it back in the prompt'])
@@ -138,7 +138,7 @@ test('the selected prompt shows its reply; j and k move the selection', { option
   await pane.unmount()
 })
 
-test('the numbers of prompts on screen are green', { options: OPTIONS }, async ($, on) => {
+test('the prompts on screen carry a green dot', { options: OPTIONS }, async ($, on) => {
   engine(on)
   await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
   await $.prompt.submit(typed('on screen') as never)
@@ -147,8 +147,10 @@ test('the numbers of prompts on screen are green', { options: OPTIONS }, async (
   await (await drawRow($, 'row-2', 'scrolled away', null)).unmount()
   await openLog($)
   const pane = await mountPane($)
-  const numbers = (await pane.findAll({ type: 'Text', text: /^[12]$/ })).map(n => [n.props.children ?? n.props.text, n.props.color])
-  expect(numbers.map(([, color]) => color)).toEqual([undefined, '#a6e3a1'])
+  // #1 is on screen, #2 scrolled away: one dot, in the theme's number green.
+  const dots = await pane.findAll({ type: 'Text', text: '●' })
+  expect(dots).toHaveLength(1)
+  expect(dots[0]!.props.color).toBe('#a6e3a1')
   await pane.unmount()
 })
 
@@ -191,7 +193,8 @@ test('while /tessera record is on, the pane masks emails and keys in prompts and
   await pane.unmount()
   await $.command.run({ command: 'tessera', args: 'record on', origin: { kind: 'composer' }, presentation })
   pane = await mountPane($)
-  expect(await pane.find({ type: 'Text', text: /ada@example/ })).toBeUndefined()
+  expect(await pane.find({ text: /ada@example/ })).toBeUndefined()
+  expect(await pane.find({ type: 'Button', text: /mail the report to a•••@•••\.com$/ })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: 'mail the report to a•••@•••.com' })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: '└ Sent to a•••@•••.com' })).toBeDefined()
   await pane.unmount()

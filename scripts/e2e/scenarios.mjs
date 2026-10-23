@@ -600,5 +600,34 @@ export const scenarios = [
     ],
     check: s => seen(s.band, /(written nothing for \d+ min|\d+ 分鐘沒有輸出)[\s\S]*(ask Claude|問 Claude)[\s\S]*sleep 300/),
   },
+  {
+    name: 'prompt-log',
+    prompts: true,
+    // A long reply pushes the first prompt off screen; the log brings it back with j and Enter, and f puts it
+    // back in the prompt. The pane opens with the keyboard, so the keys reach it.
+    sessions: () => [
+      {
+        args: HAIKU,
+        steps: [
+          { type: 'Reply with exactly one word: kiwi' },
+          { key: '\r', until: /✻ \w+ for/, timeoutMs: REPLY },
+          { type: 'Output a fenced text code block containing the integers 1 to 120, one per line. Nothing else.' },
+          { key: '\r', wait: 2_000, until: /✻ \w+ for[\s\S]*✻ \w+ for/, timeoutMs: REPLY },
+          { type: '/tessera log' },
+          { key: '\r', until: /Prompt log · 2 prompts|輸入紀錄 · 2 則/, timeoutMs: 15_000, wait: 1_500, shot: 'pane' },
+          { key: 'j', wait: 1_500 },
+          { key: '\r', wait: 3_000, shot: 'jumped' },
+          { key: 'f', wait: 2_000, shot: 'filled' },
+        ],
+      },
+    ],
+    check: s => {
+      // The transcript's row of the prompt (boxed or after ❯, not the pane's own row of it) within the
+      // first rows of the screen: where a jump puts it.
+      const nearTop = shot => (shot?.text ?? '').split('\n').filter(l => l.trim()).slice(0, 8).some(l => /(│|❯)\s+Reply with exactly one word: kiwi/.test(l))
+      if (nearTop(s.pane)) return `the first prompt was still on screen before the jump\n${tail(s.pane?.text)}`
+      return seen(s.pane, /(Prompt log · 2 prompts|輸入紀錄 · 2 則)[\s\S]*1 \d\d:\d\d · Reply with exactly one word: kiwi/) ?? (nearTop(s.jumped) ? undefined : `Enter did not bring the first prompt to the top\n${tail(s.jumped?.text)}`) ?? seen(s.filled, /❯\s+Reply with exactly one word: kiwi/)
+    },
+  },
 ]
 

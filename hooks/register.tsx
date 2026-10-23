@@ -22,6 +22,7 @@ import { configureGuards, guardAgent, guardToolCall, guardWorkflow } from './gua
 import { configurePastes, pasteBand, startPastes } from './paste-hooks'
 import { background, configureBackgroundWatch, forgetStopped, quietBand, watchShell } from './background-hooks'
 import { cacheBand, configureCacheClock, forgetCache, warmCache } from './cache-hooks'
+import { clearPromptLog, configurePromptLog, flashed, logArrows, logClosed, logCommand, logFocus, logPane, logPrompt, noteCommandRow, notePromptRow, noteReply, openLog } from './prompt-log-hooks'
 import { notifiedTask } from './background'
 import { EDITS, asEditLog, rekeyed } from './edits'
 import { FEATURES } from './features'
@@ -308,6 +309,7 @@ function setOption($: EngineInterface, key: string, to: string | boolean) {
     case 'agentModel': return $.config.set({ key: 'tessera.agentModel', value: to })
     case 'requireUserQuote': return $.config.set({ key: 'tessera.requireUserQuote', value: to })
     case 'feedbackInbox': return $.config.set({ key: 'tessera.feedbackInbox', value: to })
+    case 'promptLog': return $.config.set({ key: 'tessera.promptLog', value: to })
     default: return undefined
   }
 }
@@ -416,6 +418,7 @@ const drawMarkdown =($: EngineInterface, el: ReturnType<EngineInterface['ui']['r
 
 export const register: Register = (on, options) => {
   const isDrawing = options.enabled !== false
+  const promptLogOn = options.promptLog !== false
   pythonUtf8 = options.pythonUtf8 !== false
   const style = resolveStyle(options)
 
@@ -520,7 +523,7 @@ export const register: Register = (on, options) => {
       carryOn ? carry() : undefined,
       offerUpdate(),
       $.command
-        .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[setup | peek <file> | inbox [fixed <n…>] | theme <name> | copy [code|prompt] | demo]' })
+        .register({ name: 'tessera', description: t().commandDescription, argumentHint: '[setup | log | peek <file> | inbox [fixed <n…>] | theme <name> | copy [code|prompt] | demo]' })
         .catch(() => undefined),
       inboxOn ? registerInboxTool($) : undefined,
     ])
@@ -544,11 +547,18 @@ export const register: Register = (on, options) => {
     on('tool.call', { tool: 'TaskStop' as 'Bash' }, forgetStopped)
     on('ui.render', { component: 'AbovePrompt' }, quietBand)
   }
-  if (options.cacheClock !== false) {
+  const cacheOn = options.cacheClock !== false
+  if (cacheOn) {
     configureCacheClock(options)
-    on('turn.complete', warmCache)
     on('turn.start', forgetCache)
     on('ui.render', { component: 'AbovePrompt' }, cacheBand)
+  }
+  // The module's one turn.complete: the cache clock and the prompt log both read the turn's end.
+  if (cacheOn || promptLogOn) {
+    on('turn.complete', async ($, e, next) => {
+      if (promptLogOn) await noteReply($, e)
+      return cacheOn ? warmCache($, e, next) : next(e)
+    })
   }
   if (options.guardGit !== false || options.guardCjkEscapes !== false || options.guardEncoding !== false || options.guardData !== false || options.guardSessions !== false || options.guardSimplified !== 'off' || options.guardHeredoc !== false || options.guardGlossary === true || options.agentModel !== 'off' || options.requireUserQuote === true || options.maskSecrets !== false) {
     configureGuards(options)
@@ -557,6 +567,14 @@ export const register: Register = (on, options) => {
     on('tool.call', { tool: 'Workflow' }, guardWorkflow).catch((_, e, next) => next(e))
   }
   registerSetup(on, options)
+  if (promptLogOn) {
+    configurePromptLog(style.theme)
+    on('command.run', logCommand)
+    on('ui.render', { component: 'Pane', requestId: 'tessera-log' }, logPane)
+    on('ui.focus', { component: 'Pane', requestId: 'tessera-log' }, logFocus)
+    on('ui.scroll', { component: 'Pane', requestId: 'tessera-log' }, logArrows)
+    on('ui.close', { id: 'tessera-log' }, logClosed)
+  }
   carryOn = options.carryOver !== false
   if (carryOn) registerCarryOver(on)
   // The module's one session.end, whatever is on. A /clear, or a /resume typed in the session, ends the
@@ -569,6 +587,7 @@ export const register: Register = (on, options) => {
     const store = key === undefined ? undefined : endSession(await readCarry($, key), e.sessionId, await $.clock.now())
     if (key !== undefined && store !== undefined) await $.store.set(key, store).catch(() => undefined)
     if (e.reason !== 'clear' && e.reason !== 'resume') return next(e)
+    if (promptLogOn) await clearPromptLog($)
     taskLog.tasks.clear()
     taskLog.todos = []
     background.watched.clear()
@@ -638,7 +657,8 @@ export const register: Register = (on, options) => {
       const note = await fileFeedback($, e.text)
       if (note !== undefined) context.push(note)
     }
-    return context.length === (e.context ?? []).length ? next(e) : next({ ...e, context })
+    const forward = context.length === (e.context ?? []).length ? e : { ...e, context }
+    return promptLogOn ? logPrompt($, forward, next) : next(forward)
   })
 
   on('command.run', { command: 'tessera' }, async ($, e) => {
@@ -665,6 +685,11 @@ export const register: Register = (on, options) => {
         return { text: await markInbox($, ids, head?.exitCode === 0 ? head.stdout.trim() : 'manual') }
       }
       return { text: listText(await readInbox($, await inboxKey($)), t().inboxEmpty, t().inboxHeaders) }
+    }
+    if (sub === 'log') {
+      if (!promptLogOn) return { text: t().logOff }
+      await openLog($)
+      return { text: t().logOpened }
     }
     if (!isDrawing) return { text: t().drawingOff }
 
@@ -737,7 +762,7 @@ export const register: Register = (on, options) => {
     })
   }
 
-  on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
+  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     const kind = e.props.origin.kind
     const own = kind === 'composer' || kind === 'bridge' || (kind === 'unclassified' && !e.props.from && !e.props.task)
     // Only the person's own prompts tell whether the transcript is the ctrl+o or --verbose one: a row under
@@ -748,9 +773,18 @@ export const register: Register = (on, options) => {
       transcriptExpanded = e.props.isExpanded
       $.ui.invalidate('ui.render')
     }
-    if (!isDrawing || style.promptStyle === 'off' || !own) return next(e)
-    return renderUserPrompt($.ui.resolve(e), style, shown(e.props.text), Math.max(20, (e.viewport?.columns ?? 100) - 4))
+    if (promptLogOn) notePromptRow($, e)
+    const drawn = !isDrawing || style.promptStyle === 'off' || !own ? await next(e) : renderUserPrompt($.ui.resolve(e), style, shown(e.props.text), Math.max(20, (e.viewport?.columns ?? 100) - 4))
+    return promptLogOn ? flashed($, e, drawn) : drawn
   })
+
+  // A command's row tells the log where the command drew; with drawing on, the row's own hook below does.
+  if (promptLogOn && !isDrawing) {
+    on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
+      noteCommandRow($, e)
+      return flashed($, e, await next(e))
+    })
+  }
 
   if (!isDrawing) return
 
@@ -775,17 +809,16 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'TurnDuration' }, ($, e) => renderTurnDuration($.ui.resolve(e), style, e.props.word, e.props.durationMs))
 
 
-  on('ui.render', { component: 'CommandOutput' }, ($, e, next) => {
-    if (e.props.isErrored) return next(e)
+  on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
+    if (promptLogOn) noteCommandRow($, e)
     // An answer to a plugin's own command arrives as "<plugin>: <text>", which breaks a table or heading on
     // its first line; the echoed command above already says whose it is.
     const text = shown(e.props.command === 'tessera' ? e.props.text.replace(/^tessera: /, '') : e.props.text)
-    const blocks = parseCached(text)
-    if (blocks.length === 0) return next(e)
+    const blocks = e.props.isErrored ? [] : parseCached(text)
     const el = $.ui.resolve(e)
-    const { Box } = el
     const columns = Math.max(20, (e.viewport?.columns ?? 100) - 4)
-    return <Box flexDirection="column" rowGap={1} {...(style.reorder && hasRtl(text) ? { width: '100%' } : {})}>{drawMarkdown($, el, style, blocks, columns)}</Box>
+    const drawn = blocks.length === 0 ? await next(e) : <el.Box flexDirection="column" rowGap={1} {...(style.reorder && hasRtl(text) ? { width: '100%' } : {})}>{drawMarkdown($, el, style, blocks, columns)}</el.Box>
+    return promptLogOn ? flashed($, e, drawn) : drawn
   })
 
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {

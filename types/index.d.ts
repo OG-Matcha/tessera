@@ -17,8 +17,26 @@ export type CacheWarm = { since: number; ttlMs: number; tokens: number; now: num
 // A backgrounded command whose output file has not grown for this many minutes.
 export type Quiet = { id: string; command: string; minutes: number }
 
+// A prompt the person sent in this session, as the Prompt Log keeps it (hooks/prompt-log.ts).
+export type LoggedPrompt = {
+  n: number
+  at: number
+  kind: 'text' | 'command' | 'paste' | 'image' | 'remote'
+  // Whitespace collapsed, pastes unwrapped and cut short: what the list and its preview show.
+  text: string
+  // The prompt as sent: what its transcript row carries, and what f puts back in the prompt.
+  source: string
+  // The transcript row's id, which $.ui.scroll takes; absent until the row is drawn.
+  rowId?: string
+  // The first line of the reply this prompt got.
+  reply?: string
+}
+
+// The prompt selected in the log pane.
+export type PromptLogView = { selected: number | null }
+
 declare module 'claude-code' {
   interface PluginState {
-    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[]; updateOffer: UpdateOffer | null; quietTasks: Quiet[]; cacheWarm: CacheWarm | null }
+    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[]; updateOffer: UpdateOffer | null; quietTasks: Quiet[]; cacheWarm: CacheWarm | null; promptLog: LoggedPrompt[]; promptLogView: PromptLogView; promptFlash: string | null }
   }
 }

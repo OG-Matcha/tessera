@@ -451,6 +451,12 @@
       "min": 1,
       "max": 60
     },
+    "promptLog": {
+      "type": "boolean",
+      "title": "Prompt log",
+      "description": "/tessera log opens a pane beside a fullscreen transcript listing the prompts you sent in this session, slash commands and pastes included, newest first. Pick one to scroll the transcript back to it; f puts it back in the prompt. Kept in memory only, never written to disk, and emptied by /clear.",
+      "default": true
+    },
     "maskSecrets": {
       "type": "boolean",
       "title": "Mask secrets in tool results",

@@ -11,9 +11,13 @@ export const REPLY_CHARS = 120
 const REPLY_KEPT = 1_000
 // A session of a working day stays well under this; past it the oldest go.
 const KEPT = 500
+// The prompt as sent, kept up to here: the engine cuts a longer one out of the prompt box anyway, so f
+// could put no more back, and the whole log is written again on every prompt.
+export const SOURCE_CHARS = 10_000
 
-// Pastes reach prompt.submit expanded, each wrapped as <pasted_content id="…">…</pasted_content>.
-const PASTE = /<pasted_content id="[^"]*">\n?([\s\S]*?)\n?<\/pasted_content>/g
+// Pastes reach prompt.submit expanded, each wrapped as <pasted_content id="…">…</pasted_content>; a
+// prompt kept to SOURCE_CHARS can end inside one, its closing tag cut away.
+const PASTE = /<pasted_content id="[^"]*">\n?([\s\S]*?)(?:\n?<\/pasted_content>|$)/g
 
 export const hasPaste = (text: string) => /<pasted_content id="[^"]*">/.test(text)
 export const unwrapPastes = (text: string) => text.replace(PASTE, (_, body: string) => body)
@@ -25,6 +29,9 @@ export function cut(text: string, max: number): string {
 }
 
 export const flat = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+// Cut by code points, without a mark: it is what f puts back.
+const kept = (text: string) => (text.length <= SOURCE_CHARS ? text : Array.from(text).slice(0, SOURCE_CHARS).join(''))
 
 // The person's own prompts: typed at this terminal, or sent to this session through Remote Control.
 export const isOwn = (origin: string) => origin === 'composer' || origin === 'bridge'
@@ -52,7 +59,7 @@ const sameCommand = (last: LoggedPrompt | undefined, line: string, at: number) =
 
 export function addPrompt(log: readonly LoggedPrompt[], text: string, origin: string, images: number, at: number): LoggedPrompt[] {
   if (sameCommand(log.at(-1), text.trim(), at) && log.at(-1)!.kind === 'command') return log as LoggedPrompt[]
-  return append(log, { at, kind: kindOf(text, origin, images), text: cut(flat(unwrapPastes(text)), PREVIEW_CHARS), source: text })
+  return append(log, { at, kind: kindOf(text, origin, images), text: cut(flat(unwrapPastes(text)), PREVIEW_CHARS), source: kept(text) })
 }
 
 // A command can be heard twice, at command.run and at prompt.submit: kept once, as a command.
@@ -71,9 +78,11 @@ export const dropPrompt = (log: readonly LoggedPrompt[], n: number) => log.filte
 export const isRealRow = (id: string) => id !== 'placeholder'
 
 // The prompt still waiting for its row with the same text: the row's text is the prompt as sent, pastes
-// expanded. Nothing is guessed: a row of a resumed conversation's own prompt is left alone.
-function attach(log: readonly LoggedPrompt[], rowId: string, source: string, isCommand: boolean): LoggedPrompt[] {
+// expanded, and kept as the prompt was. Nothing is guessed: a row of a resumed conversation's own prompt
+// is left alone.
+function attach(log: readonly LoggedPrompt[], rowId: string, rowText: string, isCommand: boolean): LoggedPrompt[] {
   if (!isRealRow(rowId) || log.some(p => p.rowId === rowId)) return log as LoggedPrompt[]
+  const source = kept(rowText)
   const target = log.find(p => p.rowId === undefined && (p.kind === 'command') === isCommand && p.source === source)
   if (target === undefined) return log as LoggedPrompt[]
   return log.map(p => (p === target ? { ...p, rowId } : p))

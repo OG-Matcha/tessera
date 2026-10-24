@@ -91,6 +91,19 @@ export async function session({ cwd, args = [], env = {}, steps }) {
     new Promise(r =>
       term.write('', () => r(Array.from({ length: term.buffer.active.length }, (_, i) => term.buffer.active.getLine(i)?.translateToString(true) ?? '').join('\n'))),
     )
+  // Of each line, only the cells on a background color, as a lit row draws them; a line with none is left out.
+  const lit = () => {
+    const out = []
+    const cell = term.buffer.active.getNullCell()
+    for (let i = 0; i < term.buffer.active.length; i++) {
+      const line = term.buffer.active.getLine(i)
+      if (!line) continue
+      let text = ''
+      for (let x = 0; x < line.length; x++) if (!line.getCell(x, cell)?.isBgDefault()) text += cell.getChars() || ' '
+      if (text.trim() !== '') out.push(text)
+    }
+    return out
+  }
   const until = async (pattern, timeoutMs) => {
     for (const end = Date.now() + timeoutMs; Date.now() < end; await sleep(500)) if (pattern.test(await screen())) return true
     return false
@@ -117,7 +130,7 @@ export async function session({ cwd, args = [], env = {}, steps }) {
       if (step.key) child.write(step.key)
       if (step.until) shots[step.name ?? 'until'] = { matched: await until(step.until, step.timeoutMs ?? 60_000) }
       if (step.wait) await sleep(step.wait)
-      if (step.shot) shots[step.shot] = { ...shots[step.shot], text: await screen() }
+      if (step.shot) shots[step.shot] = { ...shots[step.shot], text: await screen(), lit: lit() }
       if (step.copyReply) shots.clipboard = await pressCopyReply(term, data => child.write(data), () => osc52)
       if (step.press) shots.pressed = (await press(term, data => child.write(data), step.press)) ?? 'pressed'
     }

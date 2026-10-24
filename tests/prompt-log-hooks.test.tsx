@@ -89,6 +89,18 @@ test('typed prompts, a paste and a command are listed newest first, and a jump t
   await pane.unmount()
 })
 
+// The lit row after a jump is kept in the module, which the kit loads apart from this file, and the kit
+// cannot land a jump on a transcript row: scripts/e2e checks the light.
+test('the buttons name only what they do; the engine adds their key', { options: OPTIONS }, async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })
+  await $.prompt.submit(typed('jump here') as never)
+  await openLog($)
+  const pane = await mountPane($)
+  expect((await pane.findAll({ type: 'Button' })).filter(b => /^log-(up|down|fill)$/.test(String(b.props.key))).map(b => b.props.label)).toEqual(['↑', '↓', 'put back'])
+  await pane.unmount()
+})
+
 test('f puts the selected prompt back in the prompt whole, its paste as plain text', { options: OPTIONS }, async ($, on) => {
   const seen = engine(on)
   await $.session.start({ cwd: 'C:/w', surface: 'terminal', isInteractive: true })

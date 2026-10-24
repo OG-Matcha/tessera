@@ -17,8 +17,6 @@ const PREVIEW_LINES = 3
 
 const promptLog = atom({ plugin: 'tessera', key: 'promptLog' } as const, [] as LoggedPrompt[])
 const promptLogView = atom({ plugin: 'tessera', key: 'promptLogView' } as const, { selected: null } as PromptLogView)
-// The transcript row lit for a moment after a jump, read by every transcript row as it draws.
-const promptFlash = atom({ plugin: 'tessera', key: 'promptFlash' } as const, null as string | null)
 
 let theme: Theme = {}
 // A drawing cannot write state, so what the transcript rows tell while they draw is kept here: each
@@ -30,6 +28,9 @@ export const logScreen = {
   onScreen: new Set<string>(),
   // Whether the pane is up, so a row coming on screen redraws it, and nothing else.
   paneShown: false,
+  // The transcript row lit for a moment after a jump, looked at by every transcript row as it draws:
+  // kept here, so a drawing asks the engine nothing.
+  flashed: null as string | null,
 }
 
 export function configurePromptLog(styleTheme: Theme) {
@@ -129,9 +130,12 @@ async function jump($: EngineInterface, n: number) {
   // A scroll that throws (no surface to scroll) is told like one the engine refused.
   const moved = await $.ui.scroll({ to: { requestId: rowId }, block: 'start' }).catch((error: unknown) => ({ deny: error instanceof Error ? error.message : String(error) }))
   if (moved.deny !== undefined) return $.ui.toast(isTooOld(moved.deny) ? t().logTooOld(n) : t().logCannotJump(n, moved.deny))
-  await update($, promptFlash, () => rowId)
+  logScreen.flashed = rowId
+  $.ui.invalidate('ui.render')
   $.clock.after(FLASH_MS, () => {
-    void update($, promptFlash, lit => (lit === rowId ? null : lit))
+    if (logScreen.flashed !== rowId) return
+    logScreen.flashed = null
+    $.ui.invalidate('ui.render')
   })
 }
 

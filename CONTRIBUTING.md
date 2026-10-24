@@ -8,6 +8,8 @@ A feature belongs here when it changes an outcome for the person at the terminal
 
 New features ship behind an option in `.claude-plugin/plugin.json`, listed in `hooks/features.ts` so `/tessera setup` can switch them. A feature that is off registers no hooks and no timers.
 
+The words features and docs use, in English and Chinese, are fixed in [GLOSSARY.md](GLOSSARY.md): look a term up there before naming something, and add a new one there first.
+
 ## Layout
 
 | Path | What |

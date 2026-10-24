@@ -37,6 +37,6 @@ export type PromptLogView = { selected: number | null }
 
 declare module 'claude-code' {
   interface PluginState {
-    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[]; updateOffer: UpdateOffer | null; quietTasks: Quiet[]; cacheWarm: CacheWarm | null; promptLog: LoggedPrompt[]; promptLogView: PromptLogView; promptFlash: string | null }
+    tessera: { draftImages: DraftImage[]; draftPastes: DraftPaste[]; carryOver: CarryOver | null; unfoldedDiffs: string[]; updateOffer: UpdateOffer | null; quietTasks: Quiet[]; cacheWarm: CacheWarm | null; promptLog: LoggedPrompt[]; promptLogView: PromptLogView }
   }
 }

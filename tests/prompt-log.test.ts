@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { SeenRow } from '../hooks/prompt-log'
-import { PREVIEW_CHARS, addCommand, addPrompt, attachCommandRow, attachPromptRow, attachReply, dropPrompt, fillText, isLogCommand, isTooOld, kindOf, newestFirst, step, unwrapPastes, withRows } from '../hooks/prompt-log'
+import { PREVIEW_CHARS, SOURCE_CHARS, addCommand, addPrompt, attachCommandRow, attachPromptRow, attachReply, dropPrompt, fillText, isLogCommand, isTooOld, kindOf, newestFirst, step, unwrapPastes, withRows } from '../hooks/prompt-log'
 
 // What Claude Code 2.1.309 hands prompt.submit for a 3-line paste with words typed after it.
 const PASTED = '\n\n<pasted_content id="71cb">\nlog line 1\nlog line 2\nlog line 3\n</pasted_content>\n 這個錯誤是什麼意思'
@@ -142,4 +142,17 @@ test('before 2.1.309 a slash command also arrives as typed text: heard either wa
   expect(log).toHaveLength(1)
   // The same text much later is a prompt of its own.
   expect(addPrompt(log, '/context', 'composer', 0, 60_000)).toHaveLength(2)
+})
+
+test('a prompt is kept to its first 10,000 characters: its row is still found, and a paste cut inside comes back as plain text', () => {
+  const long = `<pasted_content id="9f2e">\n${'日誌'.repeat(SOURCE_CHARS)}\n</pasted_content>\n 這是什麼`
+  const [entry] = addPrompt([], long, 'composer', 0, 0)
+  expect(Array.from(entry!.source)).toHaveLength(SOURCE_CHARS)
+  expect(entry!.kind).toBe('paste')
+  const opening = '<pasted_content id="9f2e">\n'
+  expect(fillText(entry!)).toBe(Array.from('日誌'.repeat(SOURCE_CHARS)).slice(0, SOURCE_CHARS - opening.length).join(''))
+  // The row draws the prompt whole.
+  expect(attachPromptRow([entry!], 'row-l', long)[0]!.rowId).toBe('row-l')
+  const short = 'short prompt'
+  expect(addPrompt([], short, 'composer', 0, 0)[0]!.source).toBe(short)
 })

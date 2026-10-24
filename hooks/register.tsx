@@ -423,7 +423,6 @@ const drawMarkdown =($: EngineInterface, el: ReturnType<EngineInterface['ui']['r
 // per file; prompt-log-hooks.tsx declares the same keys.
 const promptLog = atom({ plugin: 'tessera', key: 'promptLog' } as const, [] as LoggedPrompt[])
 const promptLogView = atom({ plugin: 'tessera', key: 'promptLogView' } as const, { selected: null } as PromptLogView)
-const promptFlash = atom({ plugin: 'tessera', key: 'promptFlash' } as const, null as string | null)
 
 async function keepPromptRows($: EngineInterface) {
   if (logScreen.seenRows.size > 0) await update($, promptLog, log => withRows(log, logScreen.seenRows.values()))
@@ -441,9 +440,9 @@ async function openPromptLog($: EngineInterface) {
 async function clearPromptLog($: EngineInterface) {
   logScreen.seenRows.clear()
   logScreen.onScreen.clear()
+  logScreen.flashed = null
   await update($, promptLog, () => [])
   await update($, promptLogView, () => ({ selected: null }))
-  await update($, promptFlash, () => null)
 }
 
 function noteScreen($: EngineInterface, id: string, screen: unknown) {
@@ -475,8 +474,8 @@ function noteCommandRow($: EngineInterface, e: CommandRow) {
 
 // The row a jump landed on, lit for a moment in the theme's rule color; every other row as drawn.
 let rowFlashColor = 'gray'
-async function flashRow($: EngineInterface, e: UserRow | CommandRow, drawn: RenderElement): Promise<RenderElement> {
-  if ((await read($, promptFlash)) !== e.requestId) return drawn
+function flashRow($: EngineInterface, e: UserRow | CommandRow, drawn: RenderElement): RenderElement {
+  if (logScreen.flashed !== e.requestId) return drawn
   const { Box } = $.ui.resolve(e)
   return <Box backgroundColor={rowFlashColor}>{drawn}</Box>
 }

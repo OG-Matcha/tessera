@@ -123,7 +123,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | 快取倒數 | 開 | 快取快冷掉時（剩十分鐘；`cacheClockMinutes` 可調，60 就每輪結束都顯示），輸入框上方多一行暗色倒數，並說冷掉後下一則要重新快取多少 token；Claude 工作中不顯示。訂閱制一小時、API 金鑰五分鐘，由額度視窗判斷 |
 | Python 用 UTF-8 | 開 | Windows 上替 session 設 `PYTHONUTF8=1`，Claude 執行的 Python 改用 UTF-8 讀寫，不再卡在系統 code page（中日韓文字出現 `UnicodeEncodeError` 或印成 `?`）；你自己設過這個變數就不動，其他系統上沒有作用 |
 | 工作區守門 | 開 | 擋下對根目錄、磁碟、家目錄、session 目錄或其上層的遞迴刪除、穿過連結的遞迴刪除、連到 `node_modules` 的連結；強制推送到 `main` 或 `master` 前，以及 `git reset --hard`、`git checkout -- <路徑>`、`git restore`、`git clean -f` 會丟掉未提交的改動前，列出檔案提醒一次；agent 執行時擋下改寫主樹和 `git add -A` |
-| 輸入紀錄 | 開 | `/tessera log` 在全螢幕對話旁打開面板，列出這個 session 你送出的每一則輸入，最新的在最上面：打的字、slash 指令、貼上的內容（顯示實際文字，不是佔位字）、透過 Remote Control 遠端送的，各附時間，下方預覽全文和回覆第一行。按 Enter 把對話捲回那一則，那一列會亮一秒；按 **f** 放回輸入框，畫面已不保留的舊輸入就靠這個拿回來。目前畫面上的那幾則，前面有綠點。只放在記憶體、不寫硬碟；`/clear` 會清空，重開或 `--resume` 從空的開始 |
+| 輸入紀錄 | 開 | `/tessera log` 在全螢幕對話旁打開面板，列出這個 session 你送出的每一則輸入，最新的在最上面：打的字、slash 指令、貼上的內容（顯示實際文字，不是佔位字）、透過 Remote Control 遠端送的，各附時間，下方預覽全文和回覆第一行。按 Enter 把對話捲回那一則，那一列會亮一秒；按 **f** 放回輸入框，畫面已不保留的舊輸入就靠這個拿回來；每則最多記前 10,000 字，Claude Code 的輸入框本來也只收這麼多。目前畫面上的那幾則，前面有綠點。只放在記憶體、不寫硬碟；`/clear` 會清空，重開或 `--resume` 從空的開始 |
 | 遮住祕密 | 開 | 工具結果裡的 API 金鑰、token、私鑰、URL 密碼，以及給了祕密名稱的值（`API_KEY=`、`"password":`），Claude 讀到、transcript 裡、畫面上都是 `••••••••`，照樣式比對，並附一句告訴 Claude；程式碼（`process.env.KEY`、`${TOKEN}`）、佔位字和工具回報錯誤的結果不動。是防呆不是掃描器：不認得的樣式會放過，Claude 沒看過全文的那一行它改不了，得你來 |
 | heredoc 守門 | 開 | Bash 的 heredoc 分隔符號沒加引號（`<<EOF`），內文又會被 shell 改掉時提醒一次：`${x}`、`$(cmd)`、反引號被展開，`\\` 變成 `\`；再送一次就執行 |
 | agent 自動選模型 | 自動 | 沒指定模型的 agent，由一次簡短的 Haiku 判斷依任務挑 haiku、sonnet、opus 或 fable，並跳通知告訴你；`choose` 則要求 Claude 自己指定。沒指定模型的 Workflow 腳本會被提醒一次，請 Claude 替每個 `agent()` 指定；設成 `choose` 或固定模型時則擋下，直到指定為止 |
@@ -149,7 +149,7 @@ Claude 替其他 agent 或工具寫的 prompt，會畫成一張附 token 估計�
 | `/tessera inbox` · `inbox fixed 3 5` | 列出收件匣、以目前的 commit 標記已修 |
 | `/tessera theme <名稱>` | 換主題 |
 | `/tessera demo` | 示範所有元素 |
-| `/tessera record` · `record off` | 錄影模式，給要錄影、直播或分享的畫面：tessera 畫的內容（回覆、你的提示、工具列、摺疊差異、貼上預覽、輸入紀錄）裡的 API 金鑰和 token（`sk-ant-`、`ghp_`、`AKIA`、JWT 等）、`Bearer` 標頭、URL 和 `PASSWORD=` 裡的密碼、email、電話顯示成 `••••`，輸入框下方有一行狀態提示。Claude Code 自己畫的（工具結果、權限對話框、輸入框、ctrl+o 的完整 transcript）不會遮。只改畫面：transcript、Claude 讀到的內容和 `/tessera copy` 都不變，複製按鈕複製的是畫面上的樣子 |
+| `/tessera record` · `record off` | 錄影模式，給要錄影、直播或分享的畫面：tessera 畫的內容（回覆、你的輸入、工具列、摺疊差異、貼上預覽、輸入紀錄）裡的 API 金鑰和 token（`sk-ant-`、`ghp_`、`AKIA`、JWT 等）、`Bearer` 標頭、URL 和 `PASSWORD=` 裡的密碼、email、電話顯示成 `••••`，輸入框下方有一行狀態提示。Claude Code 自己畫的（工具結果、權限對話框、輸入框、ctrl+o 的完整 transcript）不會遮。只改畫面：transcript、Claude 讀到的內容和 `/tessera copy` 都不變，複製按鈕複製的是畫面上的樣子 |
 
 ## 終端機
 

@@ -80,12 +80,13 @@ test('another plugin above the prompt still draws under the paste preview', { op
 type On = Parameters<TestBody>[1]
 type Files = Record<string, { mtimeMs: number; size: number }>
 const slashed = (path: string) => path.replace(/\\/g, '/')
-const OPTIONS = { language: 'en', imageMode: 'pixels', carryOver: false, backgroundWatch: false, cacheClock: false } as const
+const OPTIONS = { language: 'en', imageMode: 'cells', carryOver: false, backgroundWatch: false, cacheClock: false } as const
 // The paste cache on Windows, in a session started in C:/w/new: files maps <project>/s1/images/<n>.png
 // to its time and size, and every project folder named there holds an images folder of session s1.
 const pasteCache = (on: On, files: Files, draft: { text: string }) => {
   const lists: string[] = []
   const reads: string[] = []
+  const opened: string[] = []
   const at = (e: unknown) => {
     const path = slashed((e as { path: string }).path)
     return Object.entries(files).find(([tail]) => path.endsWith(`/${tail}`))?.[1]
@@ -116,15 +117,21 @@ const pasteCache = (on: On, files: Files, draft: { text: string }) => {
     const { Text } = $.ui.resolve(e)
     return <Text>engine</Text>
   })
-  return { lists, reads }
+  on('process.run', (_, e) => {
+    opened.push(slashed(String((e as { argv: string[] }).argv.at(-1))))
+    return { value: { exitCode: 0, stdout: '', stderr: '' } } as never
+  })
+  return { lists, reads, opened }
 }
 
-// The file of each image drawn above the prompt, as <project>/<n>.png.
-const shownImages = async ($: Parameters<TestBody>[0]) => {
+// The file behind each image drawn above the prompt, as <project>/<n>.png: what its original button opens.
+// (A POSIX engine takes C:/… as relative, so the Image element's own source is no witness there.)
+const shownImages = async ($: Parameters<TestBody>[0], opened: string[]) => {
   const ui = await $.ui.mount({ plugin: 'tessera', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, availableRows: 20 }, viewport: { columns: 100, rows: 20 } } as never)
-  const images = (await ui.findAll({ type: 'Image' } as never)) as { props?: { source?: { file?: string } } }[]
+  opened.length = 0
+  for (const button of await ui.findAll({ type: 'Button', label: 'original' } as never)) await ui.press({ key: button.key! })
   await ui.unmount()
-  return images.map(image => slashed(String(image.props?.source?.file)).replace(/^.*\/([^/]+)\/s1\/images\//, '$1/'))
+  return opened.map(path => path.replace(/^.*\/([^/]+)\/s1\/images\//, '$1/'))
 }
 
 test('an image number pasted again in another project folder of the same session shows the new paste, not the old one listed first', { options: OPTIONS }, async ($, on) => {
@@ -133,28 +140,28 @@ test('an image number pasted again in another project folder of the same session
   const files: Files = {}
   for (let n = 1; n <= 13; n++) files[`C--w-old/s1/images/${n}.png`] = { mtimeMs: 1_000 + n, size: 50 }
   for (let n = 8; n <= 11; n++) files[`C--w-new/s1/images/${n}.png`] = { mtimeMs: 9_000 + n, size: 70 }
-  pasteCache(on, files, { text: '[Image #8] [Image #9] [Image #10] [Image #11] [Image #2]' })
+  const { opened } = pasteCache(on, files, { text: '[Image #8] [Image #9] [Image #10] [Image #11] [Image #2]' })
   await $.session.start({ cwd: 'C:/w/new', surface: 'terminal', isInteractive: true })
   await clock.advance(1_000)
-  expect(await shownImages($)).toEqual(['C--w-new/8.png', 'C--w-new/9.png', 'C--w-new/10.png', 'C--w-new/11.png', 'C--w-old/2.png'])
+  expect(await shownImages($, opened)).toEqual(['C--w-new/8.png', 'C--w-new/9.png', 'C--w-new/10.png', 'C--w-new/11.png', 'C--w-old/2.png'])
 })
 
 test('a paste written after its placeholder, or over an older file, replaces the preview within seconds', { options: OPTIONS }, async ($, on) => {
   const clock = mock.clock(on)
   const files: Files = { 'C--w-old/s1/images/8.png': { mtimeMs: 1_000, size: 50 } }
-  const { reads } = pasteCache(on, files, { text: '[Image #8]' })
+  const { reads, opened } = pasteCache(on, files, { text: '[Image #8]' })
   await $.session.start({ cwd: 'C:/w/new', surface: 'terminal', isInteractive: true })
   await clock.advance(1_000)
-  expect(await shownImages($)).toEqual(['C--w-old/8.png'])
+  expect(await shownImages($, opened)).toEqual(['C--w-old/8.png'])
   // The working directory's folder did not exist at the first listing; it is looked in all the same.
   files['C--w-new/s1/images/8.png'] = { mtimeMs: 9_000, size: 70 }
   await clock.advance(2_500)
-  expect(await shownImages($)).toEqual(['C--w-new/8.png'])
+  expect(await shownImages($, opened)).toEqual(['C--w-new/8.png'])
   // The same file written over: the same path, read again for its new thumbnail.
   const readsBefore = reads.length
   files['C--w-new/s1/images/8.png'] = { mtimeMs: 12_000, size: 90 }
   await clock.advance(2_500)
-  expect(await shownImages($)).toEqual(['C--w-new/8.png'])
+  expect(await shownImages($, opened)).toEqual(['C--w-new/8.png'])
   expect(reads.length).toBe(readsBefore + 1)
 })
 
@@ -162,10 +169,10 @@ test('the temp root is listed again for a new draft or a missing image, not ever
   const clock = mock.clock(on)
   const files: Files = { 'C--w-new/s1/images/1.png': { mtimeMs: 1_000, size: 50 } }
   const draft = { text: '[Image #1]' }
-  const { lists } = pasteCache(on, files, draft)
+  const { lists, opened } = pasteCache(on, files, draft)
   await $.session.start({ cwd: 'C:/w/new', surface: 'terminal', isInteractive: true })
   await clock.advance(10_000)
-  expect(await shownImages($)).toEqual(['C--w-new/1.png'])
+  expect(await shownImages($, opened)).toEqual(['C--w-new/1.png'])
   expect(lists).toHaveLength(1)
   // #2 lands in a folder of another project, after the draft names it.
   draft.text = '[Image #1] [Image #2]'
@@ -175,7 +182,7 @@ test('the temp root is listed again for a new draft or a missing image, not ever
   await clock.advance(1_000)
   expect(lists.length).toBeLessThanOrEqual(3)
   await clock.advance(2_000)
-  expect(await shownImages($)).toEqual(['C--w-new/1.png', 'C--w-other/2.png'])
+  expect(await shownImages($, opened)).toEqual(['C--w-new/1.png', 'C--w-other/2.png'])
   const settled = lists.length
   await clock.advance(10_000)
   expect(lists).toHaveLength(settled)

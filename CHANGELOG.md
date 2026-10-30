@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-30
+
 ### Added
 
 - Prompt log (`promptLog`, on by default): `/tessera log` opens a pane beside the fullscreen transcript listing the prompts you sent in this session, newest first, slash commands, pastes and Remote Control prompts included. Enter scrolls the transcript back to one and lights it for a second; **f** puts it back in the prompt; a green dot marks the prompts on screen. Kept in memory only; `/clear` empties it.
@@ -264,7 +266,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Claude Code 2.1.292 or later, the first release with the prompt typeahead event.
 
-[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/OG-Matcha/tessera/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/OG-Matcha/tessera/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/OG-Matcha/tessera/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/OG-Matcha/tessera/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/OG-Matcha/tessera/compare/v0.8.2...v0.8.3

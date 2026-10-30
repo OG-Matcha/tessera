@@ -8,7 +8,25 @@ export const placeholders = (text: string): Placeholder[] => {
   return [...seen.values()]
 }
 
-export const clipboardText = (clip: string) => clip.replace(/\r\n?/g, '\n').replace(/\n+$/, '')
+// Claude Code names a project's folder under its temp root after the working directory, with every
+// character but an ASCII letter or digit made '-': I:\work\orca is I-----orca.
+export const projectFolder = (cwd: string) => cwd.replace(/[^A-Za-z0-9]/g, '-')
+
+export type PastedFile = { project: string; path: string; mtimeMs: number; size: number }
+
+// One session can own an images folder under several project folders (resumed elsewhere, or its working
+// directory changed), each numbering from 1, so <n>.png can exist in more than one. The paste the draft
+// means is the one written last; on a tie (an engine that reports no time) the working directory's
+// folder wins, then the order found.
+export function latestPaste(found: PastedFile[], currentProject: string | undefined): PastedFile | undefined {
+  let best: PastedFile | undefined
+  for (const file of found) {
+    if (best === undefined || file.mtimeMs > best.mtimeMs || (file.mtimeMs === best.mtimeMs && file.project === currentProject && best.project !== currentProject)) best = file
+  }
+  return best
+}
+
+export const clipboardText =(clip: string) => clip.replace(/\r\n?/g, '\n').replace(/\n+$/, '')
 
 // Claude Code keeps a collapsed paste to itself, so its text is taken from the clipboard, and only when
 // the clipboard has the line count the placeholder states: "+29 lines" for 30 lines, or 31 with a final

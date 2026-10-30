@@ -19,6 +19,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - A `graph LR` or `flowchart LR` whose drawing came out wider than the terminal (six boxes with Chinese labels take over a hundred columns) was left as code. It is now laid out top down and drawn; only a diagram that fits neither way stays code.
+- The image preview above the prompt could show other, older pictures than the ones pasted. A session resumed in another directory, or one whose working directory changed, keeps a paste folder under each project, each numbering from 1, and the preview took `#8` from the first folder it found. It now takes each image from the folder it was written to last (the working directory's folder when the times tie), notices a paste that lands in a new folder, and draws a file written over again afresh.
 - Carry-over offered a running session's open tasks to every other session opened in the same repository once that session's task list had gone two hours without a change, and dismissing them only lasted until the running session wrote its record again. The two-hour rule now applies only when Claude Code's registry of running sessions cannot be read; a session the registry lists keeps its items, however old its record.
 
 ## [0.8.5] - 2026-10-12
